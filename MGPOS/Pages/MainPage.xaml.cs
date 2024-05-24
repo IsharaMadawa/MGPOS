@@ -1,4 +1,8 @@
-﻿namespace MGPOS
+﻿using MGPOS.Data;
+using MGPOS.Data.MGPOSEntities;
+using ZXing.QrCode.Internal;
+
+namespace MGPOS
 {
 	public partial class MainPage : ContentPage
 	{
@@ -7,6 +11,14 @@
 		public MainPage()
 		{
 			InitializeComponent();
+
+			using MGPOSDBContext MGPOSContext = new MGPOSContextFactory().CreateDbContext(new string[0]);
+			Users firstUser = MGPOSContext.Users.FirstOrDefault();
+
+			Dispatcher.DispatchAsync(async () =>
+			{
+				await DisplayAlert("Barcode Detected", firstUser.Username, "OK");
+			});
 		}
 
 		private void OnCounterClicked(object sender, EventArgs e)

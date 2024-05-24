@@ -14,6 +14,11 @@ public partial class BillingPage : ContentPage
 		};
 	}
 
+	//protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+ //   {
+	//	base.OnNavigatedFrom(args);
+	//}
+
 	private void cameraBarcodeReaderView_BarcodesDetected(object sender, ZXing.Net.Maui.BarcodeDetectionEventArgs e)
 	{
 		BarcodeResult barcode = e.Results.FirstOrDefault();

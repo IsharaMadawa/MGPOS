@@ -1,6 +1,8 @@
 ﻿using MGPOS.Pages;
 using MGPOS.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 using ZXing.Net.Maui.Controls;
 
 namespace MGPOS
@@ -10,6 +12,18 @@ namespace MGPOS
 		public static MauiApp CreateMauiApp()
 		{
 			var builder = MauiApp.CreateBuilder();
+
+			#region Setup App Configuration file
+			Assembly getAssembly = Assembly.GetExecutingAssembly();
+			using Stream stream = getAssembly.GetManifestResourceStream("MGPOS.appsettings.json");
+
+			IConfigurationRoot config = new ConfigurationBuilder()
+				.AddJsonStream(stream)
+				.Build();
+
+			builder.Configuration.AddConfiguration(config);
+			#endregion
+
 			builder
 				.UseMauiApp<App>()
 				.ConfigureFonts(fonts =>

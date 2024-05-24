@@ -5,6 +5,8 @@ VisualStudioVersion = 17.8.34525.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MGPOS", "MGPOS\MGPOS.csproj", "{65CB4926-25B5-4A8B-A15B-3057F4905C76}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MGPOS.Data", "MGPOS.Data\MGPOS.Data.csproj", "{37121DDF-0E9A-45E2-830A-3D34F5F13541}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -17,6 +19,10 @@ Global
 		{65CB4926-25B5-4A8B-A15B-3057F4905C76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{65CB4926-25B5-4A8B-A15B-3057F4905C76}.Release|Any CPU.Build.0 = Release|Any CPU
 		{65CB4926-25B5-4A8B-A15B-3057F4905C76}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{37121DDF-0E9A-45E2-830A-3D34F5F13541}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37121DDF-0E9A-45E2-830A-3D34F5F13541}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37121DDF-0E9A-45E2-830A-3D34F5F13541}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37121DDF-0E9A-45E2-830A-3D34F5F13541}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
