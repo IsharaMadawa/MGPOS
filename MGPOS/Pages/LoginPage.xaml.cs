@@ -1,3 +1,4 @@
+using MGPOS.Pages.InitialConfig;
 using MGPOS.Services;
 
 namespace MGPOS.Pages;
@@ -18,5 +19,10 @@ public partial class LoginPage : ContentPage
 	{
 		_authService.Login();
 		await Shell.Current.GoToAsync($"//{nameof(MainPage)}");
+	}
+
+	private async void InitialConfig_Button_Clicked(object sender, EventArgs e)
+	{
+		await Shell.Current.GoToAsync($"{nameof(InitialConfigPage)}");
 	}
 }

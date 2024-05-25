@@ -1,5 +1,6 @@
 ﻿using MGPOS.Data;
 using MGPOS.Data.MGPOSEntities;
+using MGPOS.Pages;
 using ZXing.QrCode.Internal;
 
 namespace MGPOS
@@ -7,13 +8,22 @@ namespace MGPOS
 	public partial class MainPage : ContentPage
 	{
 		int count = 0;
+		Users firstUser = null;
 
 		public MainPage()
 		{
 			InitializeComponent();
 
-			using MGPOSDBContext MGPOSContext = new MGPOSContextFactory().CreateDbContext(new string[0]);
-			Users firstUser = MGPOSContext.Users.FirstOrDefault();
+			try
+			{
+				using MGPOSDBContext MGPOSContext = new MGPOSContextFactory().CreateDbContext(new string[0]);
+				firstUser = MGPOSContext.Users.FirstOrDefault();
+				
+			}
+			catch (Exception)
+			{
+				Shell.Current.GoToAsync($"{nameof(LoginPage)}");
+			}
 
 			Dispatcher.DispatchAsync(async () =>
 			{

@@ -4,6 +4,7 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:local="clr-namespace:MGPOS"
        xmlns:pages="clr-namespace:MGPOS.Pages"
+       xmlns:initilConfig="clr-namespace:MGPOS.Pages.InitialConfig"
        Shell.FlyoutBehavior="Flyout"
        Title="MGPOS">
 
@@ -15,6 +16,18 @@
     <ShellContent Title="Login"
                   ContentTemplate="{DataTemplate pages:LoginPage}"
                   Route="LoginPage"
+                  Shell.FlyoutBehavior="Disabled"
+                  Shell.FlyoutItemIsVisible="False" />
+
+    <ShellContent Title="Initial Config Login"
+                  ContentTemplate="{DataTemplate initilConfig:InitialConfigLoginPage}"
+                  Route="InitialConfigLoginPage"
+                  Shell.FlyoutBehavior="Disabled"
+                  Shell.FlyoutItemIsVisible="False" />
+
+    <ShellContent Title="Initial Config"
+                  ContentTemplate="{DataTemplate initilConfig:InitialConfigPage}"
+                  Route="InitialConfigPage"
                   Shell.FlyoutBehavior="Disabled"
                   Shell.FlyoutItemIsVisible="False" />
 
@@ -31,5 +44,8 @@
                       ContentTemplate="{DataTemplate pages:ProfilePage}"
                       Route="ProfilePage" />
 
+        <ShellContent Title="Initial Config Login"
+                      ContentTemplate="{DataTemplate initilConfig:InitialConfigLoginPage}"
+                      Route="InitialConfigLoginPage" />
     </TabBar>
 </Shell>

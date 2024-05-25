@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MGPOS.Pages.InitialConfig.InitialConfigPage"
+             Title="InitialConfigPage">
+    <VerticalStackLayout HorizontalOptions="Center"
+                         VerticalOptions="Center">
+        <Entry x:Name="dbIPAddress" Placeholder="Database IP Address" />
+        <Button Text="Save Configuration" Clicked="SaveConfig_Button_Clicked"/>
+    </VerticalStackLayout>
+</ContentPage>

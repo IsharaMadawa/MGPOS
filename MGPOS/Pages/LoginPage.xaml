@@ -10,5 +10,6 @@
             VerticalOptions="Center" 
             HorizontalOptions="Center" />
         <Button Text="Login" Clicked="Button_Clicked"/>
+        <Button Text="Initial Config" Clicked="InitialConfig_Button_Clicked" />
     </VerticalStackLayout>
 </ContentPage>

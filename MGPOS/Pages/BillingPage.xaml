@@ -4,6 +4,16 @@
              xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
              x:Class="MGPOS.Pages.BillingPage"
              Title="BillingPage">
-    <zxing:CameraBarcodeReaderView x:Name="cameraBarcodeReaderView"
-                                   BarcodesDetected="cameraBarcodeReaderView_BarcodesDetected" />
+    <VerticalStackLayout HorizontalOptions="Center"
+                         VerticalOptions="Center"
+                         Padding="25"
+                         Spacing="25" >
+        <!--<zxing:CameraBarcodeReaderView x:Name="cameraBarcodeReaderView"
+                                BarcodesDetected="cameraBarcodeReaderView_BarcodesDetected" />-->
+
+        <Button Text="printPreview"
+                Clicked="PrintPreview_Button_Clicked" />
+
+        <Image HeightRequest="30" Source="{Binding reciptPrintPreview}"/>
+    </VerticalStackLayout>
 </ContentPage>

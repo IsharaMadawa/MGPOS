@@ -1,4 +1,5 @@
 ﻿using MGPOS.Pages;
+using MGPOS.Pages.InitialConfig;
 
 namespace MGPOS
 {
@@ -14,7 +15,8 @@ namespace MGPOS
 			Routing.RegisterRoute(nameof(LoadingPage), typeof(LoadingPage));
 			Routing.RegisterRoute(nameof(LoginPage), typeof(LoginPage));		
 			Routing.RegisterRoute(nameof(ProfilePage), typeof(ProfilePage));
-			
+			Routing.RegisterRoute(nameof(InitialConfigLoginPage), typeof(InitialConfigLoginPage));
+			Routing.RegisterRoute(nameof(InitialConfigPage), typeof(InitialConfigPage));
 		}
 	}
 }

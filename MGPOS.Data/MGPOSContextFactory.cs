@@ -31,7 +31,9 @@ namespace MGPOS.Data
 			//string valll = config.GetSection("ConnectionStrings:MGPOSConnection").Value;
 
 			//connectionString = config["ConnectionStrings:MGPOSConnection"];
-			connectionString = @"Data Source=192.168.8.157,1433;Initial Catalog=MGPOS.Main;User Id=appuser; Password=intel@123;Integrated Security=True;MultiSubnetFailover=True;Encrypt=true;TrustServerCertificate=True;Trusted_Connection=false;Pooling=False";
+
+			string Database_IP_Address = Preferences.Default.Get("Database_IP_Address", "");
+			connectionString = @"Data Source=" + Database_IP_Address + ",1433;Initial Catalog=MGPOS.Main;User Id=appuser; Password=intel@123;Integrated Security=True;MultiSubnetFailover=True;Encrypt=true;TrustServerCertificate=True;Trusted_Connection=false;Pooling=False";
 		}	
 
 		public MGPOSDBContext CreateDbContext(string[] strings)
