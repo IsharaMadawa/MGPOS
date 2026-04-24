@@ -18,8 +18,10 @@ export const CURRENCIES = [
 const DEFAULT_SETTINGS = {
   taxEnabled: false,
   taxRate: 10,
+  discountMode: 'global', // 'global' | 'category' | 'item'
   globalDiscountEnabled: false,
   globalDiscount: 0,
+  categoryDiscounts: {}, // { 'Category Name': { enabled: boolean, type: 'percentage'|'fixed', value: number } }
   currency: 'USD',
   storeInfo: {
     name: '',
@@ -28,6 +30,13 @@ const DEFAULT_SETTINGS = {
     footer: 'Thank you for your purchase!',
   },
   miscEnabled: true,
+  defaultQuantities: [
+    { id: '1', value: 0.25 },
+    { id: '2', value: 0.5 },
+    { id: '3', value: 1 },
+    { id: '4', value: 1.5 },
+    { id: '5', value: 2 },
+  ],
 }
 
 function loadSettings() {

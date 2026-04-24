@@ -18,18 +18,43 @@ function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function getItemDiscount(item) {
+function getItemDiscount(item, settings) {
+  const mode = settings?.discountMode || 'global'
+  
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
     const val = parseFloat(item.cartDiscount) || 0
     return Math.min(Math.max(val, 0), item.price * item.qty)
   }
-  if (!item.discount?.enabled) return 0
-  const lineTotal = item.price * item.qty
-  if (item.discount.type === 'percentage') {
-    return lineTotal * (item.discount.value / 100)
+  
+  // Item-level discount
+  if (mode === 'item' && item.discount?.enabled) {
+    const lineTotal = item.price * item.qty
+    if (item.discount.type === 'percentage') {
+      return lineTotal * (item.discount.value / 100)
+    }
+    return Math.min(item.discount.value * item.qty, lineTotal)
   }
-  return Math.min(item.discount.value * item.qty, lineTotal)
+  
+  // Category-level discount
+  if (mode === 'category') {
+    const catDisc = settings?.categoryDiscounts?.[item.category]
+    if (catDisc?.enabled) {
+      const lineTotal = item.price * item.qty
+      if (catDisc.type === 'percentage') {
+        return lineTotal * (catDisc.value / 100)
+      }
+      return Math.min(catDisc.value * item.qty, lineTotal)
+    }
+  }
+  
+  // Global discount (fallback for global mode)
+  if (mode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) {
+    const lineTotal = item.price * item.qty
+    return lineTotal * (settings.globalDiscount / 100)
+  }
+  
+  return 0
 }
 
 export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onRemoveItem, onClear, settings }) {
@@ -39,10 +64,13 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onR
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
   const taxRate = settings?.taxRate || 0
+  const discountMode = settings?.discountMode || 'global'
 
-  const subtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
-  const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item), 0)
-  const discountPct = (settings?.globalDiscountEnabled && settings?.globalDiscount) ? settings.globalDiscount : 0
+  const subtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
+  const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item, settings), 0)
+  
+  // Global discount is applied at cart level (for global mode only)
+  const discountPct = (discountMode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) ? settings.globalDiscount : 0
   const discountAmount = discountPct > 0 ? subtotal * (discountPct / 100) : 0
   const taxBase = subtotal - discountAmount
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0
@@ -66,7 +94,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onR
   const handlePrint = () => {
     const { no, time, cart: rCart } = receiptSnapshot
     const storeInfo = settings?.storeInfo || {}
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
     const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
     const rTaxBase = rSub - rDisc
     const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
@@ -102,7 +130,7 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
 <div class="divider"></div>
 ${rCart.map(item => {
-  const itemDisc = getItemDiscount(item)
+  const itemDisc = getItemDiscount(item, settings)
   const lineTotal = item.price * item.qty - itemDisc
   return `<div class="row">
   <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.unit)}${itemDisc > 0 ? ` <span class="muted">(−${fmt(itemDisc, sym)})</span>` : ''}</span>
@@ -125,7 +153,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
   // Receipt View
   if (showReceipt) {
     const { no, time, cart: rCart } = receiptSnapshot
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
     const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
     const rTaxBase = rSub - rDisc
     const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
@@ -149,7 +177,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           </div>
 
           {rCart.map((item) => {
-            const itemDisc = getItemDiscount(item)
+            const itemDisc = getItemDiscount(item, settings)
             return (
               <div key={item.id} className="flex justify-between text-sm py-1 gap-2">
                 <span className="text-gray-700 flex-1 min-w-0">
@@ -217,7 +245,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           Cart{' '}
           {cart.length > 0 && (
             <span className="ml-1 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-              {cart.reduce((s, i) => s + i.qty, 0)}
+              {cart.length}
             </span>
           )}
         </h2>
@@ -244,7 +272,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
         ) : (
           <div className="divide-y divide-gray-50">
             {cart.map((item) => {
-              const itemDisc = getItemDiscount(item)
+              const itemDisc = getItemDiscount(item, settings)
               return (
                 <div key={item.id} className="p-3">
                   <div className="flex items-start gap-2">
@@ -266,16 +294,24 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => onUpdateQty(item.id, item.qty - 1)}
+                        onClick={() => onUpdateQty(item.id, item.qty - 0.25)}
                         className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
                       >
                         −
                       </button>
-                      <span className="text-sm font-medium w-12 text-center">
-                        {formatQty(item.qty, item.unit)}
-                      </span>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={item.qty}
+                        onChange={e => {
+                          const q = parseFloat(e.target.value)
+                          if (q > 0) onUpdateQty(item.id, q)
+                        }}
+                        className="text-sm font-medium w-16 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-300"
+                      />
                       <button
-                        onClick={() => onUpdateQty(item.id, item.qty + 1)}
+                        onClick={() => onUpdateQty(item.id, item.qty + 0.25)}
                         className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
                       >
                         +

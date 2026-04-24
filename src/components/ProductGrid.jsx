@@ -12,16 +12,64 @@ function getCategoryIcon(category) {
   return CATEGORY_ICONS[category] || '📦'
 }
 
-export default function ProductGrid({ products, categories, onAddToCart, currencySymbol }) {
+export default function ProductGrid({ products, categories, onAddToCart, currencySymbol, settings }) {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [search, setSearch] = useState('')
   const sym = currencySymbol || '$'
+  const discountMode = settings?.discountMode || 'global'
 
   const filtered = products.filter(p => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory
     const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
     return matchesCategory && matchesSearch
   })
+
+  // Get discount info for a product
+  const getDiscountInfo = (product) => {
+    const mode = settings?.discountMode || 'global'
+    
+    if (mode === 'item' && product.discount?.enabled) {
+      const isPct = product.discount.type === 'percentage'
+      const discVal = isPct ? product.discount.value : product.discount.value
+      const discountedPrice = isPct 
+        ? product.price * (1 - product.discount.value / 100)
+        : Math.max(0, product.price - product.discount.value)
+      return {
+        originalPrice: product.price,
+        discountedPrice,
+        discountText: isPct ? `−${product.discount.value}%` : `−${sym}${product.discount.value}`,
+        isPercentage: isPct,
+      }
+    }
+    
+    if (mode === 'category') {
+      const catDisc = settings?.categoryDiscounts?.[product.category]
+      if (catDisc?.enabled) {
+        const isPct = catDisc.type === 'percentage'
+        const discountedPrice = isPct 
+          ? product.price * (1 - catDisc.value / 100)
+          : Math.max(0, product.price - catDisc.value)
+        return {
+          originalPrice: product.price,
+          discountedPrice,
+          discountText: isPct ? `−${catDisc.value}%` : `−${sym}${catDisc.value}`,
+          isPercentage: isPct,
+        }
+      }
+    }
+    
+    if (mode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) {
+      const discountedPrice = product.price * (1 - settings.globalDiscount / 100)
+      return {
+        originalPrice: product.price,
+        discountedPrice,
+        discountText: `−${settings.globalDiscount}%`,
+        isPercentage: true,
+      }
+    }
+    
+    return null
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -92,16 +140,33 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
                   <span className="text-2xl select-none">{getCategoryIcon(product.category)}</span>
                 </div>
                 <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{product.name}</p>
-                <p className="text-xs font-bold text-emerald-700 mt-0.5">
-                  {sym}{Number(product.price).toFixed(2)}
-                </p>
-                {product.discount?.enabled && (
-                  <span className="text-[10px] text-rose-500">
-                    {product.discount.type === 'percentage'
-                      ? `−${product.discount.value}%`
-                      : `−${sym}${product.discount.value}`}
-                  </span>
-                )}
+                {(() => {
+                  const disc = getDiscountInfo(product)
+                  if (disc) {
+                    return (
+                      <div className="mt-0.5">
+                          <span className="text-xs font-bold text-emerald-700">
+                              {sym}{Number(disc.discountedPrice).toFixed(2)}
+                          </span>
+                          <div>
+                            <span className="text-xs text-gray-400 line-through">
+                              {sym}{Number(disc.originalPrice).toFixed(2)}
+                            </span>
+                            {(settings?.discountMode === 'global' || settings?.discountMode === 'category' || settings?.discountMode === 'item') && disc.isPercentage && (
+                              <span className="text-[10px] text-rose-500 ml-1">
+                                ({disc.discountText})
+                              </span>
+                           )}
+                        </div>
+                      </div>
+                    )
+                  }
+                  return (
+                    <p className="text-xs font-bold text-emerald-700 mt-0.5">
+                      {sym}{Number(product.price).toFixed(2)}
+                    </p>
+                  )
+                })()}
                 {product.stock != null && (
                   <p className={`text-[10px] mt-0.5 ${product.stock <= 5 ? 'text-orange-500' : 'text-gray-400'}`}>
                     Stock: {product.stock}
