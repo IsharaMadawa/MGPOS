@@ -244,20 +244,28 @@ function BillingTab({ settings, updateSettings }) {
 
       {/* Global Discount */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
-        <h3 className="font-semibold text-gray-900">Global Discount</h3>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.01"
-            value={settings.globalDiscount || 0}
-            onChange={e => updateSettings({ globalDiscount: parseFloat(e.target.value) || 0 })}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">Global Discount</h3>
+          <Toggle
+            checked={settings.globalDiscountEnabled || false}
+            onChange={e => updateSettings({ globalDiscountEnabled: e.target.checked })}
           />
-          <p className="text-xs text-gray-400 mt-1">Applied to every sale after per-item discounts</p>
         </div>
+        {settings.globalDiscountEnabled && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={settings.globalDiscount || 0}
+              onChange={e => updateSettings({ globalDiscount: parseFloat(e.target.value) || 0 })}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+            <p className="text-xs text-gray-400 mt-1">Applied to every sale after per-item discounts</p>
+          </div>
+        )}
       </section>
 
       {/* Misc Items */}

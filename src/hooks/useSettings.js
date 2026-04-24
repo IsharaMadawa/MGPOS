@@ -18,6 +18,7 @@ export const CURRENCIES = [
 const DEFAULT_SETTINGS = {
   taxEnabled: false,
   taxRate: 10,
+  globalDiscountEnabled: false,
   globalDiscount: 0,
   currency: 'USD',
   storeInfo: {

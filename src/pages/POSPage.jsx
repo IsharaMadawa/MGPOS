@@ -42,6 +42,10 @@ export default function POSPage() {
     setCart(prev => prev.filter(i => i.id !== id))
   }
 
+  const updateItemDiscount = (id, amount) => {
+    setCart(prev => prev.map(i => i.id === id ? { ...i, cartDiscount: amount } : i))
+  }
+
   const clearCart = () => setCart([])
 
   return (
@@ -75,6 +79,7 @@ export default function POSPage() {
       <CartPanel
         cart={cart}
         onUpdateQty={updateQty}
+        onUpdateItemDiscount={updateItemDiscount}
         onRemoveItem={removeFromCart}
         onClear={clearCart}
         settings={settings}
