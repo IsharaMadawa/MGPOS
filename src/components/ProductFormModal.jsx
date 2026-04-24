@@ -4,7 +4,7 @@ const UNIT_TYPES = {
   unit:   { label: 'Unit',   units: ['Each', 'Pack', 'Box', 'Dozen', 'Pair'] },
   weight: { label: 'Weight', units: ['kg', 'g', 'lb', 'oz'] },
   volume: { label: 'Volume', units: ['L', 'mL', 'fl oz', 'gal'] },
-  length: { label: 'Length', units: ['m', 'cm', 'ft', 'in'] },
+  length: { label: 'Length', units: ['y', 'm', 'cm', 'ft', 'in'] },
 }
 
 const EMPTY_FORM = {
@@ -109,7 +109,7 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
               className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
               <option value="">— None —</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 

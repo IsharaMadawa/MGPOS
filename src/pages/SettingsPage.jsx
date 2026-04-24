@@ -62,7 +62,7 @@ function ProductsTab({ currencySymbol }) {
                     {currencySymbol}{Number(p.price).toFixed(2)}
                     {p.unit && ` / ${p.unit}`}
                     {p.category && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">{p.category}</span>
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">{categories.find(c => c.id === p.category)?.name}</span>
                     )}
                     {p.discount?.enabled && (
                       <span className="ml-1 text-rose-500 text-xs">
@@ -118,10 +118,10 @@ function ProductsTab({ currencySymbol }) {
         {catError && <p className="text-red-500 text-xs">{catError}</p>}
         <div className="flex flex-wrap gap-2">
           {categories.map(cat => (
-            <span key={cat} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-              {cat}
+            <span key={cat.id} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+              {cat.name}
               <button
-                onClick={() => { if (window.confirm(`Delete category "${cat}"?`)) deleteCategory(cat) }}
+                onClick={() => { if (window.confirm(`Delete category "${cat.name}"?`)) deleteCategory(cat) }}
                 className="text-gray-400 hover:text-red-500 ml-0.5 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

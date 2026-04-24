@@ -5,7 +5,7 @@ const UNIT_TYPES = {
   unit:   { label: 'Unit',   units: ['Each', 'Pack', 'Box', 'Dozen', 'Pair'] },
   weight: { label: 'Weight', units: ['kg', 'g', 'lb', 'oz'] },
   volume: { label: 'Volume', units: ['L', 'mL', 'fl oz', 'gal'] },
-  length: { label: 'Length', units: ['m', 'cm', 'ft', 'in'] },
+  length: { label: 'Length', units: ['y', 'm', 'cm', 'ft', 'in'] },
 }
 
 export default function MiscItemModal({ onConfirm, onClose, currencySymbol }) {

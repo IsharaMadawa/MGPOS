@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
+import { db } from '../../firebase'
 
-const STORAGE_KEY = 'pos_settings'
+//const STORAGE_KEY = 'pos_settings'
+const SETTINGS_DOC_ID = 'global_settings'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$',   name: 'US Dollar' },
@@ -38,31 +41,74 @@ const DEFAULT_SETTINGS = {
   ],
 }
 
-function loadSettings() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_SETTINGS
-    const saved = JSON.parse(raw)
-    return {
-      ...DEFAULT_SETTINGS,
-      ...saved,
-      storeInfo: { ...DEFAULT_SETTINGS.storeInfo, ...(saved.storeInfo || {}) },
-    }
-  } catch {
-    return DEFAULT_SETTINGS
-  }
-}
+// function loadSettings() {
+//   try {  
+//     const raw = localStorage.getItem(STORAGE_KEY)
+//     if (!raw) return DEFAULT_SETTINGS
+//     const saved = JSON.parse(raw)
+//     return {
+//       ...DEFAULT_SETTINGS,
+//       ...saved,
+//       storeInfo: { ...DEFAULT_SETTINGS.storeInfo, ...(saved.storeInfo || {}) },
+//     }
+//   } catch {
+//     return DEFAULT_SETTINGS
+//   }
+// }
+
+// export function useSettings() {
+//   const [settings, setSettings] = useState(loadSettings)
+
+//   const updateSettings = (updates) => {
+//     const updated = { ...settings, ...updates }
+//     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+//     setSettings(updated)
+//   }
+
+//   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
+
+//   return { settings, updateSettings, currencySymbol }
+// }
 
 export function useSettings() {
-  const [settings, setSettings] = useState(loadSettings)
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [loading, setLoading] = useState(true)
 
-  const updateSettings = (updates) => {
+  // Listen for real-time updates from Firebase
+  useEffect(() => {
+    const docRef = doc(db, "pos_data", SETTINGS_DOC_ID)
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const saved = docSnap.data()
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          ...saved,
+          storeInfo: { ...DEFAULT_SETTINGS.storeInfo, ...(saved.storeInfo || {}) },
+        })
+      } else {
+        // If no settings exist in cloud, initialize them
+        setDoc(docRef, DEFAULT_SETTINGS)
+      }
+      setLoading(false)
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const updateSettings = async (updates) => {
     const updated = { ...settings, ...updates }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-    setSettings(updated)
+    const docRef = doc(db, "pos_data", SETTINGS_DOC_ID)
+    
+    try {
+      await setDoc(docRef, updated)
+      // No need to setSettings manually; onSnapshot will trigger the update
+    } catch (error) {
+      console.error("Error updating settings:", error)
+    }
   }
 
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
 
-  return { settings, updateSettings, currencySymbol }
+  return { settings, updateSettings, currencySymbol, loading }
 }
