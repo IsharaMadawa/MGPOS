@@ -56,14 +56,22 @@ function ProductsTab({ currencySymbol }) {
           <div className="space-y-2">
             {products.map(p => (
               <div key={p.id} className="bg-white rounded-xl p-4 border border-gray-100 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{p.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center">
+                      <p className="font-medium text-gray-900 truncate">{p.name}</p>
+                      {p.category && (
+                        <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">
+                          {categories.find(c => c.id === p.category)?.name}
+                        </span>
+                      )}
+                  </div>
                   <p className="text-sm text-gray-500">
-                    {currencySymbol}{Number(p.price).toFixed(2)}
-                    {p.unit && ` / ${p.unit}`}
-                    {p.category && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">{categories.find(c => c.id === p.category)?.name}</span>
-                    )}
+                    {p.prices.map(pr => (
+                      <span key={pr.unit}>
+                        {currencySymbol}{Number(pr.price).toFixed(2)}{pr.unit && `/${pr.unit}`}
+                        <br/>
+                      </span>
+                    ))}
                     {p.discount?.enabled && (
                       <span className="ml-1 text-rose-500 text-xs">
                         {p.discount.type === 'percentage'
@@ -121,7 +129,7 @@ function ProductsTab({ currencySymbol }) {
             <span key={cat.id} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
               {cat.name}
               <button
-                onClick={() => { if (window.confirm(`Delete category "${cat.name}"?`)) deleteCategory(cat) }}
+                onClick={() => { if (window.confirm(`Delete category "${cat.name}"?`)) deleteCategory(cat.id) }}
                 className="text-gray-400 hover:text-red-500 ml-0.5 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -323,7 +331,7 @@ function BillingTab({ settings, updateSettings }) {
                       checked={disc.enabled}
                       onChange={e => updateCategoryDiscount(cat, 'enabled', e.target.checked)}
                     />
-                    <span className="flex-1 font-medium text-sm text-gray-700">{cat}</span>
+                    <span className="flex-1 font-medium text-sm text-gray-700">{cat.name}</span>
                     {disc.enabled && (
                       <>
                         <select

@@ -133,7 +133,7 @@ ${rCart.map(item => {
   const itemDisc = getItemDiscount(item, settings)
   const lineTotal = item.price * item.qty - itemDisc
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.unit)}${itemDisc > 0 ? ` <span class="muted">(−${fmt(itemDisc, sym)})</span>` : ''}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${itemDisc > 0 ? ` <span class="muted">(−${fmt(itemDisc, sym)})</span>` : ''}</span>
   <span class="row-amount">${fmt(lineTotal, sym)}</span>
 </div>`
 }).join('')}
@@ -181,7 +181,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             return (
               <div key={item.id} className="flex justify-between text-sm py-1 gap-2">
                 <span className="text-gray-700 flex-1 min-w-0">
-                  <span className="block truncate">{item.name} × {formatQty(item.qty, item.unit)}</span>
+                  <span className="block truncate">{item.name} × {formatQty(item.qty, item.selectedUnit || item.unit)}</span>
                   {itemDisc > 0 && (
                     <span className="text-xs text-rose-500">(−{fmt(itemDisc, sym)})</span>
                   )}
@@ -279,7 +279,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
                       <p className="text-xs text-gray-500">
-                        {fmt(item.price, sym)} / {item.unit || 'Each'}
+                        {fmt(item.price, sym)} / {item.selectedUnit || item.unit || 'Each'}
                       </p>
                     </div>
                     <button
