@@ -81,29 +81,29 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2">
             {filtered.map(product => (
               <button
                 key={product.id}
                 onClick={() => onAddToCart(product)}
-                className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 hover:border-emerald-300 hover:shadow-md transition-all text-left group active:scale-95"
+                className="bg-white rounded-lg p-2 shadow-sm border border-gray-100 hover:border-emerald-300 hover:shadow-md transition-all text-left group active:scale-95"
               >
-                <div className="w-full aspect-square bg-emerald-50 rounded-lg mb-2 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
-                  <span className="text-3xl select-none">{getCategoryIcon(product.category)}</span>
+                <div className="w-full h-14 bg-emerald-50 rounded-md mb-1.5 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                  <span className="text-2xl select-none">{getCategoryIcon(product.category)}</span>
                 </div>
                 <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{product.name}</p>
-                <p className="text-sm font-bold text-emerald-700 mt-0.5">
+                <p className="text-xs font-bold text-emerald-700 mt-0.5">
                   {sym}{Number(product.price).toFixed(2)}
                 </p>
                 {product.discount?.enabled && (
-                  <span className="text-xs text-rose-500">
+                  <span className="text-[10px] text-rose-500">
                     {product.discount.type === 'percentage'
                       ? `−${product.discount.value}%`
                       : `−${sym}${product.discount.value}`}
                   </span>
                 )}
                 {product.stock != null && (
-                  <p className={`text-xs mt-0.5 ${product.stock <= 5 ? 'text-orange-500' : 'text-gray-400'}`}>
+                  <p className={`text-[10px] mt-0.5 ${product.stock <= 5 ? 'text-orange-500' : 'text-gray-400'}`}>
                     Stock: {product.stock}
                   </p>
                 )}
