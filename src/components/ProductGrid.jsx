@@ -58,7 +58,7 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
       }
     }
     
-    if (mode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) {
+    if (mode === 'global' && settings?.globalDiscount) {
       const discountedPrice = product.price * (1 - settings.globalDiscount / 100)
       return {
         originalPrice: product.price,

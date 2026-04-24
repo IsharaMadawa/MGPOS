@@ -49,7 +49,7 @@ function getItemDiscount(item, settings) {
   }
   
   // Global discount (fallback for global mode)
-  if (mode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) {
+  if (mode === 'global' && settings?.globalDiscount) {
     const lineTotal = item.price * item.qty
     return lineTotal * (settings.globalDiscount / 100)
   }
@@ -70,7 +70,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onR
   const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item, settings), 0)
   
   // Global discount is applied at cart level (for global mode only)
-  const discountPct = (discountMode === 'global' && settings?.globalDiscountEnabled && settings?.globalDiscount) ? settings.globalDiscount : 0
+  const discountPct = (discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
   const discountAmount = discountPct > 0 ? subtotal * (discountPct / 100) : 0
   const taxBase = subtotal - discountAmount
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0

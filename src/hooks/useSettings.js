@@ -19,7 +19,6 @@ const DEFAULT_SETTINGS = {
   taxEnabled: false,
   taxRate: 10,
   discountMode: 'global', // 'global' | 'category' | 'item'
-  globalDiscountEnabled: false,
   globalDiscount: 0,
   categoryDiscounts: {}, // { 'Category Name': { enabled: boolean, type: 'percentage'|'fixed', value: number } }
   currency: 'USD',
