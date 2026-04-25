@@ -2,7 +2,15 @@ import { useState, useEffect } from 'react'
 
 export default function ProductModal({ product, initialQty = 1, onSave, onClose, currencySymbol, settings, isEdit = false }) {
   const sym = currencySymbol || '$'
-  const [localProduct, setLocalProduct] = useState({ ...product })
+  const [localProduct, setLocalProduct] = useState(() => {
+    const p = { ...product }
+    // Pre-select the first unit and price if not already set
+    if (!p.selectedUnit && p.prices && p.prices.length > 0) {
+      p.selectedUnit = p.prices[0].unit
+      p.price = p.prices[0].price
+    }
+    return p
+  })
   const [qty, setQty] = useState(initialQty)
 
   const getPrimaryPrice = (p) => {
