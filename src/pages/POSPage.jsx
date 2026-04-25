@@ -50,6 +50,26 @@ export default function POSPage() {
     }
   }
 
+  const updateItem = (cartItemId, updatedProduct, qty) => {
+    if (qty <= 0) {
+      setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
+      return
+    }
+    setCart(prev => {
+      // Check if the update changes unit, potentially merging with an existing item
+      const itemKey = updatedProduct.id + '|' + (updatedProduct.selectedUnit || updatedProduct.unit || 'Each')
+      const existingKey = (item) => item.id + '|' + (item.selectedUnit || item.unit || 'Each')
+      
+      const otherExisting = prev.find(i => i.cartItemId !== cartItemId && existingKey(i) === itemKey)
+      if (otherExisting) {
+        // Merge with other existing, remove this one
+        return prev.map(i => i.cartItemId === otherExisting.cartItemId ? { ...i, qty: i.qty + qty } : i).filter(i => i.cartItemId !== cartItemId)
+      }
+      
+      return prev.map(i => i.cartItemId === cartItemId ? { ...updatedProduct, qty } : i)
+    })
+  }
+
   const removeFromCart = (cartItemId) => {
     setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
   }
@@ -93,6 +113,7 @@ export default function POSPage() {
         <CartPanel
           cart={cart}
           onUpdateQty={updateQty}
+          onUpdateItem={updateItem}
           onUpdateItemDiscount={updateItemDiscount}
           onRemoveItem={removeFromCart}
           onClear={clearCart}
@@ -119,64 +140,17 @@ export default function POSPage() {
       {showMobileCart && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileCart(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="font-semibold text-gray-900">Cart</h2>
-              <button onClick={() => setShowMobileCart(false)} className="p-2">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {cart.length === 0 ? (
-                <p className="text-center text-gray-400 py-8">Cart is empty</p>
-              ) : (
-                <div className="space-y-3">
-                  {cart.map(item => {
-                    const itemKey = item.cartItemId || item.id
-                    return (
-                    <div key={itemKey} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">{item.name}</p>
-                        <p className="text-sm text-gray-500">{currencySymbol}{Number(item.price).toFixed(2)} / {item.selectedUnit || item.unit || 'Each'} × {item.qty}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => updateQty(itemKey, item.qty - 1)}
-                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
-                        >
-                          −
-                        </button>
-                        <span className="w-8 text-center">{item.qty}</span>
-                        <button
-                          onClick={() => updateQty(itemKey, item.qty + 1)}
-                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  )})}
-                </div>
-              )}
-            </div>
-            {cart.length > 0 && (
-              <div className="p-4 border-t bg-gray-50">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-medium">Total</span>
-                  <span className="text-lg font-bold text-emerald-600">
-                    {currencySymbol}{cart.reduce((s, i) => s + i.price * i.qty, 0).toFixed(2)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => { setShowMobileCart(false); setShowMisc(true) }}
-                  className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium"
-                >
-                  Checkout
-                </button>
-              </div>
-            )}
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl h-[85vh] overflow-hidden flex flex-col">
+            <CartPanel
+              cart={cart}
+              onUpdateQty={updateQty}
+              onUpdateItem={updateItem}
+              onUpdateItemDiscount={updateItemDiscount}
+              onRemoveItem={removeFromCart}
+              onClear={clearCart}
+              settings={settings}
+              onClose={() => setShowMobileCart(false)}
+            />
           </div>
         </div>
       )}

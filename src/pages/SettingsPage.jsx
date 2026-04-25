@@ -296,6 +296,20 @@ function BillingTab({ settings, updateSettings }) {
         </div>
       </section>
 
+      {/* Cart Discount Override */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Cart Discount Override</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Allow applying a custom discount amount directly in the cart</p>
+          </div>
+          <Toggle
+            checked={settings.cartDiscountEnabled || false}
+            onChange={e => updateSettings({ cartDiscountEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
+
       {/* Global Discount - shown when global mode selected */}
       {settings.discountMode === 'global' && (
         <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">

@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   discountMode: 'global', // 'global' | 'category' | 'item'
   globalDiscount: 0,
   categoryDiscounts: {}, // { 'Category Name': { enabled: boolean, type: 'percentage'|'fixed', value: number } }
+  cartDiscountEnabled: false,
   currency: 'USD',
   storeInfo: {
     name: '',

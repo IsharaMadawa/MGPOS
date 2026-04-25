@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
+import ProductModal from './ProductModal'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -105,9 +106,10 @@ function getItemDiscountInfo(item, settings) {
   return result
 }
 
-export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onRemoveItem, onClear, settings }) {
+export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateItemDiscount, onRemoveItem, onClear, settings, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [] })
+  const [editingItem, setEditingItem] = useState(null)
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
@@ -212,14 +214,21 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
     const rTotal = rTaxBase + rTax
 
     return (
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
-        <div className="p-4 border-b border-gray-200 bg-emerald-50">
+      <div className="w-full h-full bg-white lg:border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
+        <div className="p-4 border-b border-gray-200 bg-emerald-50 flex items-center justify-between">
           <div className="flex items-center gap-2 text-emerald-700">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span className="font-semibold">Sale Complete</span>
           </div>
+          {onClose && (
+            <button onClick={onClose} className="lg:hidden p-1 -mr-1 text-emerald-700 hover:text-emerald-800">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -305,7 +314,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
   // Cart View
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
+    <div className="w-full h-full bg-white lg:border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">
@@ -347,16 +356,25 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
               const itemKey = item.cartItemId || item.id // Use cartItemId for unique identification
               
               return (
-                <div key={itemKey} className="p-3">
+                <div 
+                  key={itemKey} 
+                  className="p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => setEditingItem(item)}
+                >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {item.name} <span className="text-emerald-600 font-bold ml-1">× {item.qty}</span>
+                      </p>
                       <p className="text-xs text-gray-500">
                         {fmt(item.price, sym)} / {item.selectedUnit || item.unit || 'Each'}
                       </p>
                     </div>
                     <button
-                      onClick={() => onRemoveItem(itemKey)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveItem(itemKey)
+                      }}
                       className="text-gray-300 hover:text-red-400 transition-colors p-1 flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -364,44 +382,20 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                       </svg>
                     </button>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onUpdateQty(itemKey, item.qty - 0.25)}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        value={item.qty}
-                        onChange={e => {
-                          const q = parseFloat(e.target.value)
-                          if (q > 0) onUpdateQty(itemKey, q)
-                        }}
-                        className="text-sm font-medium w-16 text-center border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-emerald-300"
-                      />
-                      <button
-                        onClick={() => onUpdateQty(itemKey, item.qty + 0.25)}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
-                      >
-                        +
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-end">
                     <div className="flex items-center gap-1.5">
                       {discountPct === 0 && (
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                           <span className="text-[10px] text-gray-400">−{sym}</span>
                           <input
                             type="number"
                             min="0"
                             step="0.01"
+                            disabled={!settings?.cartDiscountEnabled}
                             value={item.cartDiscount ?? (item.discount?.enabled ? Number(itemDisc).toFixed(2) : '')}
                             onChange={e => onUpdateItemDiscount(itemKey, e.target.value === '' ? null : e.target.value)}
                             placeholder="0.00"
-                            className="w-14 text-right border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-rose-300 text-rose-600 placeholder-gray-300"
+                            className="w-14 text-right border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-rose-300 text-rose-600 placeholder-gray-300 disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed"
                           />
                         </div>
                       )}
@@ -474,6 +468,21 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             Checkout
           </button>
         </div>
+      )}
+
+      {editingItem && (
+        <ProductModal
+          product={editingItem}
+          initialQty={editingItem.qty}
+          onSave={(updatedProduct, qty) => {
+            onUpdateItem(editingItem.cartItemId || editingItem.id, updatedProduct, qty)
+            setEditingItem(null)
+          }}
+          onClose={() => setEditingItem(null)}
+          currencySymbol={sym}
+          settings={settings}
+          isEdit={true}
+        />
       )}
     </div>
   )
