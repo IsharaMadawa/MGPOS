@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
-import { db } from '../../firebase'
+import { db } from '../firebase'
 
 //const STORAGE_KEY = 'pos_settings'
 const SETTINGS_DOC_ID = 'global_settings'

@@ -48,11 +48,8 @@ function getItemDiscount(item, settings) {
     }
   }
   
-  // Global discount (fallback for global mode)
-  if (mode === 'global' && settings?.globalDiscount) {
-    const lineTotal = item.price * item.qty
-    return lineTotal * (settings.globalDiscount / 100)
-  }
+  // Global discount is NOT applied here - it's applied only at cart level to avoid double discount
+  // (removed: mode === 'global' check that was causing double discount)
   
   return 0
 }

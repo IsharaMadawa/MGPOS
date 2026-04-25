@@ -69,7 +69,7 @@
 
 import { useState, useEffect } from 'react'
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '../../firebase' // Ensure this path matches your firebase.js file
+import { db } from '../firebase' // Ensure this path matches your firebase.js file
 
 const PRODUCTS_COLLECTION = 'products'
 

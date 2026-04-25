@@ -202,32 +202,37 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
         )}
       </div>
 
-      {/* Unit Selection Modal */}
+      {/* Single Quantity Modal - merged with unit selection */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedProduct(null)}>
           <div className="bg-white rounded-xl p-4 w-72 shadow-xl" onClick={e => e.stopPropagation()}>
             <h3 className="font-semibold text-gray-900 mb-1 truncate">{selectedProduct.name}</h3>
-            <p className="text-xs text-gray-500 mb-3">Select unit and quantity</p>
+            <p className="text-sm text-gray-500 mb-3">{sym}{Number(getPrimaryPrice(selectedProduct)).toFixed(2)} / {selectedProduct.unit || 'Each'}</p>
             
-            <label className="block text-xs text-gray-500 mb-1">Unit</label>
-            <select
-              value={selectedProduct.prices?.[0]?.unit || 'Each'}
-              onChange={e => {
-                const newPrices = selectedProduct.prices.map(p => 
-                  p.unit === e.target.value ? p : p
-                )
-                setSelectedProduct({ ...selectedProduct, prices: newPrices })
-              }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            >
-              {selectedProduct.prices?.map(p => (
-                <option key={p.unit} value={p.unit}>
-                  {p.unit} — {sym}{Number(p.price).toFixed(2)}
-                </option>
-              ))}
-            </select>
+            {selectedProduct.prices && selectedProduct.prices.length > 1 && (
+              <>
+                <label className="block text-xs text-gray-500 mb-1">Unit</label>
+                <select
+                  value={selectedProduct.selectedUnit || selectedProduct.prices[0]?.unit || 'Each'}
+                  onChange={e => {
+                    const newUnit = e.target.value
+                    const unitPrice = selectedProduct.prices.find(p => p.unit === newUnit)?.price || getPrimaryPrice(selectedProduct)
+                    setSelectedProduct({ ...selectedProduct, selectedUnit: newUnit, price: unitPrice })
+                  }}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  {selectedProduct.prices.map(p => (
+                    <option key={p.unit} value={p.unit}>
+                      {p.unit} — {sym}{Number(p.price).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             
-            <label className="block text-xs text-gray-500 mb-1">Quantity</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Quantity{selectedProduct.unit && selectedProduct.unit !== 'Each' ? ` (${selectedProduct.unit})` : ''}
+            </label>
             <input
               type="number"
               min="0.01"
@@ -236,6 +241,26 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
               id="qty-input"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-lg font-semibold text-center focus:outline-none focus:ring-2 focus:ring-emerald-400"
             />
+            
+            {settings?.defaultQuantities?.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-400 mb-2">Quick select</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {settings.defaultQuantities.map(item => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        const qtyInput = document.getElementById('qty-input')
+                        if (qtyInput) qtyInput.value = item.value
+                      }}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-md text-sm font-medium text-gray-600 transition-colors"
+                    >
+                      {item.value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             
             <div className="flex gap-2 mt-4">
               <button
@@ -248,13 +273,12 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
                 onClick={() => {
                   const qtyInput = document.getElementById('qty-input')
                   const qty = parseFloat(qtyInput?.value) || 1
-                  const selectedUnit = selectedProduct.prices?.[0]?.unit || 'Each'
-                  const unitPrice = selectedProduct.prices?.find(p => p.unit === selectedUnit)?.price || getPrimaryPrice(selectedProduct)
-                  onAddToCart({
-                    ...selectedProduct,
-                    price: unitPrice,
-                    selectedUnit,
-                  })
+                  if (qty > 0) {
+                    onAddToCart({
+                      ...selectedProduct,
+                      price: selectedProduct.price || getPrimaryPrice(selectedProduct),
+                    }, qty)
+                  }
                   setSelectedProduct(null)
                 }}
                 className="flex-1 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"

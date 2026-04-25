@@ -36,7 +36,7 @@
 
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { db } from '../firebase';
 
 const CATEGORIES_COLLECTION = 'categories';
 
