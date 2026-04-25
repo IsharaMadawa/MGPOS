@@ -156,40 +156,31 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
                 <div className="w-full h-14 bg-emerald-50 rounded-md mb-1.5 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                   <span className="text-2xl select-none">{getCategoryIcon(product.category)}</span>
                 </div>
-                <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{product.name}</p>
+                <p className="text-xs font-semibold text-gray-800 truncate leading-tight">
+                  {product.name}
+                  {settings?.discountMode === 'item' && product.discount?.enabled && (
+                    <span className="text-xs text-rose-600 ml-1">(
+                      {product.discount.type === 'percentage'
+                        ? `-${product.discount.value}%`
+                        : `-${sym}${Number(product.discount.value).toFixed(2)}`}
+                    )</span>
+                  )}
+                </p>
                 {(() => {
-                  const disc = getDiscountInfo(product)
-                  const priceDisplay = getPriceDisplay(product)
-                  if (disc) {
-                    return (
-                      <div className="mt-0.5">
-                        <span className="text-xs font-bold text-emerald-700">
-                          {sym}{Number(disc.discountedPrice).toFixed(2)}
+                  // Show all prices per unit in green
+                  const priceList = product.prices && product.prices.length > 0
+                    ? product.prices.map(p => (
+                        <span key={p.unit} className="block text-xs font-bold text-emerald-700">
+                          {sym}{Number(p.price).toFixed(2)} / {p.unit}
                         </span>
-                        <span className="text-xs text-gray-400 line-through ml-1">
-                          {sym}{Number(disc.originalPrice).toFixed(2)}
-                        </span>
-                        {(settings?.discountMode === 'global' || settings?.discountMode === 'category') && disc.isPercentage && (
-                          <span className="text-[10px] text-rose-500 ml-1">
-                            ({disc.discountText})
-                          </span>
-                        )}
-                        {product.prices && product.prices.length > 1 && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 truncate">{priceDisplay}</p>
-                        )}
-                      </div>
-                    )
-                  }
+                      ))
+                    : [<span key="single" className="block text-xs font-bold text-emerald-700">{sym}{Number(product.price || 0).toFixed(2)}</span>];
+
                   return (
-                    <div>
-                      <p className="text-xs font-bold text-emerald-700 mt-0.5">
-                        {sym}{Number(getPrimaryPrice(product)).toFixed(2)}
-                      </p>
-                      {product.prices && product.prices.length > 1 && (
-                        <p className="text-[10px] text-gray-400 truncate">{priceDisplay}</p>
-                      )}
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      {priceList}
                     </div>
-                  )
+                  );
                 })()}
                 {product.stock != null && (
                   <p className={`text-[10px] mt-0.5 ${product.stock <= 5 ? 'text-orange-500' : 'text-gray-400'}`}>

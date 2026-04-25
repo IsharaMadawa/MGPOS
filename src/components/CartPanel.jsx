@@ -184,14 +184,14 @@ ${rCart.map(item => {
   const discountedTotal = lineTotal - itemDisc
   const hasDiscount = itemDisc > 0
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
   <span class="row-amount">${fmt(discountedTotal, sym)}</span>
 </div>`
 }).join('')}
 <div class="divider"></div>
-<div class="row"><span>Original Subtotal</span><span>${fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
-<div class="row"><span>Subtotal</span><span>${fmt(rSub, sym)}</span></div>
-${rDisc > 0 ? `<div class="row muted"><span>Global Discount (${discountPct}%)</span><span>−${fmt(rDisc, sym)}</span></div>` : ''}
+<div class="row"><span>Gross Amount</span><span>${fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
+${(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) ? `<div class="row muted"><span>Discount ${discountPct > 0 ? `(${discountPct}%)` : ''}</span><span>−${fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span></div>` : ''}
+<div class="row"><span>Net Amount</span><span>${fmt(rSub, sym)}</span></div>
 ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
@@ -243,7 +243,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                   {hasDiscount && (
                     <span className="text-xs text-rose-500">
                       ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}
-                      {discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
+                      {(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
                     </span>
                   )}
                 </span>
@@ -255,19 +255,20 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           <div className="mt-4 pt-4 border-t border-gray-200 space-y-1 text-sm">
             {/* Show original subtotal before any discounts */}
             <div className="flex justify-between text-gray-500">
-              <span>Original Subtotal</span>
+              <span>Gross Amount</span>
               <span>{fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
             </div>
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>{fmt(rSub, sym)}</span>
-            </div>
-            {rDisc > 0 && (
+            {/* Total discount (item-level + global) */}
+            {(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) && (
               <div className="flex justify-between text-rose-600">
-                <span>Discount ({discountPct}%)</span>
-                <span>− {fmt(rDisc, sym)}</span>
+                <span>Discount {discountPct > 0 ? `(${discountPct}%)` : ''}</span>
+                <span>− {fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span>
               </div>
             )}
+            <div className="flex justify-between text-gray-600">
+              <span>Net Amount</span>
+              <span>{fmt(rSub, sym)}</span>
+            </div>
             {taxEnabled && (
               <div className="flex justify-between text-gray-600">
                 <span>Tax ({taxRate}%)</span>
@@ -409,11 +410,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                           <>
                             <div className="text-xs text-gray-400 line-through">{fmt(lineTotal, sym)}</div>
                             <div className="text-sm font-semibold text-gray-900">{fmt(discountedTotal, sym)}</div>
-                            {discInfo.percentage > 0 && (
-                              <div className="text-[10px] text-rose-500">
-                                (−{discInfo.percentage.toFixed(0)}% {discInfo.source === 'category' ? 'category' : discInfo.source === 'item' ? 'item' : ''})
-                              </div>
-                            )}
+                            {item.discount?.type === 'percentage' || (discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (discountMode === 'global' && settings?.globalDiscount > 0) ? (
+                              discInfo.percentage > 0 && (
+                                <div className="text-[10px] text-rose-500">
+                                  (−{discInfo.percentage.toFixed(0)}% {discInfo.source === 'category' ? 'category' : discInfo.source === 'item' ? 'item' : ''})
+                                </div>
+                              )
+                            ) : null}
                           </>
                         ) : (
                           <span className="text-sm font-semibold text-gray-900">
@@ -435,11 +438,11 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
         <div className="p-4 border-t border-gray-200 space-y-1.5">
           {/* Show original subtotal before any discounts */}
           <div className="flex justify-between text-sm text-gray-500">
-            <span>Original Subtotal</span>
+            <span>Gross Amount</span>
             <span>{fmt(cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
           </div>
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span>
+            <span>Net Amount</span>
             <span>{fmt(subtotal, sym)}</span>
           </div>
           {discountPct > 0 && (
