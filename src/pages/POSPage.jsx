@@ -18,11 +18,22 @@ export default function POSPage() {
 
   const addToCart = (product, qty = 1) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id)
+      // Create a unique key combining product id and selected unit
+      // This ensures same product with different units appears as separate line items
+      const itemKey = product.id + '|' + (product.selectedUnit || product.unit || 'Each')
+      const existingKey = (item) => item.id + '|' + (item.selectedUnit || item.unit || 'Each')
+      
+      const existing = prev.find(i => existingKey(i) === itemKey)
       if (existing) {
-        return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i)
+        return prev.map(i => existingKey(i) === itemKey ? { ...i, qty: i.qty + qty } : i)
       }
-      return [...prev, { ...product, qty }]
+      // Generate unique id for the cart item to ensure separate line items
+      const newItem = { 
+        ...product, 
+        qty,
+        cartItemId: product.id + '_' + Date.now() // Unique cart item ID
+      }
+      return [...prev, newItem]
     })
   }
 
@@ -31,20 +42,20 @@ export default function POSPage() {
     setShowMisc(false)
   }
 
-  const updateQty = (id, qty) => {
+  const updateQty = (cartItemId, qty) => {
     if (qty <= 0) {
-      setCart(prev => prev.filter(i => i.id !== id))
+      setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
     } else {
-      setCart(prev => prev.map(i => i.id === id ? { ...i, qty } : i))
+      setCart(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, qty } : i))
     }
   }
 
-  const removeFromCart = (id) => {
-    setCart(prev => prev.filter(i => i.id !== id))
+  const removeFromCart = (cartItemId) => {
+    setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
   }
 
-  const updateItemDiscount = (id, amount) => {
-    setCart(prev => prev.map(i => i.id === id ? { ...i, cartDiscount: amount } : i))
+  const updateItemDiscount = (cartItemId, amount) => {
+    setCart(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, cartDiscount: amount } : i))
   }
 
   const clearCart = () => setCart([])
@@ -122,29 +133,31 @@ export default function POSPage() {
                 <p className="text-center text-gray-400 py-8">Cart is empty</p>
               ) : (
                 <div className="space-y-3">
-                  {cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  {cart.map(item => {
+                    const itemKey = item.cartItemId || item.id
+                    return (
+                    <div key={itemKey} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate">{item.name}</p>
-                        <p className="text-sm text-gray-500">{currencySymbol}{Number(item.price).toFixed(2)} × {item.qty}</p>
+                        <p className="text-sm text-gray-500">{currencySymbol}{Number(item.price).toFixed(2)} / {item.selectedUnit || item.unit || 'Each'} × {item.qty}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateQty(item.id, item.qty - 1)}
+                          onClick={() => updateQty(itemKey, item.qty - 1)}
                           className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
                         >
                           −
                         </button>
                         <span className="w-8 text-center">{item.qty}</span>
                         <button
-                          onClick={() => updateQty(item.id, item.qty + 1)}
+                          onClick={() => updateQty(itemKey, item.qty + 1)}
                           className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
                         >
                           +
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>
