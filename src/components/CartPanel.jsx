@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
+import ProductModal from './ProductModal'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -18,31 +19,108 @@ function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-function getItemDiscount(item) {
+function getItemDiscount(item, settings) {
+  const mode = settings?.discountMode || 'global'
+  
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
     const val = parseFloat(item.cartDiscount) || 0
     return Math.min(Math.max(val, 0), item.price * item.qty)
   }
-  if (!item.discount?.enabled) return 0
-  const lineTotal = item.price * item.qty
-  if (item.discount.type === 'percentage') {
-    return lineTotal * (item.discount.value / 100)
+  
+  // Item-level discount
+  if (mode === 'item' && item.discount?.enabled) {
+    const lineTotal = item.price * item.qty
+    if (item.discount.type === 'percentage') {
+      return lineTotal * (item.discount.value / 100)
+    }
+    return Math.min(item.discount.value * item.qty, lineTotal)
   }
-  return Math.min(item.discount.value * item.qty, lineTotal)
+  
+  // Category-level discount
+  if (mode === 'category') {
+    const catDisc = settings?.categoryDiscounts?.[item.category]
+    if (catDisc?.enabled) {
+      const lineTotal = item.price * item.qty
+      if (catDisc.type === 'percentage') {
+        return lineTotal * (catDisc.value / 100)
+      }
+      return Math.min(catDisc.value * item.qty, lineTotal)
+    }
+  }
+  
+  // Global discount is NOT applied here - it's applied only at cart level to avoid double discount
+  
+  return 0
 }
 
-export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onRemoveItem, onClear, settings }) {
+// Get discount info for display (percentage and source)
+function getItemDiscountInfo(item, settings) {
+  const mode = settings?.discountMode || 'global'
+  const result = { amount: 0, percentage: 0, source: null }
+  
+  // Cart-level override
+  if (item.cartDiscount != null && item.cartDiscount !== '') {
+    const val = parseFloat(item.cartDiscount) || 0
+    const lineTotal = item.price * item.qty
+    const cappedVal = Math.min(Math.max(val, 0), lineTotal)
+    result.amount = cappedVal
+    result.percentage = lineTotal > 0 ? (cappedVal / lineTotal) * 100 : 0
+    result.source = 'custom'
+    return result
+  }
+  
+  // Item-level discount
+  if (mode === 'item' && item.discount?.enabled) {
+    const lineTotal = item.price * item.qty
+    if (item.discount.type === 'percentage') {
+      result.amount = lineTotal * (item.discount.value / 100)
+      result.percentage = item.discount.value
+      result.source = 'item'
+    } else {
+      result.amount = Math.min(item.discount.value * item.qty, lineTotal)
+      result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
+      result.source = 'item'
+    }
+    return result
+  }
+  
+  // Category-level discount
+  if (mode === 'category') {
+    const catDisc = settings?.categoryDiscounts?.[item.category]
+    if (catDisc?.enabled) {
+      const lineTotal = item.price * item.qty
+      if (catDisc.type === 'percentage') {
+        result.amount = lineTotal * (catDisc.value / 100)
+        result.percentage = catDisc.value
+        result.source = 'category'
+      } else {
+        result.amount = Math.min(catDisc.value * item.qty, lineTotal)
+        result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
+        result.source = 'category'
+      }
+      return result
+    }
+  }
+  
+  return result
+}
+
+export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateItemDiscount, onRemoveItem, onClear, settings, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [] })
+  const [editingItem, setEditingItem] = useState(null)
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
   const taxRate = settings?.taxRate || 0
+  const discountMode = settings?.discountMode || 'global'
 
-  const subtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
-  const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item), 0)
-  const discountPct = (settings?.globalDiscountEnabled && settings?.globalDiscount) ? settings.globalDiscount : 0
+  const subtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
+  const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item, settings), 0)
+  
+  // Global discount is applied at cart level (for global mode only)
+  const discountPct = (discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
   const discountAmount = discountPct > 0 ? subtotal * (discountPct / 100) : 0
   const taxBase = subtotal - discountAmount
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0
@@ -66,7 +144,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItemDiscount, onR
   const handlePrint = () => {
     const { no, time, cart: rCart } = receiptSnapshot
     const storeInfo = settings?.storeInfo || {}
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
     const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
     const rTaxBase = rSub - rDisc
     const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
@@ -102,16 +180,20 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
 <div class="divider"></div>
 ${rCart.map(item => {
-  const itemDisc = getItemDiscount(item)
-  const lineTotal = item.price * item.qty - itemDisc
+  const itemDisc = getItemDiscount(item, settings)
+  const discInfo = getItemDiscountInfo(item, settings)
+  const lineTotal = item.price * item.qty
+  const discountedTotal = lineTotal - itemDisc
+  const hasDiscount = itemDisc > 0
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.unit)}${itemDisc > 0 ? ` <span class="muted">(−${fmt(itemDisc, sym)})</span>` : ''}</span>
-  <span class="row-amount">${fmt(lineTotal, sym)}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
+  <span class="row-amount">${fmt(discountedTotal, sym)}</span>
 </div>`
 }).join('')}
 <div class="divider"></div>
-<div class="row"><span>Subtotal</span><span>${fmt(rSub, sym)}</span></div>
-${rDisc > 0 ? `<div class="row muted"><span>Discount${discountPct > 0 ? ` (${discountPct}%)` : ''}</span><span>−${fmt(rDisc, sym)}</span></div>` : ''}
+<div class="row"><span>Gross Amount</span><span>${fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
+${(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) ? `<div class="row muted"><span>Discount ${discountPct > 0 ? `(${discountPct}%)` : ''}</span><span>−${fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span></div>` : ''}
+<div class="row"><span>Net Amount</span><span>${fmt(rSub, sym)}</span></div>
 ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
@@ -125,21 +207,28 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
   // Receipt View
   if (showReceipt) {
     const { no, time, cart: rCart } = receiptSnapshot
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item), 0)
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
     const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
     const rTaxBase = rSub - rDisc
     const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
     const rTotal = rTaxBase + rTax
 
     return (
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
-        <div className="p-4 border-b border-gray-200 bg-emerald-50">
+      <div className="w-full h-full bg-white lg:border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
+        <div className="p-4 border-b border-gray-200 bg-emerald-50 flex items-center justify-between">
           <div className="flex items-center gap-2 text-emerald-700">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span className="font-semibold">Sale Complete</span>
           </div>
+          {onClose && (
+            <button onClick={onClose} className="lg:hidden p-1 -mr-1 text-emerald-700 hover:text-emerald-800">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -149,31 +238,46 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           </div>
 
           {rCart.map((item) => {
-            const itemDisc = getItemDiscount(item)
+            const itemDisc = getItemDiscount(item, settings)
+            const discInfo = getItemDiscountInfo(item, settings)
+            const lineTotal = item.price * item.qty
+            const discountedTotal = lineTotal - itemDisc
+            const hasDiscount = itemDisc > 0
+            const itemKey = item.cartItemId || item.id
+            
             return (
-              <div key={item.id} className="flex justify-between text-sm py-1 gap-2">
+              <div key={itemKey} className="flex justify-between text-sm py-1 gap-2">
                 <span className="text-gray-700 flex-1 min-w-0">
-                  <span className="block truncate">{item.name} × {formatQty(item.qty, item.unit)}</span>
-                  {itemDisc > 0 && (
-                    <span className="text-xs text-rose-500">(−{fmt(itemDisc, sym)})</span>
+                  <span className="block truncate">{item.name} × {formatQty(item.qty, item.selectedUnit || item.unit)}</span>
+                  {hasDiscount && (
+                    <span className="text-xs text-rose-500">
+                      ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}
+                      {(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
+                    </span>
                   )}
                 </span>
-                <span className="font-medium whitespace-nowrap">{fmt(item.price * item.qty - itemDisc, sym)}</span>
+                <span className="font-medium whitespace-nowrap">{fmt(discountedTotal, sym)}</span>
               </div>
             )
           })}
 
           <div className="mt-4 pt-4 border-t border-gray-200 space-y-1 text-sm">
-            <div className="flex justify-between text-gray-600">
-              <span>Subtotal</span>
-              <span>{fmt(rSub, sym)}</span>
+            {/* Show original subtotal before any discounts */}
+            <div className="flex justify-between text-gray-500">
+              <span>Gross Amount</span>
+              <span>{fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
             </div>
-            {rDisc > 0 && (
+            {/* Total discount (item-level + global) */}
+            {(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) && (
               <div className="flex justify-between text-rose-600">
-                <span>Discount ({discountPct}%)</span>
-                <span>− {fmt(rDisc, sym)}</span>
+                <span>Discount {discountPct > 0 ? `(${discountPct}%)` : ''}</span>
+                <span>− {fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span>
               </div>
             )}
+            <div className="flex justify-between text-gray-600">
+              <span>Net Amount</span>
+              <span>{fmt(rSub, sym)}</span>
+            </div>
             {taxEnabled && (
               <div className="flex justify-between text-gray-600">
                 <span>Tax ({taxRate}%)</span>
@@ -210,14 +314,14 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
   // Cart View
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
+    <div className="w-full h-full bg-white lg:border-l border-gray-200 flex flex-col shadow-xl flex-shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="font-semibold text-gray-900">
           Cart{' '}
           {cart.length > 0 && (
             <span className="ml-1 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">
-              {cart.reduce((s, i) => s + i.qty, 0)}
+              {cart.length}
             </span>
           )}
         </h2>
@@ -244,18 +348,33 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
         ) : (
           <div className="divide-y divide-gray-50">
             {cart.map((item) => {
-              const itemDisc = getItemDiscount(item)
+              const itemDisc = getItemDiscount(item, settings)
+              const discInfo = getItemDiscountInfo(item, settings)
+              const lineTotal = item.price * item.qty
+              const discountedTotal = lineTotal - itemDisc
+              const hasDiscount = itemDisc > 0
+              const itemKey = item.cartItemId || item.id // Use cartItemId for unique identification
+              
               return (
-                <div key={item.id} className="p-3">
+                <div 
+                  key={itemKey} 
+                  className="p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => setEditingItem(item)}
+                >
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {item.name} <span className="text-emerald-600 font-bold ml-1">× {item.qty}</span>
+                      </p>
                       <p className="text-xs text-gray-500">
-                        {fmt(item.price, sym)} / {item.unit || 'Each'}
+                        {fmt(item.price, sym)} / {item.selectedUnit || item.unit || 'Each'}
                       </p>
                     </div>
                     <button
-                      onClick={() => onRemoveItem(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveItem(itemKey)
+                      }}
                       className="text-gray-300 hover:text-red-400 transition-colors p-1 flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -263,42 +382,42 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                       </svg>
                     </button>
                   </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => onUpdateQty(item.id, item.qty - 1)}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
-                      >
-                        −
-                      </button>
-                      <span className="text-sm font-medium w-12 text-center">
-                        {formatQty(item.qty, item.unit)}
-                      </span>
-                      <button
-                        onClick={() => onUpdateQty(item.id, item.qty + 1)}
-                        className="w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-sm transition-colors"
-                      >
-                        +
-                      </button>
-                    </div>
+                  <div className="flex items-center justify-end">
                     <div className="flex items-center gap-1.5">
                       {discountPct === 0 && (
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
                           <span className="text-[10px] text-gray-400">−{sym}</span>
                           <input
                             type="number"
                             min="0"
                             step="0.01"
+                            disabled={!settings?.cartDiscountEnabled}
                             value={item.cartDiscount ?? (item.discount?.enabled ? Number(itemDisc).toFixed(2) : '')}
-                            onChange={e => onUpdateItemDiscount(item.id, e.target.value === '' ? null : e.target.value)}
+                            onChange={e => onUpdateItemDiscount(itemKey, e.target.value === '' ? null : e.target.value)}
                             placeholder="0.00"
-                            className="w-14 text-right border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-rose-300 text-rose-600 placeholder-gray-300"
+                            className="w-14 text-right border border-gray-200 rounded px-1 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-rose-300 text-rose-600 placeholder-gray-300 disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed"
                           />
                         </div>
                       )}
-                      <span className="text-sm font-semibold text-gray-900 w-16 text-right">
-                        {fmt(item.price * item.qty - itemDisc, sym)}
-                      </span>
+                      <div className="text-right">
+                        {hasDiscount ? (
+                          <>
+                            <div className="text-xs text-gray-400 line-through">{fmt(lineTotal, sym)}</div>
+                            <div className="text-sm font-semibold text-gray-900">{fmt(discountedTotal, sym)}</div>
+                            {item.discount?.type === 'percentage' || (discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (discountMode === 'global' && settings?.globalDiscount > 0) ? (
+                              discInfo.percentage > 0 && (
+                                <div className="text-[10px] text-rose-500">
+                                  (−{discInfo.percentage.toFixed(0)}% {discInfo.source === 'category' ? 'category' : discInfo.source === 'item' ? 'item' : ''})
+                                </div>
+                              )
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-900">
+                            {fmt(lineTotal, sym)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -311,19 +430,24 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
       {/* Summary & Checkout */}
       {cart.length > 0 && (
         <div className="p-4 border-t border-gray-200 space-y-1.5">
+          {/* Show original subtotal before any discounts */}
+          <div className="flex justify-between text-sm text-gray-500">
+            <span>Gross Amount</span>
+            <span>{fmt(cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
+          </div>
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span>
+            <span>Net Amount</span>
             <span>{fmt(subtotal, sym)}</span>
           </div>
           {discountPct > 0 && (
             <div className="flex justify-between text-sm text-rose-600">
-              <span>Discount ({discountPct}%)</span>
+              <span>Global Discount ({discountPct}%)</span>
               <span>− {fmt(discountAmount, sym)}</span>
             </div>
           )}
           {discountPct === 0 && itemDiscountTotal > 0 && (
             <div className="flex justify-between text-sm text-rose-500">
-              <span>Discount</span>
+              <span>Item/Category Discount</span>
               <span>− {fmt(itemDiscountTotal, sym)}</span>
             </div>
           )}
@@ -344,6 +468,21 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             Checkout
           </button>
         </div>
+      )}
+
+      {editingItem && (
+        <ProductModal
+          product={editingItem}
+          initialQty={editingItem.qty}
+          onSave={(updatedProduct, qty) => {
+            onUpdateItem(editingItem.cartItemId || editingItem.id, updatedProduct, qty)
+            setEditingItem(null)
+          }}
+          onClose={() => setEditingItem(null)}
+          currencySymbol={sym}
+          settings={settings}
+          isEdit={true}
+        />
       )}
     </div>
   )

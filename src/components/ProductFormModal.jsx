@@ -4,15 +4,14 @@ const UNIT_TYPES = {
   unit:   { label: 'Unit',   units: ['Each', 'Pack', 'Box', 'Dozen', 'Pair'] },
   weight: { label: 'Weight', units: ['kg', 'g', 'lb', 'oz'] },
   volume: { label: 'Volume', units: ['L', 'mL', 'fl oz', 'gal'] },
-  length: { label: 'Length', units: ['m', 'cm', 'ft', 'in'] },
+  length: { label: 'Length', units: ['m', 'y', 'ft', 'in', 'cm'] },
 }
 
 const EMPTY_FORM = {
   name: '',
-  price: '',
   category: '',
   unitType: 'unit',
-  unit: 'Each',
+  prices: [{ unit: 'Each', price: '' }],
   stock: '',
   discount: { enabled: false, type: 'percentage', value: 0 },
 }
@@ -26,7 +25,9 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
       setForm({
         ...EMPTY_FORM,
         ...product,
-        price: String(product.price),
+        prices: product.prices && product.prices.length > 0 
+          ? product.prices.map(p => ({ ...p, price: String(p.price) }))
+          : [{ unit: 'Each', price: '' }],
         stock: product.stock != null ? String(product.stock) : '',
         discount: product.discount || EMPTY_FORM.discount,
       })
@@ -39,16 +40,41 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
   const setDiscount = (field, value) => setForm(f => ({ ...f, discount: { ...f.discount, [field]: value } }))
 
   const handleUnitTypeChange = (ut) => {
-    setForm(f => ({ ...f, unitType: ut, unit: UNIT_TYPES[ut].units[0] }))
+    const defaultUnits = UNIT_TYPES[ut].units.slice(0, 3).map(u => ({ unit: u, price: '' }))
+    setForm(f => ({ ...f, unitType: ut, prices: defaultUnits }))
+  }
+
+  const updatePrice = (index, field, value) => {
+    setForm(f => {
+      const newPrices = [...f.prices]
+      newPrices[index] = { ...newPrices[index], [field]: value }
+      return { ...f, prices: newPrices }
+    })
+  }
+
+  const addPrice = () => {
+    setForm(f => ({ ...f, prices: [...f.prices, { unit: '', price: '' }] }))
+  }
+
+  const removePrice = (index) => {
+    setForm(f => ({ ...f, prices: f.prices.filter((_, i) => i !== index) }))
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    if (!form.name.trim() || !form.price) return
+    if (!form.name.trim()) return
+    
+    // Validate at least one price is set
+    const validPrices = form.prices.filter(p => p.unit && p.price)
+    if (validPrices.length === 0) return
+    
     onSave({
       ...form,
       name: form.name.trim(),
-      price: parseFloat(form.price),
+      prices: validPrices.map(p => ({ 
+        unit: p.unit, 
+        price: parseFloat(p.price) || 0 
+      })),
       stock: form.stock !== '' ? parseInt(form.stock, 10) : null,
       discount: {
         ...form.discount,
@@ -85,34 +111,6 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
             />
           </div>
 
-          {/* Price */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price ({sym}) *</label>
-            <input
-              required
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.price}
-              onChange={e => set('price', e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="0.00"
-            />
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-            <select
-              value={form.category}
-              onChange={e => set('category', e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="">— None —</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
           {/* Sold By */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Sold By</label>
@@ -132,22 +130,72 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
                 </button>
               ))}
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {UNIT_TYPES[form.unitType]?.units.map(u => (
-                <button
-                  key={u}
-                  type="button"
-                  onClick={() => set('unit', u)}
-                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
-                    form.unit === u
-                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 font-medium'
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-emerald-300'
-                  }`}
-                >
-                  {u}
-                </button>
+          </div>
+
+          {/* Prices per Unit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Prices by Unit *</label>
+            <div className="space-y-2">
+              {form.prices.map((priceObj, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <select
+                    value={priceObj.unit}
+                    onChange={e => updatePrice(idx, 'unit', e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Select unit</option>
+                    {UNIT_TYPES[form.unitType]?.units.map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={priceObj.price}
+                    onChange={e => updatePrice(idx, 'price', e.target.value)}
+                    className="w-24 border border-gray-300 rounded-lg px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="0.00"
+                  />
+                  <span className="text-sm text-gray-500 w-6">{sym}</span>
+                  {form.prices.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePrice(idx)}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={addPrice}
+              className="mt-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+            >
+              + Add another unit price
+            </button>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+            <select
+              value={form.category}
+              onChange={e => set('category', e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="">— None —</option>
+              {categories.map(c => (
+                <option key={c.id || c.name} value={c.id || c.name}>
+                  {c.name || c}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Stock */}

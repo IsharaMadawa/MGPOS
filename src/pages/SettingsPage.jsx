@@ -56,14 +56,22 @@ function ProductsTab({ currencySymbol }) {
           <div className="space-y-2">
             {products.map(p => (
               <div key={p.id} className="bg-white rounded-xl p-4 border border-gray-100 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{p.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center">
+                      <p className="font-medium text-gray-900 truncate">{p.name}</p>
+                      {p.category && (
+                        <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">
+                          {categories.find(c => c.id === p.category)?.name}
+                        </span>
+                      )}
+                  </div>
                   <p className="text-sm text-gray-500">
-                    {currencySymbol}{Number(p.price).toFixed(2)}
-                    {p.unit && ` / ${p.unit}`}
-                    {p.category && (
-                      <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">{p.category}</span>
-                    )}
+                    {p.prices.map(pr => (
+                      <span key={pr.unit}>
+                        {currencySymbol}{Number(pr.price).toFixed(2)}{pr.unit && `/${pr.unit}`}
+                        <br/>
+                      </span>
+                    ))}
                     {p.discount?.enabled && (
                       <span className="ml-1 text-rose-500 text-xs">
                         {p.discount.type === 'percentage'
@@ -118,10 +126,10 @@ function ProductsTab({ currencySymbol }) {
         {catError && <p className="text-red-500 text-xs">{catError}</p>}
         <div className="flex flex-wrap gap-2">
           {categories.map(cat => (
-            <span key={cat} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-              {cat}
+            <span key={cat.id} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+              {cat.name}
               <button
-                onClick={() => { if (window.confirm(`Delete category "${cat}"?`)) deleteCategory(cat) }}
+                onClick={() => { if (window.confirm(`Delete category "${cat.name}"?`)) deleteCategory(cat.id) }}
                 className="text-gray-400 hover:text-red-500 ml-0.5 transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -174,8 +182,19 @@ function Toggle({ checked, onChange }) {
 }
 
 function BillingTab({ settings, updateSettings }) {
+  const { categories } = useCategories()
   const setStoreInfo = (key, value) => {
     updateSettings({ storeInfo: { ...settings.storeInfo, [key]: value } })
+  }
+
+  const updateCategoryDiscount = (category, field, value) => {
+    const current = settings.categoryDiscounts?.[category] || { enabled: false, type: 'percentage', value: 0 }
+    updateSettings({
+      categoryDiscounts: {
+        ...settings.categoryDiscounts,
+        [category]: { ...current, [field]: value },
+      },
+    })
   }
 
   return (
@@ -242,31 +261,127 @@ function BillingTab({ settings, updateSettings }) {
         )}
       </section>
 
-      {/* Global Discount */}
+      {/* Discount Mode */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <h3 className="font-semibold text-gray-900">Discount Type</h3>
+        <p className="text-xs text-gray-500 mb-3">Choose how discounts are applied to items</p>
+        <div className="space-y-2">
+          {[
+            { value: 'global', label: 'Global Discount', desc: 'Apply a single discount to all items' },
+            { value: 'category', label: 'Category Discount', desc: 'Set different discounts per category' },
+            { value: 'item', label: 'Item Discount', desc: 'Set discounts individually on each product' },
+          ].map(opt => (
+            <label
+              key={opt.value}
+              className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                settings.discountMode === opt.value
+                  ? 'border-emerald-500 bg-emerald-50'
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                name="discountMode"
+                value={opt.value}
+                checked={settings.discountMode === opt.value}
+                onChange={e => updateSettings({ discountMode: e.target.value })}
+                className="mt-0.5"
+              />
+              <div>
+                <p className="font-medium text-gray-900 text-sm">{opt.label}</p>
+                <p className="text-xs text-gray-500">{opt.desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      {/* Cart Discount Override */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Global Discount</h3>
+          <div>
+            <h3 className="font-semibold text-gray-900">Cart Discount Override</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Allow applying a custom discount amount directly in the cart</p>
+          </div>
           <Toggle
-            checked={settings.globalDiscountEnabled || false}
-            onChange={e => updateSettings({ globalDiscountEnabled: e.target.checked })}
+            checked={settings.cartDiscountEnabled || false}
+            onChange={e => updateSettings({ cartDiscountEnabled: e.target.checked })}
           />
         </div>
-        {settings.globalDiscountEnabled && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              value={settings.globalDiscount || 0}
-              onChange={e => updateSettings({ globalDiscount: parseFloat(e.target.value) || 0 })}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-            <p className="text-xs text-gray-400 mt-1">Applied to every sale after per-item discounts</p>
-          </div>
-        )}
       </section>
+
+      {/* Global Discount - shown when global mode selected */}
+      {settings.discountMode === 'global' && (
+        <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+          <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={settings.globalDiscount || 0}
+                onChange={e => updateSettings({ globalDiscount: parseFloat(e.target.value) || 0 })}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+            </div>
+        </section>
+      )}
+
+      {/* Category Discounts - shown when category mode selected */}
+      {settings.discountMode === 'category' && (
+        <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+          <h3 className="font-semibold text-gray-900">Category Discounts</h3>
+          <p className="text-xs text-gray-500 mb-3">Set discount for each category</p>
+          {categories.length === 0 ? (
+            <p className="text-gray-400 text-sm">No categories defined. Add categories in Products tab.</p>
+          ) : (
+            <div className="space-y-3">
+              {categories.map(cat => {
+                const disc = settings.categoryDiscounts?.[cat] || { enabled: false, type: 'percentage', value: 0 }
+                return (
+                  <div key={cat} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                    <Toggle
+                      checked={disc.enabled}
+                      onChange={e => updateCategoryDiscount(cat, 'enabled', e.target.checked)}
+                    />
+                    <span className="flex-1 font-medium text-sm text-gray-700">{cat.name}</span>
+                    {disc.enabled && (
+                      <>
+                        <select
+                          value={disc.type}
+                          onChange={e => updateCategoryDiscount(cat, 'type', e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        >
+                          <option value="percentage">%</option>
+                          <option value="fixed">{CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'}</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          max={disc.type === 'percentage' ? 100 : 99999}
+                          step="0.01"
+                          value={disc.value}
+                          onChange={e => updateCategoryDiscount(cat, 'value', parseFloat(e.target.value) || 0)}
+                          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        />
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Item Discounts info - shown when item mode selected */}
+      {settings.discountMode === 'item' && (
+        <section className="bg-white rounded-2xl p-5 border border-gray-100">
+          <h3 className="font-semibold text-gray-900">Item Discounts</h3>
+          <p className="text-xs text-gray-500 mt-1">Set discounts individually on each product in the Products tab.</p>
+        </section>
+      )}
 
       {/* Misc Items */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100">
@@ -285,6 +400,130 @@ function BillingTab({ settings, updateSettings }) {
   )
 }
 
+// ─── Quick Quantities Tab ──────────────────────────────────────────────────
+
+function QuickQuantitiesTab({ settings, updateSettings }) {
+  const [newQty, setNewQty] = useState('')
+  const [error, setError] = useState('')
+
+  const quantities = settings.defaultQuantities || []
+
+  const handleAdd = (e) => {
+    e.preventDefault()
+    const val = parseFloat(newQty)
+    if (!val || val <= 0) {
+      setError('Enter a valid positive number')
+      return
+    }
+    if (quantities.some(q => q.value === val)) {
+      setError('Value already exists')
+      return
+    }
+    const newItem = {
+      id: Date.now().toString(),
+      value: val,
+    }
+    updateSettings({
+      defaultQuantities: [...quantities, newItem],
+    })
+    setNewQty('')
+    setError('')
+  }
+
+  const handleDelete = (id) => {
+    updateSettings({
+      defaultQuantities: quantities.filter(q => q.id !== id),
+    })
+  }
+
+  const moveItem = (index, direction) => {
+    const newList = [...quantities]
+    const newIndex = index + direction
+    if (newIndex < 0 || newIndex >= newList.length) return
+    const temp = newList[index]
+    newList[index] = newList[newIndex]
+    newList[newIndex] = temp
+    updateSettings({ defaultQuantities: newList })
+  }
+
+  return (
+    <div className="space-y-5">
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <div>
+          <h3 className="font-semibold text-gray-900">Default Quantities</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Quick-select values shown in the quantity popup when adding products
+          </p>
+        </div>
+
+        <form onSubmit={handleAdd} className="flex gap-2">
+          <div className="flex-1">
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={newQty}
+              onChange={e => { setNewQty(e.target.value); setError('') }}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              placeholder="Enter quantity (e.g., 0.5)"
+            />
+            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
+          >
+            Add
+          </button>
+        </form>
+
+        {quantities.length === 0 ? (
+          <p className="text-gray-400 text-sm text-center py-4">No default quantities added yet</p>
+        ) : (
+          <div className="space-y-2">
+            {quantities.map((item, index) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <button
+                    onClick={() => moveItem(index, -1)}
+                    disabled={index === 0}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => moveItem(index, 1)}
+                    disabled={index === quantities.length - 1}
+                    className="text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                <span className="flex-1 font-medium text-gray-700">{item.value}</span>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 21m0 0l-1.5 1.5M5 21h14" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -295,6 +534,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'products', label: 'Products' },
     { id: 'billing',  label: 'Billing' },
+    { id: 'quantities', label: 'Quantities' },
   ]
 
   return (
@@ -321,6 +561,7 @@ export default function SettingsPage() {
 
         {activeTab === 'products' && <ProductsTab currencySymbol={currencySymbol} />}
         {activeTab === 'billing'  && <BillingTab settings={settings} updateSettings={updateSettings} />}
+        {activeTab === 'quantities' && <QuickQuantitiesTab settings={settings} updateSettings={updateSettings} />}
       </div>
     </div>
   )

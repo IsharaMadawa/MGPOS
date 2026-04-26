@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import ProductModal from './ProductModal'
 
 const CATEGORY_ICONS = {
   Beverages: '🥤',
@@ -12,16 +13,81 @@ function getCategoryIcon(category) {
   return CATEGORY_ICONS[category] || '📦'
 }
 
-export default function ProductGrid({ products, categories, onAddToCart, currencySymbol }) {
+export default function ProductGrid({ products, categories, onAddToCart, currencySymbol, settings }) {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [search, setSearch] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const sym = currencySymbol || '$'
+  const discountMode = settings?.discountMode || 'global'
 
   const filtered = products.filter(p => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory
     const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
     return matchesCategory && matchesSearch
   })
+
+  // Get the primary price (first price in the array)
+  const getPrimaryPrice = (product) => {
+    if (product.prices && product.prices.length > 0) {
+      return product.prices[0].price
+    }
+    return product.price || 0
+  }
+
+  // Get all prices for display
+  const getPriceDisplay = (product) => {
+    if (product.prices && product.prices.length > 0) {
+      return product.prices.map(p => `${sym}${Number(p.price).toFixed(2)}/${p.unit}`).join(', ')
+    }
+    return `${sym}${Number(product.price || 0).toFixed(2)}`
+  }
+
+  // Get discount info for a product
+  const getDiscountInfo = (product) => {
+    const mode = settings?.discountMode || 'global'
+    const basePrice = getPrimaryPrice(product)
+    
+    if (mode === 'item' && product.discount?.enabled) {
+      const isPct = product.discount.type === 'percentage'
+      const discountedPrice = isPct 
+        ? basePrice * (1 - product.discount.value / 100)
+        : Math.max(0, basePrice - product.discount.value)
+      return {
+        originalPrice: basePrice,
+        discountedPrice,
+        discountText: isPct ? `−${product.discount.value}%` : `−${sym}${product.discount.value}`,
+        isPercentage: isPct,
+      }
+    }
+    
+    if (mode === 'category') {
+      const catDisc = settings?.categoryDiscounts?.[product.category]
+      if (catDisc?.enabled) {
+        const isPct = catDisc.type === 'percentage'
+        const discountedPrice = isPct 
+          ? basePrice * (1 - catDisc.value / 100)
+          : Math.max(0, basePrice - catDisc.value)
+        return {
+          originalPrice: basePrice,
+          discountedPrice,
+          discountText: isPct ? `−${catDisc.value}%` : `−${sym}${catDisc.value}`,
+          isPercentage: isPct,
+        }
+      }
+    }
+    
+    if (mode === 'global' && settings?.globalDiscount) {
+      const discountedPrice = basePrice * (1 - settings.globalDiscount / 100)
+      return {
+        originalPrice: basePrice,
+        discountedPrice,
+        discountText: `−${settings.globalDiscount}%`,
+        isPercentage: true,
+      }
+    }
+    
+    return null
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -53,17 +119,17 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
 
       {/* Category Tabs */}
       <div className="px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide">
-        {['All', ...categories].map(cat => (
+        {[{'id': 'All', 'name': 'All'}, ...categories].map(cat => (
           <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
+            key={cat.id}
+            onClick={() => setSelectedCategory(cat.id)}
             className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-              selectedCategory === cat
+              selectedCategory === cat.id
                 ? 'bg-emerald-600 text-white shadow-sm'
                 : 'bg-white text-gray-600 border border-gray-200 hover:border-emerald-300'
             }`}
           >
-            {cat}
+            {cat.name}
           </button>
         ))}
       </div>
@@ -85,23 +151,38 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
             {filtered.map(product => (
               <button
                 key={product.id}
-                onClick={() => onAddToCart(product)}
+                onClick={() => setSelectedProduct(product)}
                 className="bg-white rounded-lg p-2 shadow-sm border border-gray-100 hover:border-emerald-300 hover:shadow-md transition-all text-left group active:scale-95"
               >
                 <div className="w-full h-14 bg-emerald-50 rounded-md mb-1.5 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
                   <span className="text-2xl select-none">{getCategoryIcon(product.category)}</span>
                 </div>
-                <p className="text-xs font-semibold text-gray-800 truncate leading-tight">{product.name}</p>
-                <p className="text-xs font-bold text-emerald-700 mt-0.5">
-                  {sym}{Number(product.price).toFixed(2)}
+                <p className="text-xs font-semibold text-gray-800 truncate leading-tight">
+                  {product.name}
+                  {settings?.discountMode === 'item' && product.discount?.enabled && (
+                    <span className="text-xs text-rose-600 ml-1">(
+                      {product.discount.type === 'percentage'
+                        ? `-${product.discount.value}%`
+                        : `-${sym}${Number(product.discount.value).toFixed(2)}`}
+                    )</span>
+                  )}
                 </p>
-                {product.discount?.enabled && (
-                  <span className="text-[10px] text-rose-500">
-                    {product.discount.type === 'percentage'
-                      ? `−${product.discount.value}%`
-                      : `−${sym}${product.discount.value}`}
-                  </span>
-                )}
+                {(() => {
+                  // Show all prices per unit in green
+                  const priceList = product.prices && product.prices.length > 0
+                    ? product.prices.map(p => (
+                        <span key={p.unit} className="block text-xs font-bold text-emerald-700">
+                          {sym}{Number(p.price).toFixed(2)} / {p.unit}
+                        </span>
+                      ))
+                    : [<span key="single" className="block text-xs font-bold text-emerald-700">{sym}{Number(product.price || 0).toFixed(2)}</span>];
+
+                  return (
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      {priceList}
+                    </div>
+                  );
+                })()}
                 {product.stock != null && (
                   <p className={`text-[10px] mt-0.5 ${product.stock <= 5 ? 'text-orange-500' : 'text-gray-400'}`}>
                     Stock: {product.stock}
@@ -112,6 +193,20 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
           </div>
         )}
       </div>
+
+      {/* Single Quantity Modal - merged with unit selection */}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onSave={(updatedProduct, qty) => {
+            onAddToCart(updatedProduct, qty)
+            setSelectedProduct(null)
+          }}
+          onClose={() => setSelectedProduct(null)}
+          currencySymbol={sym}
+          settings={settings}
+        />
+      )}
     </div>
   )
 }

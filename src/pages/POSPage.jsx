@@ -12,16 +12,28 @@ export default function POSPage() {
   const { categories } = useCategories()
   const [cart, setCart] = useState([])
   const [showMisc, setShowMisc] = useState(false)
+  const [showMobileCart, setShowMobileCart] = useState(false)
 
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
 
-  const addToCart = (product) => {
+  const addToCart = (product, qty = 1) => {
     setCart(prev => {
-      const existing = prev.find(i => i.id === product.id)
+      // Create a unique key combining product id and selected unit
+      // This ensures same product with different units appears as separate line items
+      const itemKey = product.id + '|' + (product.selectedUnit || product.unit || 'Each')
+      const existingKey = (item) => item.id + '|' + (item.selectedUnit || item.unit || 'Each')
+      
+      const existing = prev.find(i => existingKey(i) === itemKey)
       if (existing) {
-        return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i)
+        return prev.map(i => existingKey(i) === itemKey ? { ...i, qty: i.qty + qty } : i)
       }
-      return [...prev, { ...product, qty: 1 }]
+      // Generate unique id for the cart item to ensure separate line items
+      const newItem = { 
+        ...product, 
+        qty,
+        cartItemId: product.id + '_' + Date.now() // Unique cart item ID
+      }
+      return [...prev, newItem]
     })
   }
 
@@ -30,20 +42,40 @@ export default function POSPage() {
     setShowMisc(false)
   }
 
-  const updateQty = (id, qty) => {
+  const updateQty = (cartItemId, qty) => {
     if (qty <= 0) {
-      setCart(prev => prev.filter(i => i.id !== id))
+      setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
     } else {
-      setCart(prev => prev.map(i => i.id === id ? { ...i, qty } : i))
+      setCart(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, qty } : i))
     }
   }
 
-  const removeFromCart = (id) => {
-    setCart(prev => prev.filter(i => i.id !== id))
+  const updateItem = (cartItemId, updatedProduct, qty) => {
+    if (qty <= 0) {
+      setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
+      return
+    }
+    setCart(prev => {
+      // Check if the update changes unit, potentially merging with an existing item
+      const itemKey = updatedProduct.id + '|' + (updatedProduct.selectedUnit || updatedProduct.unit || 'Each')
+      const existingKey = (item) => item.id + '|' + (item.selectedUnit || item.unit || 'Each')
+      
+      const otherExisting = prev.find(i => i.cartItemId !== cartItemId && existingKey(i) === itemKey)
+      if (otherExisting) {
+        // Merge with other existing, remove this one
+        return prev.map(i => i.cartItemId === otherExisting.cartItemId ? { ...i, qty: i.qty + qty } : i).filter(i => i.cartItemId !== cartItemId)
+      }
+      
+      return prev.map(i => i.cartItemId === cartItemId ? { ...updatedProduct, qty } : i)
+    })
   }
 
-  const updateItemDiscount = (id, amount) => {
-    setCart(prev => prev.map(i => i.id === id ? { ...i, cartDiscount: amount } : i))
+  const removeFromCart = (cartItemId) => {
+    setCart(prev => prev.filter(i => i.cartItemId !== cartItemId))
+  }
+
+  const updateItemDiscount = (cartItemId, amount) => {
+    setCart(prev => prev.map(i => i.cartItemId === cartItemId ? { ...i, cartDiscount: amount } : i))
   }
 
   const clearCart = () => setCart([])
@@ -57,6 +89,7 @@ export default function POSPage() {
           categories={categories}
           onAddToCart={addToCart}
           currencySymbol={currencySymbol}
+          settings={settings}
         />
 
         {/* Misc Item Button */}
@@ -75,15 +108,52 @@ export default function POSPage() {
         )}
       </div>
 
-      {/* Right: Cart */}
-      <CartPanel
-        cart={cart}
-        onUpdateQty={updateQty}
-        onUpdateItemDiscount={updateItemDiscount}
-        onRemoveItem={removeFromCart}
-        onClear={clearCart}
-        settings={settings}
-      />
+      {/* Right: Cart - hidden on mobile, accessible via toggle */}
+      <div className="hidden lg:flex w-80 flex-shrink-0">
+        <CartPanel
+          cart={cart}
+          onUpdateQty={updateQty}
+          onUpdateItem={updateItem}
+          onUpdateItemDiscount={updateItemDiscount}
+          onRemoveItem={removeFromCart}
+          onClear={clearCart}
+          settings={settings}
+        />
+      </div>
+
+      {/* Mobile Cart Toggle Button */}
+      <button
+        onClick={() => setShowMobileCart(true)}
+        className="lg:hidden fixed bottom-4 right-4 z-40 bg-emerald-600 text-white p-4 rounded-full shadow-lg hover:bg-emerald-700 active:scale-95 transition-transform"
+      >
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        {cart.length > 0 && (
+          <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+            {cart.reduce((s, i) => s + i.qty, 0)}
+          </span>
+        )}
+      </button>
+
+      {/* Mobile Cart Sheet */}
+      {showMobileCart && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileCart(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl h-[85vh] overflow-hidden flex flex-col">
+            <CartPanel
+              cart={cart}
+              onUpdateQty={updateQty}
+              onUpdateItem={updateItem}
+              onUpdateItemDiscount={updateItemDiscount}
+              onRemoveItem={removeFromCart}
+              onClear={clearCart}
+              settings={settings}
+              onClose={() => setShowMobileCart(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Misc Modal */}
       {showMisc && (
