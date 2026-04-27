@@ -110,7 +110,7 @@ function getItemDiscountInfo(item, settings) {
 
 export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateItemDiscount, onRemoveItem, onClear, settings, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false)
-  const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '', cashierRole: '' })
+  const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '' })
   const [editingItem, setEditingItem] = useState(null)
 
   const { userProfile } = useAuth()
@@ -156,7 +156,6 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       time: now,
       cart: cart.map(i => ({ ...i })),
       cashierName: userProfile?.displayName || 'Unknown',
-      cashierRole: userProfile?.role || 'user',
     })
     setShowReceipt(true)
   }
@@ -203,7 +202,7 @@ ${storeInfo.address ? `<p class="center muted">${storeInfo.address}</p>` : ''}
 ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
-<div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'} (${receiptSnapshot.cashierRole || 'user'})</span></div>
+<div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'}</span></div>
 <div class="divider"></div>
 ${rCart.map(item => {
   const itemDisc = getItemDiscount(item, settings)
@@ -267,7 +266,6 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           {receiptSnapshot.cashierName && (
             <div className="mb-3 text-xs text-gray-500">
               <span className="font-medium">Cashier:</span> {receiptSnapshot.cashierName}
-              <span className="ml-2 capitalize text-gray-400">({receiptSnapshot.cashierRole})</span>
             </div>
           )}
 

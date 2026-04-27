@@ -41,7 +41,6 @@ export function useBillingLogs() {
       ...saleData,
       cashierId: userProfile.id,
       cashierName: userProfile.displayName,
-      cashierRole: userProfile.role,
       createdAt: new Date().toISOString(),
     }
 
