@@ -35,18 +35,30 @@
 // }
 
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 
 const CATEGORIES_COLLECTION = 'categories';
 
 export function useCategories() {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+
+  // Determine which orgId to use
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   // Sync categories from Firestore in real-time
   useEffect(() => {
-    // We use a query to keep categories ordered alphabetically by name
+    if (!orgId) {
+      setCategories([])
+      setLoading(false)
+      return
+    }
+
     const categoriesRef = collection(db, CATEGORIES_COLLECTION)
     const q = query(categoriesRef, orderBy('name'))
     
@@ -55,7 +67,14 @@ export function useCategories() {
         id: doc.id,
         ...doc.data()
       }))
-      setCategories(categoriesArray)
+      // Filter client-side: show categories for current org OR legacy categories (no orgId)
+      const filtered = categoriesArray.filter(c => 
+        c.orgId === orgId || 
+        c.orgId === null || 
+        c.orgId === undefined ||
+        c.orgId === ''
+      )
+      setCategories(filtered)
       setLoading(false)
     }, (error) => {
       console.error("Error fetching categories:", error)
@@ -63,17 +82,18 @@ export function useCategories() {
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [orgId])
 
   const addCategory = async (name) => {
-    if (!name) return
+    if (!name || !orgId) return
     try {
       const categoriesRef = collection(db, CATEGORIES_COLLECTION)
       const docRef = await addDoc(categoriesRef, {
         name,
+        orgId,
         createdAt: new Date().toISOString()
       })
-      return { id: docRef.id, name }
+      return { id: docRef.id, name, orgId }
     } catch (error) {
       console.error("Error adding category:", error)
     }

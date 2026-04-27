@@ -68,26 +68,47 @@
 
 
 import { useState, useEffect } from 'react'
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '../firebase' // Ensure this path matches your firebase.js file
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { db } from '../firebase'
+import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 
 const PRODUCTS_COLLECTION = 'products'
 
 export function useProducts() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+
+  // Determine which orgId to use
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   // Sync products from Firestore in real-time
   useEffect(() => {
+    if (!orgId) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
     const productsRef = collection(db, PRODUCTS_COLLECTION)
+    const q = query(productsRef)
     
     // Subscribe to the collection
-    const unsubscribe = onSnapshot(productsRef, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const productsArray = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
-      setProducts(productsArray)
+      // Filter client-side: show products for current org OR legacy products (no orgId)
+      const filtered = productsArray.filter(p => 
+        p.orgId === orgId || 
+        p.orgId === null || 
+        p.orgId === undefined ||
+        p.orgId === ''
+      )
+      setProducts(filtered)
       setLoading(false)
     }, (error) => {
       console.error("Error fetching products:", error)
@@ -95,18 +116,22 @@ export function useProducts() {
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [orgId])
 
   const addProduct = async (productData) => {
+    if (!orgId) {
+      console.error("No organization selected")
+      return null
+    }
     try {
       const productsRef = collection(db, PRODUCTS_COLLECTION)
-      // Firestore creates a unique ID automatically; no need for uuidv4()
       const docRef = await addDoc(productsRef, {
         ...productData,
+        orgId, // Associate with organization
         discount: productData.discount || { enabled: false, type: 'percentage', value: 0 },
         createdAt: new Date().toISOString()
       })
-      return { id: docRef.id, ...productData }
+      return { id: docRef.id, ...productData, orgId }
     } catch (error) {
       console.error("Error adding product:", error)
     }

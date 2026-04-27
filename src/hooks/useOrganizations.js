@@ -6,21 +6,31 @@ import { useAuth } from '../contexts/AuthContext'
 export function useOrganizations() {
   const [organizations, setOrganizations] = useState([])
   const [loading, setLoading] = useState(true)
-  const { isSuperAdmin } = useAuth()
+  const { userProfile, isSuperAdmin } = useAuth()
 
   const fetchOrganizations = async () => {
-    if (!isSuperAdmin) {
-      setLoading(false)
-      return
-    }
-    
     try {
       const orgsRef = collection(db, 'organizations')
-      const snapshot = await getDocs(orgsRef)
-      const orgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-      setOrganizations(orgs)
+      
+      if (isSuperAdmin) {
+        // Super admin sees all organizations
+        const snapshot = await getDocs(orgsRef)
+        const orgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+        setOrganizations(orgs)
+      } else if (userProfile?.orgId) {
+        // Other users see their assigned organization
+        const orgDoc = await getDoc(doc(db, 'organizations', userProfile.orgId))
+        if (orgDoc.exists()) {
+          setOrganizations([{ id: orgDoc.id, ...orgDoc.data() }])
+        } else {
+          setOrganizations([])
+        }
+      } else {
+        setOrganizations([])
+      }
     } catch (error) {
       console.error('Error fetching organizations:', error)
+      setOrganizations([])
     } finally {
       setLoading(false)
     }
@@ -28,7 +38,7 @@ export function useOrganizations() {
 
   useEffect(() => {
     fetchOrganizations()
-  }, [isSuperAdmin])
+  }, [isSuperAdmin, userProfile?.orgId])
 
   const createOrganization = async (orgData) => {
     const orgRef = doc(db, 'organizations', orgData.code)

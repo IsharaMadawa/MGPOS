@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { OrgProvider } from './contexts/OrgContext'
 import Navbar from './components/Navbar'
 import POSPage from './pages/POSPage'
 import SettingsPage from './pages/SettingsPage'
@@ -102,12 +103,14 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/*" element={<AppContent />} />
-        </Routes>
-      </BrowserRouter>
+      <OrgProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/*" element={<AppContent />} />
+          </Routes>
+        </BrowserRouter>
+      </OrgProvider>
     </AuthProvider>
   )
 }

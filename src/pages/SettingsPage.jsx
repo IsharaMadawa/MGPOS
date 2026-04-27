@@ -3,6 +3,7 @@ import { useProducts } from '../hooks/useProducts'
 import { useSettings, CURRENCIES } from '../hooks/useSettings'
 import { useCategories } from '../hooks/useCategories'
 import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 import { db } from '../firebase'
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import ProductFormModal from '../components/ProductFormModal'
@@ -532,7 +533,12 @@ function QuickQuantitiesTab({ settings, updateSettings }) {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('products')
   const { settings, updateSettings } = useSettings()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
+
+  // Determine which orgId is being used
+  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   const tabs = [
     { id: 'products', label: 'Products' },
@@ -540,6 +546,24 @@ export default function SettingsPage() {
     { id: 'quantities', label: 'Quantities' },
     { id: 'users', label: 'Users' },
   ]
+
+  // Show message if no organization selected
+  if (isSuperAdmin && !selectedOrgId) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+            <svg className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
+            <p className="text-gray-600 mb-4">Please select an organization from the navigation bar to manage its settings.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
@@ -575,8 +599,11 @@ export default function SettingsPage() {
 // ─── Users Tab ────────────────────────────────────────────────────────────────
 
 function UsersTab() {
-  const { userProfile } = useAuth()
-  const orgId = userProfile?.orgId
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+  
+  // Determine which orgId to use
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
   
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)

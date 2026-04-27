@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { useSettings, CURRENCIES } from '../hooks/useSettings'
 import { useCategories } from '../hooks/useCategories'
+import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 import ProductGrid from '../components/ProductGrid'
 import CartPanel from '../components/CartPanel'
 import MiscItemModal from '../components/MiscItemModal'
@@ -10,11 +12,31 @@ export default function POSPage() {
   const { products } = useProducts()
   const { settings } = useSettings()
   const { categories } = useCategories()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
   const [cart, setCart] = useState([])
   const [showMisc, setShowMisc] = useState(false)
   const [showMobileCart, setShowMobileCart] = useState(false)
 
+  // Determine which orgId is being used
+  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
+
+  // Show message if no organization selected (for super admin)
+  if (isSuperAdmin && !selectedOrgId) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-gray-50">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-8 text-center max-w-md">
+          <svg className="w-16 h-16 text-amber-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Select an Organization</h2>
+          <p className="text-gray-600">Please select an organization from the navigation bar to access its POS.</p>
+        </div>
+      </div>
+    )
+  }
 
   const addToCart = (product, qty = 1) => {
     setCart(prev => {

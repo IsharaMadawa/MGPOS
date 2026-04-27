@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { doc, setDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$',   name: 'US Dollar' },
@@ -43,16 +44,20 @@ export const DEFAULT_SETTINGS = {
 export function useSettings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
-  const { userProfile } = useAuth()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+
+  // Determine which orgId to use
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   // Listen for real-time updates from Firebase - per organization
   useEffect(() => {
-    if (!userProfile?.orgId) {
+    if (!orgId) {
       setLoading(false)
       return
     }
 
-    const docRef = doc(db, 'organizations', userProfile.orgId, 'settings', 'config')
+    const docRef = doc(db, 'organizations', orgId, 'settings', 'config')
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -69,16 +74,16 @@ export function useSettings() {
     })
 
     return () => unsubscribe()
-  }, [userProfile?.orgId])
+  }, [orgId])
 
   const updateSettings = async (updates) => {
-    if (!userProfile?.orgId) {
-      console.error('No organization assigned')
+    if (!orgId) {
+      console.error('No organization selected')
       return
     }
     
     const updated = { ...settings, ...updates }
-    const docRef = doc(db, 'organizations', userProfile.orgId, 'settings', 'config')
+    const docRef = doc(db, 'organizations', orgId, 'settings', 'config')
     
     try {
       await setDoc(docRef, updated)

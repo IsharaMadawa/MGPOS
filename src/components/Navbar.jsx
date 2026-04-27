@@ -1,11 +1,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
 
 export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { userProfile, logout, isAdmin, isSuperAdmin } = useAuth()
+  const { selectedOrgId, setSelectedOrgId } = useOrg()
   const { organizations } = useOrganizations()
 
   const handleLogout = async () => {
@@ -13,8 +15,9 @@ export default function Navbar() {
     navigate('/login')
   }
 
-  // Get current organization name
-  const currentOrg = organizations.find(o => o.id === userProfile?.orgId)
+  // For super admin, use selected org; for others, use their assigned org
+  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  const currentOrg = organizations.find(o => o.id === currentOrgId)
   const orgName = currentOrg?.name || userProfile?.orgId || ''
 
   return (
@@ -23,8 +26,24 @@ export default function Navbar() {
         <span className="text-lg font-bold tracking-tight">MG POS</span>
       </div>
       
-      {/* Organization name in center */}
-      {orgName && (
+      {/* Organization selector for super admin */}
+      {isSuperAdmin && (
+        <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:block">
+          <select
+            value={selectedOrgId || ''}
+            onChange={e => setSelectedOrgId(e.target.value || null)}
+            className="bg-emerald-800 text-emerald-100 text-sm font-medium rounded px-3 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            <option value="">Select Organization</option>
+            {organizations.map(org => (
+              <option key={org.id} value={org.id}>{org.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Organization name for non-super admins */}
+      {!isSuperAdmin && orgName && (
         <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:block">
           <span className="text-sm font-medium text-emerald-100">{orgName}</span>
         </div>
