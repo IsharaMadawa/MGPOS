@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
-
-//const STORAGE_KEY = 'pos_settings'
-const SETTINGS_DOC_ID = 'global_settings'
+import { useAuth } from '../contexts/AuthContext'
 
 export const CURRENCIES = [
   { code: 'USD', symbol: '$',   name: 'US Dollar' },
@@ -18,12 +16,12 @@ export const CURRENCIES = [
   { code: 'MYR', symbol: 'RM',  name: 'Malaysian Ringgit' },
 ]
 
-const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS = {
   taxEnabled: false,
   taxRate: 10,
-  discountMode: 'global', // 'global' | 'category' | 'item'
+  discountMode: 'global',
   globalDiscount: 0,
-  categoryDiscounts: {}, // { 'Category Name': { enabled: boolean, type: 'percentage'|'fixed', value: number } }
+  categoryDiscounts: {},
   cartDiscountEnabled: false,
   currency: 'USD',
   storeInfo: {
@@ -42,42 +40,19 @@ const DEFAULT_SETTINGS = {
   ],
 }
 
-// function loadSettings() {
-//   try {  
-//     const raw = localStorage.getItem(STORAGE_KEY)
-//     if (!raw) return DEFAULT_SETTINGS
-//     const saved = JSON.parse(raw)
-//     return {
-//       ...DEFAULT_SETTINGS,
-//       ...saved,
-//       storeInfo: { ...DEFAULT_SETTINGS.storeInfo, ...(saved.storeInfo || {}) },
-//     }
-//   } catch {
-//     return DEFAULT_SETTINGS
-//   }
-// }
-
-// export function useSettings() {
-//   const [settings, setSettings] = useState(loadSettings)
-
-//   const updateSettings = (updates) => {
-//     const updated = { ...settings, ...updates }
-//     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-//     setSettings(updated)
-//   }
-
-//   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
-
-//   return { settings, updateSettings, currencySymbol }
-// }
-
 export function useSettings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
+  const { userProfile } = useAuth()
 
-  // Listen for real-time updates from Firebase
+  // Listen for real-time updates from Firebase - per organization
   useEffect(() => {
-    const docRef = doc(db, "pos_data", SETTINGS_DOC_ID)
+    if (!userProfile?.orgId) {
+      setLoading(false)
+      return
+    }
+
+    const docRef = doc(db, 'organizations', userProfile.orgId, 'settings', 'config')
     
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -88,24 +63,27 @@ export function useSettings() {
           storeInfo: { ...DEFAULT_SETTINGS.storeInfo, ...(saved.storeInfo || {}) },
         })
       } else {
-        // If no settings exist in cloud, initialize them
         setDoc(docRef, DEFAULT_SETTINGS)
       }
       setLoading(false)
     })
 
     return () => unsubscribe()
-  }, [])
+  }, [userProfile?.orgId])
 
   const updateSettings = async (updates) => {
+    if (!userProfile?.orgId) {
+      console.error('No organization assigned')
+      return
+    }
+    
     const updated = { ...settings, ...updates }
-    const docRef = doc(db, "pos_data", SETTINGS_DOC_ID)
+    const docRef = doc(db, 'organizations', userProfile.orgId, 'settings', 'config')
     
     try {
       await setDoc(docRef, updated)
-      // No need to setSettings manually; onSnapshot will trigger the update
     } catch (error) {
-      console.error("Error updating settings:", error)
+      console.error('Error updating settings:', error)
     }
   }
 
