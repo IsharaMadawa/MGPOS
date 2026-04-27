@@ -6,6 +6,7 @@ import POSPage from './pages/POSPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
 import SuperAdminPage from './pages/SuperAdminPage'
+import ReportsPage from './pages/ReportsPage'
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -92,6 +93,7 @@ function AppContent() {
           <Route path="/login" element={<Navigate to="/" replace />} />
           <Route path="/" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+          <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
           <Route path="/super-admin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
