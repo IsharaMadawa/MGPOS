@@ -25,29 +25,24 @@ export default function Navbar() {
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold tracking-tight">MG POS</span>
       </div>
-      
-      {/* Organization selector for super admin */}
-      {isSuperAdmin && (
-        <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:block">
+
+      {/* Org selector/name - visible on all screens, centered */}
+      <div className="absolute left-1/2 transform -translate-x-1/2">
+        {isSuperAdmin ? (
           <select
             value={selectedOrgId || ''}
             onChange={e => setSelectedOrgId(e.target.value || null)}
-            className="bg-emerald-800 text-emerald-100 text-sm font-medium rounded px-3 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            className="bg-emerald-800 text-emerald-100 text-xs md:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 max-w-[140px] md:max-w-[180px]"
           >
-            <option value="">Select Organization</option>
+            <option value="">Select Org</option>
             {organizations.map(org => (
               <option key={org.id} value={org.id}>{org.name}</option>
             ))}
           </select>
-        </div>
-      )}
-
-      {/* Organization name for non-super admins */}
-      {!isSuperAdmin && orgName && (
-        <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:block">
-          <span className="text-sm font-medium text-emerald-100">{orgName}</span>
-        </div>
-      )}
+        ) : (
+          orgName && <span className="text-xs md:text-sm font-medium text-emerald-100 px-2 py-1 bg-emerald-800 rounded max-w-[140px] md:max-w-[180px] truncate">{orgName}</span>
+        )}
+      </div>
 
       <div className="flex items-center gap-1 ml-auto">
         <Link

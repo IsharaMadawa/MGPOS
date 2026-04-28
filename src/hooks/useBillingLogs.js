@@ -2,21 +2,26 @@ import { useState, useEffect } from 'react'
 import { collection, addDoc, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
 
 export function useBillingLogs() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
-  const { userProfile } = useAuth()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+
+  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   // Fetch recent billing logs for the organization
   useEffect(() => {
-    if (!userProfile?.orgId) {
+    if (!orgId) {
       setLogs([])
       setLoading(false)
       return
     }
 
-    const logsRef = collection(db, 'organizations', userProfile.orgId, 'billing_logs')
+    const logsRef = collection(db, 'organizations', orgId, 'billing_logs')
     const q = query(logsRef, orderBy('createdAt', 'desc'), limit(50))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -32,19 +37,23 @@ export function useBillingLogs() {
     })
 
     return () => unsubscribe()
-  }, [userProfile?.orgId])
+  }, [orgId])
 
   const createBillingLog = async (saleData) => {
-    if (!userProfile?.orgId) return
+    if (!orgId) {
+      console.error('Cannot create billing log: no organization selected')
+      return
+    }
 
     const logEntry = {
       ...saleData,
       cashierId: userProfile.id,
       cashierName: userProfile.displayName,
+      orgId: orgId,
       createdAt: new Date().toISOString(),
     }
 
-    const logsRef = collection(db, 'organizations', userProfile.orgId, 'billing_logs')
+    const logsRef = collection(db, 'organizations', orgId, 'billing_logs')
     const docRef = await addDoc(logsRef, logEntry)
     return { id: docRef.id, ...logEntry }
   }
@@ -56,15 +65,19 @@ export function useBillingLogs() {
 export function useReceiptLog(receiptNo) {
   const [receipt, setReceipt] = useState(null)
   const [loading, setLoading] = useState(true)
-  const { userProfile } = useAuth()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+
+  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   useEffect(() => {
-    if (!userProfile?.orgId || !receiptNo) {
+    if (!orgId || !receiptNo) {
       setLoading(false)
       return
     }
 
-    const logsRef = collection(db, 'organizations', userProfile.orgId, 'billing_logs')
+    const logsRef = collection(db, 'organizations', orgId, 'billing_logs')
     const q = query(logsRef, where('receiptNo', '==', receiptNo))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -75,7 +88,7 @@ export function useReceiptLog(receiptNo) {
     })
 
     return () => unsubscribe()
-  }, [userProfile?.orgId, receiptNo])
+  }, [orgId, receiptNo])
 
   return { receipt, loading }
 }
