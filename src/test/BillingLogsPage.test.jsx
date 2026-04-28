@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '../contexts/AuthContext'
@@ -10,14 +11,14 @@ import { useOrg } from '../contexts/OrgContext'
 import { logUserAction } from '../utils/logger'
 
 // Mock the hooks
-jest.mock('../hooks/useBillingLogs')
-jest.mock('../hooks/useSettings')
-jest.mock('../contexts/AuthContext')
-jest.mock('../contexts/OrgContext')
-jest.mock('../utils/logger')
+vi.mock('../hooks/useBillingLogs')
+vi.mock('../hooks/useSettings')
+vi.mock('../contexts/AuthContext')
+vi.mock('../contexts/OrgContext')
+vi.mock('../utils/logger')
 
 // Mock window.open
-const mockWindowOpen = jest.fn()
+const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {
   writable: true,
   value: mockWindowOpen
@@ -26,11 +27,11 @@ Object.defineProperty(window, 'open', {
 // Mock the print window
 const mockPrintWindow = {
   document: {
-    write: jest.fn(),
-    close: jest.fn()
+    write: vi.fn(),
+    close: vi.fn()
   },
   onload: null,
-  close: jest.fn()
+  close: vi.fn()
 }
 
 const mockBillingLogs = [
@@ -111,7 +112,7 @@ function TestWrapper({ children }) {
 
 describe('BillingLogsPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     
     useBillingLogs.mockReturnValue({
       logs: mockBillingLogs,

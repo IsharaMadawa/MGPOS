@@ -118,8 +118,16 @@ describe('useReports', () => {
       wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
     })
 
+    // Generate report to populate the reports state
+    await result.current.generateReport('today')
+
     await waitFor(() => {
-      expect(result.current.reports).toEqual(mockBillingLogs)
+      // The hook adds orgId and sorts by date descending
+      const expectedReports = mockBillingLogs.map(log => ({
+        ...log,
+        orgId: 'org1'
+      })).reverse()
+      expect(result.current.reports).toEqual(expectedReports)
     })
 
     const summary = result.current.calculateSummary(mockBillingLogs)
@@ -199,8 +207,8 @@ describe('useReports', () => {
     const johnBreakdown = breakdown.find(c => c.cashierName === 'John Doe')
     expect(johnBreakdown.transactionCount).toBe(1)
     expect(johnBreakdown.grossSales).toBe(110) // (50 * 2) + (10 * 1)
-    expect(johnBreakdown.totalDiscounts).toBe(15) // 10 (item) + 10 (global)
-    expect(johnBreakdown.netSales).toBe(95) // 110 - 15
+    expect(johnBreakdown.totalDiscounts).toBe(20) // 10 (item) + 10 (global)
+    expect(johnBreakdown.netSales).toBe(90) // 110 - 20
     
     const janeBreakdown = breakdown.find(c => c.cashierName === 'Jane Smith')
     expect(janeBreakdown.transactionCount).toBe(1)

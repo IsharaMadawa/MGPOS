@@ -79,10 +79,11 @@ describe('Password Change Functionality', () => {
 
   const createMockChangePasswordFunction = (userProfile) => {
     return async (targetUserId, newPassword, currentPassword = null) => {
-      // Authorization checks
-      if (!userProfile) {
-        throw new Error('You must be logged in to change passwords')
-      }
+      try {
+        // Authorization checks
+        if (!userProfile) {
+          throw new Error('You must be logged in to change passwords')
+        }
 
       // Mock getDoc call
       const targetUserDoc = await mockGetDoc(doc({}, 'users', targetUserId))
@@ -143,6 +144,20 @@ describe('Password Change Functionality', () => {
       )
 
       return { success: true, message: 'Password changed successfully' }
+
+      } catch (error) {
+        // Log error if not already logged
+        if (userProfile) {
+          await mockLogError(
+            `Password change failed: ${error.message}`,
+            error,
+            userProfile,
+            userProfile.orgId,
+            { targetUserId }
+          )
+        }
+        throw error
+      }
     }
   }
 

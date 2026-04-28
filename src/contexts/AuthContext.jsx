@@ -5,7 +5,7 @@ import { hashPassword, verifyPasswordLegacy } from '../utils/passwordUtils'
 import { verifyAndMigratePassword } from '../utils/migratePasswords'
 import { logUserAction, logError, LOG_TYPES } from '../utils/logger'
 
-const AuthContext = createContext(null)
+export const AuthContext = createContext(null)
 
 export function useAuth() {
   return useContext(AuthContext)

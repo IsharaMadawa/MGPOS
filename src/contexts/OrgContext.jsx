@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 
-const OrgContext = createContext(null)
+export const OrgContext = createContext(null)
 
 export function useOrg() {
   return useContext(OrgContext)
