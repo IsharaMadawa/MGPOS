@@ -34,7 +34,9 @@ export default function LoginPage() {
         }
         await signup(username, password, displayName || username, email || null, 'user', orgCode.trim())
       } else {
-        await login(username, password)
+        // For login, pass orgCode if user is selecting an organization
+        // This helps resolve duplicate usernames across organizations
+        await login(username, password, orgCode.trim() || null)
       }
       navigate('/')
     } catch (err) {
@@ -123,18 +125,19 @@ export default function LoginPage() {
             </div>
           )}
 
-          {isSignup && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Code</label>
-              <input
-                type="text"
-                value={orgCode}
-                onChange={e => setOrgCode(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Enter org code to join"
-              />
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Organization Code {isSignup ? '' : <span className="text-gray-400 font-normal">(required if multiple accounts exist)</span>}
+            </label>
+            <input
+              type="text"
+              value={orgCode}
+              onChange={e => setOrgCode(e.target.value)}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder={isSignup ? "Enter org code to join" : "Enter your organization code"}
+              required={isSignup}
+            />
+          </div>
 
           {error && (
             <div className="bg-rose-50 text-rose-600 text-sm p-3 rounded-lg">

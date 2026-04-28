@@ -3,7 +3,8 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrganizations, useOrgUsers } from '../hooks/useOrganizations'
 import { db } from '../firebase'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
+import PasswordChangeModal from '../components/PasswordChangeModal'
 
 export default function SuperAdminPage() {
   const { isSuperAdmin, loading } = useAuth()
@@ -19,6 +20,10 @@ export default function SuperAdminPage() {
   const [selectedOrg, setSelectedOrg] = useState('')
   const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', email: '', role: 'user' })
   const [creatingUser, setCreatingUser] = useState(false)
+
+  // Password change state
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState(null)
 
   if (loading || orgsLoading) {
     return (
@@ -67,6 +72,15 @@ export default function SuperAdminPage() {
     
     setCreatingUser(true)
     try {
+      // Check if username already exists globally (same logic as signup)
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where('username', '==', newUser.username.trim().toLowerCase()))
+      const snapshot = await getDocs(q)
+
+      if (!snapshot.empty) {
+        throw new Error('This username is already taken. Please choose a different username.')
+      }
+
       const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
       await setDoc(doc(db, 'users', userId), {
         username: newUser.username.trim().toLowerCase(),
@@ -87,6 +101,11 @@ export default function SuperAdminPage() {
     } finally {
       setCreatingUser(false)
     }
+  }
+
+  const handlePasswordChange = (userId) => {
+    setSelectedUserId(userId)
+    setShowPasswordModal(true)
   }
 
   return (
@@ -188,6 +207,7 @@ export default function SuperAdminPage() {
                       key={org.id} 
                       org={org} 
                       onDelete={() => handleDeleteOrg(org.id)} 
+                      onPasswordChange={handlePasswordChange}
                     />
                   ))}
                 </tbody>
@@ -295,12 +315,23 @@ export default function SuperAdminPage() {
             </div>
           )}
         </div>
+
+        {/* Password Change Modal */}
+        {showPasswordModal && (
+          <PasswordChangeModal
+            onClose={() => {
+              setShowPasswordModal(false)
+              setSelectedUserId(null)
+            }}
+            targetUserId={selectedUserId}
+          />
+        )}
       </div>
     </div>
   )
 }
 
-function OrgRow({ org, onDelete }) {
+function OrgRow({ org, onDelete, onPasswordChange }) {
   const [showUsers, setShowUsers] = useState(false)
   const { users, loading: usersLoading, updateUserRole, removeUser } = useOrgUsers(org.id)
 
@@ -352,6 +383,12 @@ function OrgRow({ org, onDelete }) {
                         <option value="user">User</option>
                         <option value="admin">Admin</option>
                       </select>
+                      <button
+                        onClick={() => onPasswordChange(user.id)}
+                        className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Change Password
+                      </button>
                       <button
                         onClick={() => removeUser(user.id)}
                         className="text-xs text-red-500 hover:text-red-700"

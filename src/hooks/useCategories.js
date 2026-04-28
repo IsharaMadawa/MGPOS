@@ -1,44 +1,9 @@
-// import { useState } from 'react'
-
-// const STORAGE_KEY = 'pos_categories'
-// const DEFAULT_CATEGORIES = ['Beverages', 'Food', 'Electronics', 'Clothing', 'Other']
-
-// function loadCategories() {
-//   try {
-//     const raw = localStorage.getItem(STORAGE_KEY)
-//     if (!raw) return DEFAULT_CATEGORIES
-//     return JSON.parse(raw)
-//   } catch {
-//     return DEFAULT_CATEGORIES
-//   }
-// }
-
-// export function useCategories() {
-//   const [categories, setCategories] = useState(loadCategories)
-
-//   const addCategory = (name) => {
-//     const trimmed = name?.trim()
-//     if (!trimmed || categories.includes(trimmed)) return false
-//     const updated = [...categories, trimmed]
-//     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-//     setCategories(updated)
-//     return true
-//   }
-
-//   const deleteCategory = (name) => {
-//     const updated = categories.filter(c => c !== name)
-//     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
-//     setCategories(updated)
-//   }
-
-//   return { categories, addCategory, deleteCategory }
-// }
-
 import { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { logCrudOperation } from '../utils/logger'
 
 const CATEGORIES_COLLECTION = 'categories';
 
@@ -93,7 +58,13 @@ export function useCategories() {
         orgId,
         createdAt: new Date().toISOString()
       })
-      return { id: docRef.id, name, orgId }
+      
+      const categoryData = { id: docRef.id, name, orgId }
+      
+      // Log the category creation
+      await logCrudOperation('create', 'category', categoryData, userProfile, orgId)
+      
+      return categoryData
     } catch (error) {
       console.error("Error adding category:", error)
     }
@@ -103,6 +74,9 @@ export function useCategories() {
     try {
       const categoryRef = doc(db, CATEGORIES_COLLECTION, id)
       await updateDoc(categoryRef, { name: newName })
+      
+      // Log the category update
+      await logCrudOperation('update', 'category', { id, name: newName }, userProfile, orgId)
     } catch (error) {
       console.error("Error updating category:", error)
     }
@@ -110,8 +84,16 @@ export function useCategories() {
 
   const deleteCategory = async (id) => {
     try {
+      // Get category data before deletion for logging
+      const categoryToDelete = categories.find(c => c.id === id)
+      
       const categoryRef = doc(db, CATEGORIES_COLLECTION, id)
       await deleteDoc(categoryRef)
+      
+      // Log the category deletion
+      if (categoryToDelete) {
+        await logCrudOperation('delete', 'category', categoryToDelete, userProfile, orgId)
+      }
     } catch (error) {
       console.error("Error deleting category:", error)
     }

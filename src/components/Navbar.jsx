@@ -2,6 +2,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
+import { useState } from 'react'
+import PasswordChangeModal from './PasswordChangeModal'
 
 export default function Navbar() {
   const location = useLocation()
@@ -9,10 +11,15 @@ export default function Navbar() {
   const { userProfile, logout, isAdmin, isSuperAdmin } = useAuth()
   const { selectedOrgId, setSelectedOrgId } = useOrg()
   const { organizations } = useOrganizations()
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
 
   const handleLogout = async () => {
     await logout()
     navigate('/login')
+  }
+
+  const handlePasswordChange = () => {
+    setShowPasswordModal(true)
   }
 
   // For super admin, use selected org; for others, use their assigned org
@@ -89,6 +96,36 @@ export default function Navbar() {
             <span className="hidden xs:inline">Reports</span>
           </Link>
         )}
+        {isAdmin && (
+          <Link
+            to="/logs"
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 min-w-[60px] justify-center ${
+              location.pathname === '/logs'
+                ? 'bg-emerald-800 text-white'
+                : 'text-emerald-100 hover:bg-emerald-600'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <span className="hidden xs:inline">Logs</span>
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            to="/billing-logs"
+            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 min-w-[60px] justify-center ${
+              location.pathname === '/billing-logs'
+                ? 'bg-emerald-800 text-white'
+                : 'text-emerald-100 hover:bg-emerald-600'
+            }`}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            <span className="hidden xs:inline">Bills</span>
+          </Link>
+        )}
         {isSuperAdmin && (
           <Link
             to="/super-admin"
@@ -111,8 +148,17 @@ export default function Navbar() {
               <div className="text-[10px] text-emerald-200 capitalize">{userProfile.role}</div>
             </div>
             <button
+              onClick={handlePasswordChange}
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-600 transition-colors"
+              title="Change password"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </button>
+            <button
               onClick={handleLogout}
-              className="ml-1 px-2 py-1.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-600 transition-colors flex items-center gap-1.5"
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-emerald-100 hover:bg-emerald-600 transition-colors flex items-center gap-1.5"
               title="Sign out"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,6 +169,13 @@ export default function Navbar() {
           </div>
         )}
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <PasswordChangeModal
+          onClose={() => setShowPasswordModal(false)}
+        />
+      )}
     </nav>
   )
 }

@@ -118,3 +118,56 @@ export function useOrgUsers(orgCode) {
     removeUser,
   }
 }
+
+export function useUsers(orgId = null) {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const { isSuperAdmin, userProfile } = useAuth()
+
+  const fetchUsers = async () => {
+    try {
+      const usersRef = collection(db, 'users')
+      let q
+
+      if (isSuperAdmin && orgId) {
+        // Super admin filtering by specific organization
+        q = query(usersRef, where('orgId', '==', orgId))
+      } else if (isSuperAdmin) {
+        // Super admin sees all users
+        q = usersRef
+      } else if (userProfile?.orgId) {
+        // Regular admin sees users from their organization
+        q = query(usersRef, where('orgId', '==', userProfile.orgId))
+      } else {
+        // No access, return empty
+        setUsers([])
+        setLoading(false)
+        return
+      }
+
+      const snapshot = await getDocs(q)
+      const userList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      setUsers(userList)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      setUsers([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [isSuperAdmin, userProfile?.orgId, orgId])
+
+  const getUserById = (userId) => {
+    return users.find(user => user.id === userId)
+  }
+
+  return {
+    users,
+    loading,
+    refetch: fetchUsers,
+    getUserById,
+  }
+}

@@ -7,6 +7,7 @@ import { useOrg } from '../contexts/OrgContext'
 import { db } from '../firebase'
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import ProductFormModal from '../components/ProductFormModal'
+import PasswordChangeModal from '../components/PasswordChangeModal'
 
 // ─── Products Tab ────────────────────────────────────────────────────────────
 
@@ -387,6 +388,20 @@ function BillingTab({ settings, updateSettings }) {
         </section>
       )}
 
+      {/* Reprint */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Bill Reprint</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Allow reprinting bills from today only</p>
+          </div>
+          <Toggle
+            checked={settings.reprintEnabled || false}
+            onChange={e => updateSettings({ reprintEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
+
       {/* Misc Items */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100">
         <div className="flex items-center justify-between">
@@ -611,6 +626,8 @@ function UsersTab() {
   const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', email: '', role: 'user' })
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState(null)
 
   // Fetch users for this organization
   useEffect(() => {
@@ -653,7 +670,7 @@ function UsersTab() {
       const snapshot = await getDocs(q)
 
       if (!snapshot.empty) {
-        setError('Username already exists')
+        setError('This username is already taken. Please choose a different username.')
         setCreating(false)
         return
       }
@@ -703,6 +720,11 @@ function UsersTab() {
       console.error('Error deleting user:', err)
       alert('Failed to delete user')
     }
+  }
+
+  const handlePasswordChange = (userId) => {
+    setSelectedUserId(userId)
+    setShowPasswordModal(true)
   }
 
   if (loading) {
@@ -821,6 +843,12 @@ function UsersTab() {
                     <option value="admin">Admin</option>
                   </select>
                   <button
+                    onClick={() => handlePasswordChange(user.id)}
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  >
+                    Change Password
+                  </button>
+                  <button
                     onClick={() => handleDeleteUser(user.id)}
                     className="text-xs text-red-500 hover:text-red-700"
                     disabled={user.id === userProfile?.id}
@@ -831,6 +859,17 @@ function UsersTab() {
               </div>
             ))}
           </div>
+        )}
+
+        {/* Password Change Modal */}
+        {showPasswordModal && (
+          <PasswordChangeModal
+            onClose={() => {
+              setShowPasswordModal(false)
+              setSelectedUserId(null)
+            }}
+            targetUserId={selectedUserId}
+          />
         )}
       </div>
     </div>

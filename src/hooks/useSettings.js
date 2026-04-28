@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS = {
     footer: 'Thank you for your purchase!',
   },
   miscEnabled: true,
+  reprintEnabled: false,
   defaultQuantities: [
     { id: '1', value: 0.25 },
     { id: '2', value: 0.5 },

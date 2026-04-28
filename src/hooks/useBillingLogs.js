@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { collection, addDoc, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore'
+import { collection, addDoc, query, orderBy, limit, onSnapshot, where, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { logCrudOperation, logUserAction } from '../utils/logger'
 
 export function useBillingLogs() {
   const [logs, setLogs] = useState([])
@@ -55,6 +56,15 @@ export function useBillingLogs() {
 
     const logsRef = collection(db, 'organizations', orgId, 'billing_logs')
     const docRef = await addDoc(logsRef, logEntry)
+    
+    // Log the sale creation in system logs
+    await logCrudOperation('create', 'sale', { 
+      id: docRef.id, 
+      receiptNo: saleData.receiptNo, 
+      totalAmount: saleData.totalAmount,
+      items: saleData.items 
+    }, userProfile, orgId)
+    
     return { id: docRef.id, ...logEntry }
   }
 

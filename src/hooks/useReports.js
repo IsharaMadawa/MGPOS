@@ -158,9 +158,37 @@ export function useReports() {
     let itemCount = 0
 
     logs.forEach(log => {
-      grossSales += log.subtotal || 0
-      totalDiscounts += log.discountAmount || 0
-      netSales += log.total || 0
+      // Calculate true gross amount from cart items (price × quantity before any discounts)
+      const trueGross = log.cart ? log.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+      grossSales += trueGross
+      
+      // Calculate total discounts (item-level + global)
+      let itemDiscounts = 0
+      if (log.cart) {
+        itemDiscounts = log.cart.reduce((sum, item) => {
+          const lineTotal = item.price * item.qty
+          // Re-calculate item discount using the same logic as CartPanel
+          let itemDiscount = 0
+          if (item.cartDiscount != null && item.cartDiscount !== '') {
+            const val = parseFloat(item.cartDiscount) || 0
+            itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+          } else if (item.discount?.enabled) {
+            if (item.discount.type === 'percentage') {
+              itemDiscount = lineTotal * (item.discount.value / 100)
+            } else {
+              itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+            }
+          }
+          return sum + itemDiscount
+        }, 0)
+      }
+      
+      const globalDiscount = log.discountAmount || 0
+      totalDiscounts += itemDiscounts + globalDiscount
+      
+      // Net sales should be gross minus discounts (excluding tax)
+      netSales += (trueGross - itemDiscounts - globalDiscount)
+      
       totalTax += log.taxAmount || 0
       itemCount += log.itemCount || 0
     })
@@ -193,12 +221,39 @@ export function useReports() {
         })
       }
       
+      // Calculate true gross amount from cart items
+      const trueGross = log.cart ? log.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+      
+      // Calculate item discounts
+      let itemDiscounts = 0
+      if (log.cart) {
+        itemDiscounts = log.cart.reduce((sum, item) => {
+          const lineTotal = item.price * item.qty
+          let itemDiscount = 0
+          if (item.cartDiscount != null && item.cartDiscount !== '') {
+            const val = parseFloat(item.cartDiscount) || 0
+            itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+          } else if (item.discount?.enabled) {
+            if (item.discount.type === 'percentage') {
+              itemDiscount = lineTotal * (item.discount.value / 100)
+            } else {
+              itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+            }
+          }
+          return sum + itemDiscount
+        }, 0)
+      }
+      
+      const globalDiscount = log.discountAmount || 0
+      const totalDiscounts = itemDiscounts + globalDiscount
+      const netSales = trueGross - totalDiscounts
+      
       const data = cashierMap.get(cashier)
       data.transactionCount += 1
-      data.totalSales += log.subtotal || 0
-      data.grossSales += log.subtotal || 0
-      data.totalDiscounts += log.discountAmount || 0
-      data.netSales += log.total || 0
+      data.totalSales += trueGross
+      data.grossSales += trueGross
+      data.totalDiscounts += totalDiscounts
+      data.netSales += netSales
     })
 
     return Array.from(cashierMap.values()).sort((a, b) => b.netSales - a.netSales)
@@ -220,11 +275,38 @@ export function useReports() {
         })
       }
       
+      // Calculate true gross amount from cart items
+      const trueGross = log.cart ? log.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+      
+      // Calculate item discounts
+      let itemDiscounts = 0
+      if (log.cart) {
+        itemDiscounts = log.cart.reduce((sum, item) => {
+          const lineTotal = item.price * item.qty
+          let itemDiscount = 0
+          if (item.cartDiscount != null && item.cartDiscount !== '') {
+            const val = parseFloat(item.cartDiscount) || 0
+            itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+          } else if (item.discount?.enabled) {
+            if (item.discount.type === 'percentage') {
+              itemDiscount = lineTotal * (item.discount.value / 100)
+            } else {
+              itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+            }
+          }
+          return sum + itemDiscount
+        }, 0)
+      }
+      
+      const globalDiscount = log.discountAmount || 0
+      const totalDiscounts = itemDiscounts + globalDiscount
+      const netSales = trueGross - totalDiscounts
+      
       const data = dailyMap.get(date)
       data.transactionCount += 1
-      data.grossSales += log.subtotal || 0
-      data.totalDiscounts += log.discountAmount || 0
-      data.netSales += log.total || 0
+      data.grossSales += trueGross
+      data.totalDiscounts += totalDiscounts
+      data.netSales += netSales
     })
 
     return Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date))
