@@ -5,6 +5,7 @@ import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
 import { useReports, getDateRange } from '../hooks/useReports'
 import { CURRENCIES } from '../hooks/useSettings'
+import { logUserAction } from '../utils/logger'
 
 export default function ReportsPage() {
   const { userProfile, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
@@ -69,6 +70,25 @@ export default function ReportsPage() {
     const orgs = isSuperAdmin ? (selectedOrgs.length > 0 ? selectedOrgs : [selectedOrgId]) : [currentOrgId]
     await generateReport(period, customStartDate, customEndDate, orgs)
     setGenerated(true)
+    
+    // Log report generation
+    try {
+      await logUserAction(
+        'REPORT_GENERATE',
+        `Generated ${reportType} report for ${period}${period === 'custom' && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}`,
+        userProfile,
+        currentOrgId,
+        {
+          period,
+          reportType,
+          orgIds: orgs,
+          transactionCount: reports.length,
+          summary: calculateSummary(reports)
+        }
+      )
+    } catch (logError) {
+      console.error('Failed to log report generation:', logError)
+    }
   }
 
   const summary = generated ? calculateSummary(reports) : null
@@ -85,7 +105,7 @@ export default function ReportsPage() {
     )
   }
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!generated || !summary) return
     
     const reportOrgs = isSuperAdmin && selectedOrgs.length > 0 
@@ -276,6 +296,25 @@ export default function ReportsPage() {
     printWindow.onload = () => {
       printWindow.print()
       printWindow.close()
+    }
+    
+    // Log report printing
+    try {
+      await logUserAction(
+        'REPORT_PRINT',
+        `Printed ${reportType} report for ${period}${period === 'custom' && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}`,
+        userProfile,
+        currentOrgId,
+        {
+          period,
+          reportType,
+          orgIds: isSuperAdmin && selectedOrgs.length > 0 ? selectedOrgs : [currentOrgId],
+          transactionCount: reports.length,
+          summary
+        }
+      )
+    } catch (logError) {
+      console.error('Failed to log report printing:', logError)
     }
   }
 

@@ -45,7 +45,12 @@ export const LOG_TYPES = {
   SYSTEM_ERROR: 'system_error',
   SYSTEM_WARNING: 'system_warning',
   DATA_IMPORT: 'data_import',
-  DATA_EXPORT: 'data_export'
+  DATA_EXPORT: 'data_export',
+  
+  // Reporting operations
+  REPORT_GENERATE: 'report_generate',
+  REPORT_PRINT: 'report_print',
+  REPORT_VIEW: 'report_view'
 }
 
 /**
