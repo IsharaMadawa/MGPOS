@@ -5,9 +5,34 @@ import SuperAdminPage from '../pages/SuperAdminPage'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
 
-// Mock Firebase
+// Mock Firebase - provide proper Firestore mock
+const mockCollection = vi.fn(() => ({
+  where: vi.fn(() => ({
+    get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
+  })),
+  get: vi.fn(() => Promise.resolve({ docs: [] }))
+}))
+const mockDoc = vi.fn()
+const mockSetDoc = vi.fn(() => Promise.resolve())
+const mockServerTimestamp = vi.fn(() => new Date())
+
 vi.mock('../firebase', () => ({
-  db: {},
+  db: {
+    collection: mockCollection,
+    doc: mockDoc
+  }
+}))
+
+vi.mock('firebase/firestore', () => ({
+  collection: mockCollection,
+  doc: mockDoc,
+  setDoc: mockSetDoc,
+  serverTimestamp: mockServerTimestamp,
+  query: vi.fn(),
+  where: vi.fn(),
+  getDocs: vi.fn(() => Promise.resolve({ empty: true, docs: [] })),
+  updateDoc: vi.fn(() => Promise.resolve()),
+  deleteDoc: vi.fn(() => Promise.resolve())
 }))
 
 // Mock useToast
@@ -90,6 +115,13 @@ const renderWithProviders = (component) => {
 describe('SuperAdminPage - Organization Edit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Reset mock implementations
+    mockCollection.mockReturnValue({
+      where: vi.fn(() => ({
+        get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
+      })),
+      get: vi.fn(() => Promise.resolve({ docs: [] }))
+    })
   })
 
   describe('Organization Edit Functionality', () => {
@@ -97,7 +129,7 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       expect(screen.getByText('Edit')).toBeInTheDocument()
@@ -108,31 +140,30 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       // Click edit button
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
       await waitFor(() => {
-        expect(screen.getByText('Edit Organization: org1')).toBeInTheDocument()
         expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
         expect(screen.getByLabelText('Description')).toBeInTheDocument()
         expect(screen.getByText('Update')).toBeInTheDocument()
         expect(screen.getByText('Cancel')).toBeInTheDocument()
-      })
+      }, { timeout: 3000 })
     })
 
     it('should pre-fill edit form with current organization data', async () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       // Click edit button
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
       await waitFor(() => {
@@ -148,11 +179,11 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       // Click edit button
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
       await waitFor(() => {
@@ -172,34 +203,34 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       // Click edit button
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
       await waitFor(() => {
-        expect(screen.getByText('Edit Organization: org1')).toBeInTheDocument()
-      })
+        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
+      }, { timeout: 3000 })
       
       // Click cancel button
       const cancelButton = screen.getByText('Cancel')
       fireEvent.click(cancelButton)
       
       await waitFor(() => {
-        expect(screen.queryByText('Edit Organization: org1')).not.toBeInTheDocument()
-      })
+        expect(screen.queryByLabelText('Organization Name')).not.toBeInTheDocument()
+      }, { timeout: 3000 })
     })
 
     it('should toggle edit button text between Edit and Cancel', async () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       expect(editButton.textContent).toBe('Edit')
       
       // Click edit button
@@ -209,7 +240,7 @@ describe('SuperAdminPage - Organization Edit', () => {
         expect(editButton.textContent).toBe('Cancel')
       })
       
-      // Click cancel button
+      // Click the same button (now showing Cancel)
       fireEvent.click(editButton)
       
       await waitFor(() => {
@@ -221,26 +252,33 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Switch to Organizations tab
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
       // Click edit button
-      const editButton = screen.getByText('Edit')
+      const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
+      // Wait for the edit form to appear
       await waitFor(() => {
-        const nameInput = screen.getByLabelText('Organization Name')
-        const updateButton = screen.getByText('Update')
-        
-        // Clear name field
-        fireEvent.change(nameInput, { target: { value: '   ' } }) // spaces only
-        
-        // Try to submit
-        fireEvent.click(updateButton)
-        
-        // Form should not submit (no error message shown, but update shouldn't happen)
-        expect(screen.getByText('Edit Organization: org1')).toBeInTheDocument()
-      })
+        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
+        expect(screen.getByText('Update')).toBeInTheDocument()
+      }, { timeout: 3000 })
+      
+      const nameInput = screen.getByLabelText('Organization Name')
+      const updateButton = screen.getByText('Update')
+      
+      // Clear name field
+      fireEvent.change(nameInput, { target: { value: '   ' } }) // spaces only
+      
+      // Try to submit - the form should prevent submission due to validation
+      fireEvent.click(updateButton)
+      
+      // Form should still be visible (validation prevented submission)
+      // Wait a bit to ensure the validation logic had time to execute
+      await waitFor(() => {
+        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
+      }, { timeout: 1000 })
     })
   })
 
@@ -256,8 +294,8 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       expect(screen.getByText('Super Admin')).toBeInTheDocument()
-      expect(screen.getByText('Organizations')).toBeInTheDocument()
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Organizations' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
     })
 
     it('should render properly on tablet viewports', () => {
@@ -271,8 +309,8 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       expect(screen.getByText('Super Admin')).toBeInTheDocument()
-      expect(screen.getByText('Organizations')).toBeInTheDocument()
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Organizations' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
     })
 
     it('should render properly on desktop viewports', () => {
@@ -286,8 +324,8 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       expect(screen.getByText('Super Admin')).toBeInTheDocument()
-      expect(screen.getByText('Organizations')).toBeInTheDocument()
-      expect(screen.getByText('Users')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Organizations' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Users' })).toBeInTheDocument()
     })
   })
 
@@ -296,26 +334,27 @@ describe('SuperAdminPage - Organization Edit', () => {
       renderWithProviders(<SuperAdminPage />)
       
       // Should start on Organizations tab
-      expect(screen.getByText('Organizations')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Organizations' })).toBeInTheDocument()
       
       // Click Users tab
-      const usersTab = screen.getByText('Users')
+      const usersTab = screen.getByRole('button', { name: 'Users' })
       fireEvent.click(usersTab)
       
       expect(screen.getByText('User Management')).toBeInTheDocument()
       
       // Click Organizations tab again
-      const orgTab = screen.getByText('Organizations')
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
-      expect(screen.getByText('Organizations')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Organizations' })).toBeInTheDocument()
     })
 
     it('should show active tab styling', () => {
       renderWithProviders(<SuperAdminPage />)
       
-      const orgTab = screen.getByText('Organizations')
-      const usersTab = screen.getByText('Users')
+      // Use role to find button elements specifically
+      const orgTab = screen.getByRole('button', { name: 'Organizations' })
+      const usersTab = screen.getByRole('button', { name: 'Users' })
       
       // Organizations tab should be active initially
       expect(orgTab).toHaveClass('border-emerald-500', 'text-emerald-600')

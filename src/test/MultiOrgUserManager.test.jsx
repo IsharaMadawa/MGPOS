@@ -5,9 +5,33 @@ import MultiOrgUserManager from '../components/MultiOrgUserManager'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
 
-// Mock Firebase
+// Mock Firebase - provide proper Firestore mock
+const mockCollection = vi.fn(() => ({
+  where: vi.fn(() => ({
+    get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
+  })),
+  get: vi.fn(() => Promise.resolve({ docs: [] }))
+}))
+const mockDoc = vi.fn()
+const mockSetDoc = vi.fn(() => Promise.resolve())
+const mockServerTimestamp = vi.fn(() => new Date())
+
 vi.mock('../firebase', () => ({
-  db: {},
+  db: {
+    collection: mockCollection,
+    doc: mockDoc
+  }
+}))
+
+vi.mock('firebase/firestore', () => ({
+  collection: mockCollection,
+  doc: mockDoc,
+  setDoc: mockSetDoc,
+  serverTimestamp: mockServerTimestamp,
+  query: vi.fn(),
+  where: vi.fn(),
+  getDocs: vi.fn(() => Promise.resolve({ empty: true, docs: [] })),
+  arrayUnion: vi.fn()
 }))
 
 // Mock useToast
@@ -63,6 +87,13 @@ const renderWithProviders = (component) => {
 describe('MultiOrgUserManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Reset mock implementations
+    mockCollection.mockReturnValue({
+      where: vi.fn(() => ({
+        get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
+      })),
+      get: vi.fn(() => Promise.resolve({ docs: [] }))
+    })
   })
 
   describe('Component Rendering', () => {

@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { vi } from 'vitest'
+import { vi, beforeEach, describe, it, expect } from 'vitest'
 import AccessManagement from '../components/AccessManagement'
 
 // Mock Firebase
@@ -7,7 +7,26 @@ vi.mock('../firebase', () => ({
   db: {},
 }))
 
-// Mock contexts and hooks
+// Mock Firestore - must be at top level
+const mockCollection = vi.fn()
+const mockQuery = vi.fn()
+const mockWhere = vi.fn()
+const mockGetDocs = vi.fn()
+const mockDoc = vi.fn()
+const mockSetDoc = vi.fn()
+const mockServerTimestamp = vi.fn()
+
+vi.mock('firebase/firestore', () => ({
+  collection: mockCollection,
+  query: mockQuery,
+  where: mockWhere,
+  getDocs: mockGetDocs,
+  doc: mockDoc,
+  setDoc: mockSetDoc,
+  serverTimestamp: mockServerTimestamp,
+}))
+
+// Mock contexts and hooks - must be at top level
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     userProfile: { 
@@ -43,25 +62,6 @@ vi.mock('../utils/logger', () => ({
   LOG_TYPES: {
     USER_ACCESS_UPDATE: 'user_access_update',
   },
-}))
-
-// Mock Firestore
-const mockCollection = vi.fn()
-const mockQuery = vi.fn()
-const mockWhere = vi.fn()
-const mockGetDocs = vi.fn()
-const mockDoc = vi.fn()
-const mockSetDoc = vi.fn()
-const mockServerTimestamp = vi.fn()
-
-vi.mock('firebase/firestore', () => ({
-  collection: mockCollection,
-  query: mockQuery,
-  where: mockWhere,
-  getDocs: mockGetDocs,
-  doc: mockDoc,
-  setDoc: mockSetDoc,
-  serverTimestamp: mockServerTimestamp,
 }))
 
 describe('AccessManagement', () => {

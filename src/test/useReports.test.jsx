@@ -146,8 +146,10 @@ describe('useReports', () => {
     // Expected item discounts:
     // Bill 1: (50 * 2) * 10% = 10 (from percentage discount)
     // Bill 2: 5.00 (from cartDiscount)
-    // Total: 15.00
-    expect(summary.totalDiscounts).toBe(25.00) // 15 (item) + 10 (global)
+    // Total item discounts: 15.00
+    // Global discounts: 10.00 (Bill 1) + 0.00 (Bill 2) = 10.00
+    // Total discounts: 15.00 + 10.00 = 25.00
+    expect(summary.totalDiscounts).toBe(25.00)
   })
 
   it('should calculate correct net sales (gross - discounts)', async () => {

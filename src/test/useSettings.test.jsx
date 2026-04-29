@@ -4,16 +4,16 @@ import { describe, it, expect } from 'vitest'
 describe('Settings and Currency Logic', () => {
   // CURRENCIES constant from useSettings
   const CURRENCIES = [
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-    { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'KES', symbol: 'KSh', name: 'Kenyan Shilling' },
-    { code: 'NGN', symbol: '₦', name: 'Nigerian Naira' },
+    { code: 'USD', symbol: '$',   name: 'US Dollar' },
+    { code: 'EUR', symbol: '€',   name: 'Euro' },
+    { code: 'GBP', symbol: '£',   name: 'British Pound' },
+    { code: 'JPY', symbol: '¥',   name: 'Japanese Yen' },
+    { code: 'INR', symbol: '₹',   name: 'Indian Rupee' },
+    { code: 'LKR', symbol: 'Rs',  name: 'Sri Lankan Rupee' },
+    { code: 'CAD', symbol: 'CA$', name: 'Canadian Dollar' },
+    { code: 'AUD', symbol: 'A$',  name: 'Australian Dollar' },
+    { code: 'SGD', symbol: 'S$',  name: 'Singapore Dollar' },
+    { code: 'MYR', symbol: 'RM',  name: 'Malaysian Ringgit' },
   ]
 
   describe('CURRENCIES constant', () => {
@@ -230,7 +230,7 @@ describe('Settings and Currency Logic', () => {
         if (userProfile.role === 'super_admin') return true
         
         const getRoleInOrganization = (orgId) => {
-          if (userProfile.organizations) {
+          if (userProfile.organizations && userProfile.organizations.length > 0) {
             const org = userProfile.organizations.find(org => org.orgId === orgId)
             return org?.role || null
           }
@@ -277,7 +277,7 @@ describe('Settings and Currency Logic', () => {
         if (!userProfile) return []
         if (userProfile.role === 'super_admin') return []
         
-        if (userProfile.organizations) {
+        if (userProfile.organizations && userProfile.organizations.length > 0) {
           return userProfile.organizations.filter(org => 
             org.role === 'admin' || org.role === 'super_admin'
           )
