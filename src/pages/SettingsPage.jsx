@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { useSettings, CURRENCIES } from '../hooks/useSettings'
 import { useCategories } from '../hooks/useCategories'
+import { useAuth } from '../contexts/AuthContext'
+import { useOrg } from '../contexts/OrgContext'
+import { db } from '../firebase'
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import ProductFormModal from '../components/ProductFormModal'
+import PasswordChangeModal from '../components/PasswordChangeModal'
 
 // ─── Products Tab ────────────────────────────────────────────────────────────
 
@@ -383,6 +388,20 @@ function BillingTab({ settings, updateSettings }) {
         </section>
       )}
 
+      {/* Reprint */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Bill Reprint</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Allow reprinting bills from today only</p>
+          </div>
+          <Toggle
+            checked={settings.reprintEnabled || false}
+            onChange={e => updateSettings({ reprintEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
+
       {/* Misc Items */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100">
         <div className="flex items-center justify-between">
@@ -529,13 +548,37 @@ function QuickQuantitiesTab({ settings, updateSettings }) {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('products')
   const { settings, updateSettings } = useSettings()
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
+
+  // Determine which orgId is being used
+  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
 
   const tabs = [
     { id: 'products', label: 'Products' },
     { id: 'billing',  label: 'Billing' },
     { id: 'quantities', label: 'Quantities' },
+    { id: 'users', label: 'Users' },
   ]
+
+  // Show message if no organization selected
+  if (isSuperAdmin && !selectedOrgId) {
+    return (
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+            <svg className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
+            <p className="text-gray-600 mb-4">Please select an organization from the navigation bar to manage its settings.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
@@ -562,6 +605,272 @@ export default function SettingsPage() {
         {activeTab === 'products' && <ProductsTab currencySymbol={currencySymbol} />}
         {activeTab === 'billing'  && <BillingTab settings={settings} updateSettings={updateSettings} />}
         {activeTab === 'quantities' && <QuickQuantitiesTab settings={settings} updateSettings={updateSettings} />}
+        {activeTab === 'users' && <UsersTab />}
+      </div>
+    </div>
+  )
+}
+
+// ─── Users Tab ────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const { userProfile, isSuperAdmin } = useAuth()
+  const { selectedOrgId } = useOrg()
+  
+  // Determine which orgId to use
+  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showNewUser, setShowNewUser] = useState(false)
+  const [newUser, setNewUser] = useState({ username: '', password: '', displayName: '', email: '', role: 'user' })
+  const [creating, setCreating] = useState(false)
+  const [error, setError] = useState('')
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [selectedUserId, setSelectedUserId] = useState(null)
+
+  // Fetch users for this organization
+  useEffect(() => {
+    if (!orgId) {
+      setLoading(false)
+      return
+    }
+
+    const fetchUsers = async () => {
+      try {
+        const usersRef = collection(db, 'users')
+        const q = query(usersRef, where('orgId', '==', orgId))
+        const snapshot = await getDocs(q)
+        const userList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+        setUsers(userList)
+      } catch (err) {
+        console.error('Error fetching users:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsers()
+  }, [orgId])
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault()
+    if (!newUser.username.trim() || !newUser.password || !newUser.displayName.trim()) {
+      setError('Username, password, and display name are required')
+      return
+    }
+
+    setCreating(true)
+    setError('')
+
+    try {
+      // Check if username exists
+      const usersRef = collection(db, 'users')
+      const q = query(usersRef, where('username', '==', newUser.username.trim().toLowerCase()))
+      const snapshot = await getDocs(q)
+
+      if (!snapshot.empty) {
+        setError('This username is already taken. Please choose a different username.')
+        setCreating(false)
+        return
+      }
+
+      const userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+      await setDoc(doc(db, 'users', userId), {
+        username: newUser.username.trim().toLowerCase(),
+        password: newUser.password,
+        displayName: newUser.displayName.trim(),
+        email: newUser.email.trim() || null,
+        role: newUser.role,
+        orgId: orgId,
+        createdAt: serverTimestamp(),
+      })
+
+      // Refresh user list
+      const newQ = query(usersRef, where('orgId', '==', orgId))
+      const newSnapshot = await getDocs(newQ)
+      setUsers(newSnapshot.docs.map(d => ({ id: d.id, ...d.data() })))
+
+      setNewUser({ username: '', password: '', displayName: '', email: '', role: 'user' })
+      setShowNewUser(false)
+    } catch (err) {
+      console.error('Error creating user:', err)
+      setError(err.message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleUpdateRole = async (userId, newRole) => {
+    try {
+      await setDoc(doc(db, 'users', userId), { role: newRole }, { merge: true })
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+    } catch (err) {
+      console.error('Error updating role:', err)
+      alert('Failed to update role')
+    }
+  }
+
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('Are you sure you want to remove this user?')) return
+    try {
+      await deleteDoc(doc(db, 'users', userId))
+      setUsers(users.filter(u => u.id !== userId))
+    } catch (err) {
+      console.error('Error deleting user:', err)
+      alert('Failed to delete user')
+    }
+  }
+
+  const handlePasswordChange = (userId) => {
+    setSelectedUserId(userId)
+    setShowPasswordModal(true)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Create User Section */}
+      <div className="bg-white rounded-2xl p-5 border border-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Organization Users</h3>
+          <button
+            onClick={() => setShowNewUser(!showNewUser)}
+            className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            {showNewUser ? 'Cancel' : '+ New User'}
+          </button>
+        </div>
+
+        {showNewUser && (
+          <form onSubmit={handleCreateUser} className="p-4 bg-gray-50 rounded-xl space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={e => setNewUser({ ...newUser, username: e.target.value.toLowerCase() })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="johndoe"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Display Name</label>
+                <input
+                  type="text"
+                  value={newUser.displayName}
+                  onChange={e => setNewUser({ ...newUser, displayName: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Email <span className="text-gray-400">(optional)</span></label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="john@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Min 6 characters"
+                  required
+                  minLength={6}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={newUser.role}
+                  onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={creating}
+                className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 mt-5"
+              >
+                {creating ? 'Creating...' : 'Create User'}
+              </button>
+            </div>
+            {error && <p className="text-red-500 text-sm">{error}</p>}
+          </form>
+        )}
+
+        {/* Users List */}
+        {users.length === 0 ? (
+          <p className="text-gray-400 text-sm text-center py-4">No users in this organization yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {users.map(user => (
+              <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{user.displayName}</p>
+                  <p className="text-xs text-gray-500">@{user.username} {user.email ? `• ${user.email}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={user.role}
+                    onChange={e => handleUpdateRole(user.id, e.target.value)}
+                    className="text-xs border border-gray-300 rounded px-2 py-1"
+                    disabled={user.id === userProfile?.id}
+                  >
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button
+                    onClick={() => handlePasswordChange(user.id)}
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                  >
+                    Change Password
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(user.id)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                    disabled={user.id === userProfile?.id}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Password Change Modal */}
+        {showPasswordModal && (
+          <PasswordChangeModal
+            onClose={() => {
+              setShowPasswordModal(false)
+              setSelectedUserId(null)
+            }}
+            targetUserId={selectedUserId}
+          />
+        )}
       </div>
     </div>
   )

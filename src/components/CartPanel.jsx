@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
+import { useAuth } from '../contexts/AuthContext'
+import { useBillingLogs } from '../hooks/useBillingLogs'
 import ProductModal from './ProductModal'
 
 function fmt(amount, sym) {
@@ -108,8 +110,11 @@ function getItemDiscountInfo(item, settings) {
 
 export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateItemDiscount, onRemoveItem, onClear, settings, onClose }) {
   const [showReceipt, setShowReceipt] = useState(false)
-  const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [] })
+  const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '' })
   const [editingItem, setEditingItem] = useState(null)
+
+  const { userProfile } = useAuth()
+  const { createBillingLog } = useBillingLogs()
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
@@ -126,12 +131,31 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0
   const total = taxBase + taxAmount
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return
-    setReceiptSnapshot({
-      no: Date.now().toString().slice(-6),
-      time: Date.now(),
+    
+    const receiptNo = Date.now().toString().slice(-6)
+    const now = Date.now()
+    
+    // Create billing log
+    const saleData = {
+      receiptNo,
       cart: cart.map(i => ({ ...i })),
+      subtotal,
+      discountAmount,
+      taxAmount,
+      total,
+      itemCount: cart.length,
+    }
+    
+    // Save to billing logs (async, don't wait)
+    createBillingLog(saleData).catch(console.error)
+    
+    setReceiptSnapshot({
+      no: receiptNo,
+      time: now,
+      cart: cart.map(i => ({ ...i })),
+      cashierName: userProfile?.displayName || 'Unknown',
     })
     setShowReceipt(true)
   }
@@ -178,6 +202,7 @@ ${storeInfo.address ? `<p class="center muted">${storeInfo.address}</p>` : ''}
 ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
+<div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'}</span></div>
 <div class="divider"></div>
 ${rCart.map(item => {
   const itemDisc = getItemDiscount(item, settings)
@@ -236,6 +261,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Receipt #{no}</p>
             <p className="text-xs text-gray-400">{fmtDate(time)} {fmtTime(time)}</p>
           </div>
+          
+          {/* Cashier Info */}
+          {receiptSnapshot.cashierName && (
+            <div className="mb-3 text-xs text-gray-500">
+              <span className="font-medium">Cashier:</span> {receiptSnapshot.cashierName}
+            </div>
+          )}
 
           {rCart.map((item) => {
             const itemDisc = getItemDiscount(item, settings)
