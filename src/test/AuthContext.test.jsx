@@ -106,33 +106,41 @@ describe('Session Storage', () => {
   })
 })
 
-// Test org selection logic
-describe('Org Selection', () => {
+// Test unique username login logic (updated after removing org selection)
+describe('Unique Username Login', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  it('should persist org selection', () => {
-    localStorage.setItem('pos_selected_org', 'org-123')
-    expect(localStorage.getItem('pos_selected_org')).toBe('org-123')
-  })
-
-  it('should clear org selection', () => {
-    localStorage.setItem('pos_selected_org', 'org-123')
-    localStorage.removeItem('pos_selected_org')
-    expect(localStorage.getItem('pos_selected_org')).toBeNull()
-  })
-
-  it('should get orgId for different roles', () => {
-    // For super admin
-    const getOrgIdForSuperAdmin = (selectedOrgId) => selectedOrgId
-    expect(getOrgIdForSuperAdmin('org-456')).toBe('org-456')
-    expect(getOrgIdForSuperAdmin(null)).toBeNull()
+  it('should handle unique username lookup', () => {
+    // Simulate the simplified login logic - usernames are now unique
+    const mockUsers = [
+      { id: 'user-1', username: 'testuser', orgId: 'org-1' },
+      { id: 'user-2', username: 'admin', orgId: 'org-2' }
+    ]
     
-    // For regular user/admin
-    const getOrgIdForUser = (userProfile) => userProfile?.orgId ?? null
-    expect(getOrgIdForUser({ orgId: 'org-789' })).toBe('org-789')
-    expect(getOrgIdForUser({ orgId: null })).toBeNull()
-    expect(getOrgIdForUser(null)).toBeNull()
+    // Find user by username (should return exactly one since usernames are unique)
+    const findUserByUsername = (username) => {
+      return mockUsers.find(u => u.username === username)
+    }
+    
+    expect(findUserByUsername('testuser')).toEqual({ id: 'user-1', username: 'testuser', orgId: 'org-1' })
+    expect(findUserByUsername('admin')).toEqual({ id: 'user-2', username: 'admin', orgId: 'org-2' })
+    expect(findUserByUsername('nonexistent')).toBeUndefined()
+  })
+
+  it('should get orgId from user profile (no selection needed)', () => {
+    // Since org selection is removed from login, orgId comes from user profile
+    const getOrgIdFromProfile = (userProfile) => userProfile?.orgId ?? null
+    
+    expect(getOrgIdFromProfile({ orgId: 'org-123' })).toBe('org-123')
+    expect(getOrgIdFromProfile({ orgId: null })).toBeNull()
+    expect(getOrgIdFromProfile(null)).toBeNull()
+  })
+
+  it('should handle super admin orgId (null)', () => {
+    // Super admins have orgId: null
+    const superAdminProfile = { id: 'super-admin-1', username: 'superadmin', orgId: null, role: 'super_admin' }
+    expect(superAdminProfile.orgId).toBeNull()
   })
 })

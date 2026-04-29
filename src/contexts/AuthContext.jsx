@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (username, password, selectedOrgId = null) => {
-    // Find all users with this username in Firestore
+    // Find user with this username in Firestore (usernames are now unique)
     const usersRef = collection(db, 'users')
     const q = query(usersRef, where('username', '==', username))
     const snapshot = await getDocs(q)
@@ -46,24 +46,10 @@ export function AuthProvider({ children }) {
       throw new Error('Invalid username or password')
     }
 
-    // Get all users with this username
-    const matchingUsers = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-
-    // Filter by orgId if provided
-    let userData = matchingUsers.find(u => u.orgId === selectedOrgId) || null
-    
-    // If no org filter or no match, check for single unique user
-    if (!userData) {
-      if (matchingUsers.length === 1) {
-        // Single user with this username - use it
-        userData = matchingUsers[0]
-      } else {
-        // Multiple users with same username - always require org selection
-        throw new Error(`Multiple accounts found with username "${username}". Please specify your organization code.`)
-      }
+    // Since usernames are unique, there should be exactly one user
+    const userData = {
+      id: snapshot.docs[0].id,
+      ...snapshot.docs[0].data()
     }
 
     // Verify password with automatic migration for legacy accounts
