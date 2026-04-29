@@ -114,6 +114,42 @@ export function OrgProvider({ children }) {
     return null
   }
 
+  // Check if user has admin access to a specific organization
+  const hasAdminAccessToOrganization = (orgId) => {
+    if (!userProfile || !orgId) return false
+    
+    // Super admins have access to all organizations
+    if (userProfile.role === 'super_admin') return true
+    
+    const role = getRoleInOrganization(orgId)
+    return role === 'admin' || role === 'super_admin'
+  }
+
+  // Get all organizations where user has admin access
+  const getAdminOrganizations = () => {
+    if (!userProfile) return []
+    
+    // Super admins have access to all organizations (return empty to be handled elsewhere)
+    if (userProfile.role === 'super_admin') return []
+    
+    // For multi-org users
+    if (userProfile.organizations) {
+      return userProfile.organizations.filter(org => 
+        org.role === 'admin' || org.role === 'super_admin'
+      )
+    }
+    
+    // For backward compatibility
+    if (userProfile.orgId && (userProfile.role === 'admin' || userProfile.role === 'super_admin')) {
+      return [{
+        orgId: userProfile.orgId,
+        role: userProfile.role
+      }]
+    }
+    
+    return []
+  }
+
   const value = {
     selectedOrgId,
     setSelectedOrgId,
@@ -122,6 +158,8 @@ export function OrgProvider({ children }) {
     getAccessibleOrganizations,
     hasAccessToOrganization,
     getRoleInOrganization,
+    hasAdminAccessToOrganization,
+    getAdminOrganizations,
   }
 
   return (

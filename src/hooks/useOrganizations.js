@@ -3,6 +3,34 @@ import { collection, query, where, getDocs, doc, getDoc, setDoc, deleteDoc, serv
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
 
+// Default units of measure for new organizations
+const DEFAULT_UNITS_OF_MEASURE = [
+  { id: 'kg', name: 'Kilogram', abbreviation: 'kg', type: 'weight', isDefault: true },
+  { id: 'g', name: 'Gram', abbreviation: 'g', type: 'weight', isDefault: true },
+  { id: 'l', name: 'Liter', abbreviation: 'L', type: 'volume', isDefault: true },
+  { id: 'ml', name: 'Milliliter', abbreviation: 'mL', type: 'volume', isDefault: true },
+  { id: 'pcs', name: 'Pieces', abbreviation: 'pcs', type: 'unit', isDefault: true },
+  { id: 'box', name: 'Box', abbreviation: 'box', type: 'unit', isDefault: true },
+]
+
+// Default master categories for new organizations
+const DEFAULT_MASTER_CATEGORIES = [
+  { id: 'food', name: 'Food & Beverages', description: 'Edible items and drinks', color: '#EF4444', icon: '??', isDefault: true },
+  { id: 'electronics', name: 'Electronics', description: 'Electronic devices and accessories', color: '#3B82F6', icon: '??', isDefault: true },
+  { id: 'clothing', name: 'Clothing', description: 'Apparel and accessories', color: '#8B5CF6', icon: '??', isDefault: true },
+  { id: 'household', name: 'Household', description: 'Home and kitchen items', color: '#10B981', icon: '??', isDefault: true },
+  { id: 'other', name: 'Other', description: 'Miscellaneous items', color: '#6B7280', icon: '??', isDefault: true },
+]
+
+// Default quantities for new organizations
+const DEFAULT_QUANTITIES = [
+  { id: 'qty_1', value: 0.5 },
+  { id: 'qty_2', value: 1 },
+  { id: 'qty_3', value: 2 },
+  { id: 'qty_4', value: 5 },
+  { id: 'qty_5', value: 10 },
+]
+
 export function useOrganizations() {
   const [organizations, setOrganizations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -52,11 +80,31 @@ export function useOrganizations() {
 
   const createOrganization = async (orgData) => {
     const orgRef = doc(db, 'organizations', orgData.code)
-    await setDoc(orgRef, {
+    
+    // Create organization with default master data
+    const orgDocument = {
       ...orgData,
       createdAt: serverTimestamp(),
       active: true,
-    })
+      settings: {
+        // Default settings
+        currency: 'USD',
+        taxRate: 0,
+        enableTax: false,
+        enableDiscount: true,
+        lowStockThreshold: 5,
+        
+        // Default master data
+        unitsOfMeasure: DEFAULT_UNITS_OF_MEASURE,
+        masterCategories: DEFAULT_MASTER_CATEGORIES,
+        defaultQuantities: DEFAULT_QUANTITIES,
+        
+        // Timestamps
+        settingsUpdatedAt: serverTimestamp(),
+      }
+    }
+    
+    await setDoc(orgRef, orgDocument)
     await fetchOrganizations()
     return orgData.code
   }

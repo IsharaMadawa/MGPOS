@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import { useSettings, CURRENCIES } from '../hooks/useSettings'
 import { useCategories } from '../hooks/useCategories'
+import { useOrganizations } from '../hooks/useOrganizations'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useToast } from '../components/ToastContainer'
@@ -12,27 +13,29 @@ import ProductFormModal from '../components/ProductFormModal'
 import PasswordChangeModal from '../components/PasswordChangeModal'
 import UserOrganizationManager from '../components/UserOrganizationManager'
 import UserProfileManager from '../components/UserProfileManager'
+import AccessManagement from '../components/AccessManagement'
+import MasterDataTab from '../components/MasterDataTab'
 
 // ─── Products Tab ────────────────────────────────────────────────────────────
 
-function ProductsTab({ currencySymbol }) {
+function ProductsTab({ currencySymbol, settings }) {
   const { products, addProduct, updateProduct, deleteProduct } = useProducts()
-  const { categories, addCategory, deleteCategory } = useCategories()
   const [editingProduct, setEditingProduct] = useState(null) // null=closed, undefined=new, obj=edit
-  const [newCat, setNewCat] = useState('')
-  const [catError, setCatError] = useState('')
-
-  const handleAddCategory = (e) => {
-    e.preventDefault()
-    if (!newCat.trim()) return
-    const ok = addCategory(newCat.trim())
-    if (ok) {
-      setNewCat('')
-      setCatError('')
-    } else {
-      setCatError('Category already exists')
-    }
-  }
+  
+  // Get master categories and units from settings
+  const masterCategories = settings?.masterCategories || []
+  const unitsOfMeasure = settings?.unitsOfMeasure || []
+  
+  // Create lookup maps for easier access
+  const categoryMap = masterCategories.reduce((acc, cat) => {
+    acc[cat.id] = cat
+    return acc
+  }, {})
+  
+  const unitMap = unitsOfMeasure.reduce((acc, unit) => {
+    acc[unit.abbreviation] = unit
+    return acc
+  }, {})
 
   return (
     <div className="space-y-6">
@@ -68,12 +71,18 @@ function ProductsTab({ currencySymbol }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center">
                       <p className="font-medium text-gray-900 truncate">{p.name}</p>
-                      {p.category && (
-                        <span className="ml-1.5 px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-xs">
-                          {categories.find(c => c.id === p.category)?.name}
+                      {p.category && categoryMap[p.category] && (
+                        <span 
+                          className="ml-1.5 px-1.5 py-0.5 rounded text-xs"
+                          style={{ 
+                            backgroundColor: `${categoryMap[p.category].color}20`,
+                            color: categoryMap[p.category].color
+                          }}
+                        >
+                          {categoryMap[p.category].icon} {categoryMap[p.category].name}
                         </span>
                       )}
-                  </div>
+                    </div>
                   <p className="text-sm text-gray-500">
                     {p.prices.map(pr => (
                       <span key={pr.unit}>
@@ -115,49 +124,13 @@ function ProductsTab({ currencySymbol }) {
         )}
       </section>
 
-      {/* Categories */}
-      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
-        <h3 className="font-semibold text-gray-900">Categories</h3>
-        <form onSubmit={handleAddCategory} className="flex gap-2">
-          <input
-            value={newCat}
-            onChange={e => { setNewCat(e.target.value); setCatError('') }}
-            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            placeholder="New category name"
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
-          >
-            Add
-          </button>
-        </form>
-        {catError && <p className="text-red-500 text-xs">{catError}</p>}
-        <div className="flex flex-wrap gap-2">
-          {categories.map(cat => (
-            <span key={cat.id} className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-              {cat.name}
-              <button
-                onClick={() => { if (window.confirm(`Delete category "${cat.name}"?`)) deleteCategory(cat.id) }}
-                className="text-gray-400 hover:text-red-500 ml-0.5 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </span>
-          ))}
-          {categories.length === 0 && (
-            <p className="text-gray-400 text-sm">No categories yet</p>
-          )}
-        </div>
-      </section>
 
       {/* Product Form Modal */}
       {editingProduct !== null && (
         <ProductFormModal
           product={editingProduct}
-          categories={categories}
+          categories={masterCategories}
+          unitsOfMeasure={unitsOfMeasure}
           currencySymbol={currencySymbol}
           onSave={(data) => {
             if (editingProduct?.id) {
@@ -553,33 +526,123 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('products')
   const { settings, updateSettings } = useSettings()
   const { userProfile, isSuperAdmin } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { organizations } = useOrganizations()
+  const { selectedOrgId, setSelectedOrgId, hasAdminAccessToOrganization, getAdminOrganizations } = useOrg()
   const currencySymbol = CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'
 
-  // Determine which orgId is being used
-  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Determine which orgId is being used and validate admin access
+  const currentOrgId = isSuperAdmin ? selectedOrgId : (selectedOrgId || userProfile?.orgId)
+  const hasAdminAccess = currentOrgId && hasAdminAccessToOrganization(currentOrgId)
+
+  // Get admin organizations for organization selector
+  const adminOrganizations = getAdminOrganizations()
+
+  
+  // Auto-select admin organization when needed
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      // If no organization selected, select the first admin org
+      if (!selectedOrgId && adminOrganizations.length >= 1) {
+        setSelectedOrgId(adminOrganizations[0].orgId)
+      }
+      // If current organization doesn't have admin access, switch to first admin org
+      else if (selectedOrgId && !hasAdminAccessToOrganization(selectedOrgId) && adminOrganizations.length >= 1) {
+        setSelectedOrgId(adminOrganizations[0].orgId)
+      }
+    }
+  }, [adminOrganizations, selectedOrgId, setSelectedOrgId, isSuperAdmin, hasAdminAccessToOrganization])
 
   const tabs = [
     { id: 'products', label: 'Products' },
     { id: 'billing',  label: 'Billing' },
-    { id: 'quantities', label: 'Quantities' },
+    { id: 'masterdata', label: 'Master Data' },
     { id: 'users', label: 'Users' },
+    { id: 'access', label: 'Access' },
     { id: 'profile', label: 'Profile' },
   ]
 
-  // Show message if no organization selected
-  if (isSuperAdmin && !selectedOrgId) {
+  // Show message if no organization selected or no admin access
+  // Hide settings for users with multiple organizations until one is selected
+  const hasMultipleOrganizations = (isSuperAdmin && organizations.length > 1) || adminOrganizations.length > 1
+  const needsOrgSelection = hasMultipleOrganizations && !selectedOrgId
+  
+  // Handle Super Admin specific cases
+  if (isSuperAdmin) {
+    // Super Admin with no organizations at all
+    if (organizations.length === 0) {
+      return (
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+              <svg className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Organizations Defined</h3>
+              <p className="text-gray-600 mb-4">There are no organizations defined yet. Create your first organization to start managing settings.</p>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => window.location.href = '/super-admin'}
+                  className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
+                >
+                  Create Organization
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+    
+    // Super Admin with multiple organizations but none selected
+    if (needsOrgSelection) {
+      return (
+        <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="max-w-2xl mx-auto">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+              <svg className="w-12 h-12 text-blue-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v0a2 2 0 01-2 2h-4a2 2 0 01-2-2V5z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
+              <p className="text-gray-600 mb-4">You have access to {organizations.length} organization{organizations.length > 1 ? 's' : ''}. Please select an organization from the navigation bar to manage its settings.</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  }
+  
+  // Handle Organization Admin cases
+  if (!hasAdminAccess || needsOrgSelection) {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-            <svg className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
-            <p className="text-gray-600 mb-4">Please select an organization from the navigation bar to manage its settings.</p>
-          </div>
+          
+          {needsOrgSelection ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+              <svg className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
+              <p className="text-gray-600 mb-4">You have admin access to {adminOrganizations.length} organization{adminOrganizations.length > 1 ? 's' : ''}. Please select an organization from the navigation bar to manage its settings.</p>
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+              <svg className="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
+              <p className="text-gray-600 mb-4">You don't have admin access to manage settings for this organization.</p>
+              <p className="text-sm text-gray-500">
+                {adminOrganizations.length > 0 
+                  ? `You have admin access to ${adminOrganizations.length} organization${adminOrganizations.length > 1 ? 's' : ''}. Please select an organization where you have admin privileges.`
+                  : 'You need admin access to manage organization settings.'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -589,6 +652,38 @@ export default function SettingsPage() {
     <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+
+        {/* Organization Selector for users with admin access */}
+        {!isSuperAdmin && adminOrganizations.length >= 1 && (
+          <div className="bg-white rounded-xl p-4 border border-gray-100 mb-6 shadow-sm">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {adminOrganizations.length === 1 ? 'Managing Organization' : 'Manage Organization'}
+            </label>
+            {adminOrganizations.length === 1 ? (
+              <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                {adminOrganizations[0].orgId} ({adminOrganizations[0].role})
+              </div>
+            ) : (
+              <select
+                value={selectedOrgId || ''}
+                onChange={(e) => {
+                  const newOrgId = e.target.value
+                  if (newOrgId) {
+                    setSelectedOrgId(newOrgId)
+                  }
+                }}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="">Select an organization to manage</option>
+                {adminOrganizations.map(org => (
+                  <option key={org.orgId} value={org.orgId}>
+                    {org.orgId} ({org.role})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
         {/* Tab Switcher */}
         <div className="flex gap-1 bg-white rounded-xl p-1 border border-gray-100 mb-6 shadow-sm">
@@ -607,10 +702,11 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {activeTab === 'products' && <ProductsTab currencySymbol={currencySymbol} />}
+        {activeTab === 'products' && <ProductsTab currencySymbol={currencySymbol} settings={settings} />}
         {activeTab === 'billing'  && <BillingTab settings={settings} updateSettings={updateSettings} />}
-        {activeTab === 'quantities' && <QuickQuantitiesTab settings={settings} updateSettings={updateSettings} />}
+        {activeTab === 'masterdata' && <MasterDataTab settings={settings} updateSettings={updateSettings} />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'access' && <AccessManagement />}
         {activeTab === 'profile' && <UserProfileManager />}
       </div>
     </div>
@@ -621,11 +717,12 @@ export default function SettingsPage() {
 
 function UsersTab() {
   const { userProfile, isSuperAdmin } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, hasAdminAccessToOrganization } = useOrg()
   const { addToast } = useToast()
   
-  // Determine which orgId to use
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Determine which orgId to use and validate admin access
+  const orgId = isSuperAdmin ? selectedOrgId : (selectedOrgId || userProfile?.orgId)
+  const hasAdminAccess = orgId && hasAdminAccessToOrganization(orgId)
   
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -635,6 +732,19 @@ function UsersTab() {
   const [error, setError] = useState('')
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState(null)
+
+  // Show access denied message if no admin access
+  if (!hasAdminAccess) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <svg className="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">Access Denied</h3>
+        <p className="text-gray-600">You don't have admin access to manage users for this organization.</p>
+      </div>
+    )
+  }
 
   // Fetch users for this organization
   useEffect(() => {

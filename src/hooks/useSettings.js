@@ -46,10 +46,11 @@ export function useSettings() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const { userProfile, isSuperAdmin } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, hasAdminAccessToOrganization } = useOrg()
 
-  // Determine which orgId to use
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Determine which orgId to use and validate admin access
+  const orgId = isSuperAdmin ? selectedOrgId : (selectedOrgId || userProfile?.orgId)
+  const hasAdminAccess = orgId && hasAdminAccessToOrganization(orgId)
 
   // Listen for real-time updates from Firebase - per organization
   useEffect(() => {
@@ -83,13 +84,33 @@ export function useSettings() {
       return
     }
     
+    if (!hasAdminAccess) {
+      console.error('User does not have admin access to update settings for this organization')
+      throw new Error('You do not have admin access to update settings for this organization')
+    }
+    
     const updated = { ...settings, ...updates }
     const docRef = doc(db, 'organizations', orgId, 'settings', 'config')
     
     try {
       await setDoc(docRef, updated)
+      
+      // Log settings update
+      try {
+        const { logUserAction } = await import('../utils/logger')
+        await logUserAction(
+          'settings_update',
+          `Updated organization settings: ${Object.keys(updates).join(', ')}`,
+          userProfile,
+          orgId,
+          { updates, previousSettings: settings }
+        )
+      } catch (logError) {
+        console.error('Failed to log settings update:', logError)
+      }
     } catch (error) {
       console.error('Error updating settings:', error)
+      throw error
     }
   }
 

@@ -112,4 +112,197 @@ describe('Settings and Currency Logic', () => {
       expect(isValidCurrency('INVALID')).toBe(false)
     })
   })
+
+  describe('Organization Access Control', () => {
+    // Mock user profiles for testing
+    const superAdminProfile = {
+      role: 'super_admin',
+      organizations: []
+    }
+
+    const multiOrgAdminProfile = {
+      role: 'user',
+      organizations: [
+        { orgId: 'org1', role: 'admin' },
+        { orgId: 'org2', role: 'user' },
+        { orgId: 'org3', role: 'admin' }
+      ]
+    }
+
+    const multiOrgUserProfile = {
+      role: 'user',
+      organizations: [
+        { orgId: 'org1', role: 'user' },
+        { orgId: 'org2', role: 'user' }
+      ]
+    }
+
+    const singleOrgAdminProfile = {
+      role: 'admin',
+      orgId: 'org1',
+      organizations: []
+    }
+
+    const singleOrgUserProfile = {
+      role: 'user',
+      orgId: 'org1',
+      organizations: []
+    }
+
+    it('should identify super admin access correctly', () => {
+      const hasAdminAccess = (userProfile, orgId) => {
+        if (!userProfile || !orgId) return false
+        if (userProfile.role === 'super_admin') return true
+        
+        const getRoleInOrganization = (orgId) => {
+          if (userProfile.organizations) {
+            const org = userProfile.organizations.find(org => org.orgId === orgId)
+            return org?.role || null
+          }
+          if (userProfile.orgId === orgId) {
+            return userProfile.role
+          }
+          return null
+        }
+        
+        const role = getRoleInOrganization(orgId)
+        return role === 'admin' || role === 'super_admin'
+      }
+
+      expect(hasAdminAccess(superAdminProfile, 'any-org')).toBe(true)
+      expect(hasAdminAccess(superAdminProfile, 'org1')).toBe(true)
+    })
+
+    it('should identify multi-org admin access correctly', () => {
+      const hasAdminAccess = (userProfile, orgId) => {
+        if (!userProfile || !orgId) return false
+        if (userProfile.role === 'super_admin') return true
+        
+        const getRoleInOrganization = (orgId) => {
+          if (userProfile.organizations) {
+            const org = userProfile.organizations.find(org => org.orgId === orgId)
+            return org?.role || null
+          }
+          if (userProfile.orgId === orgId) {
+            return userProfile.role
+          }
+          return null
+        }
+        
+        const role = getRoleInOrganization(orgId)
+        return role === 'admin' || role === 'super_admin'
+      }
+
+      expect(hasAdminAccess(multiOrgAdminProfile, 'org1')).toBe(true)
+      expect(hasAdminAccess(multiOrgAdminProfile, 'org3')).toBe(true)
+      expect(hasAdminAccess(multiOrgAdminProfile, 'org2')).toBe(false)
+      expect(hasAdminAccess(multiOrgAdminProfile, 'nonexistent')).toBe(false)
+    })
+
+    it('should identify multi-org user access correctly', () => {
+      const hasAdminAccess = (userProfile, orgId) => {
+        if (!userProfile || !orgId) return false
+        if (userProfile.role === 'super_admin') return true
+        
+        const getRoleInOrganization = (orgId) => {
+          if (userProfile.organizations) {
+            const org = userProfile.organizations.find(org => org.orgId === orgId)
+            return org?.role || null
+          }
+          if (userProfile.orgId === orgId) {
+            return userProfile.role
+          }
+          return null
+        }
+        
+        const role = getRoleInOrganization(orgId)
+        return role === 'admin' || role === 'super_admin'
+      }
+
+      expect(hasAdminAccess(multiOrgUserProfile, 'org1')).toBe(false)
+      expect(hasAdminAccess(multiOrgUserProfile, 'org2')).toBe(false)
+      expect(hasAdminAccess(multiOrgUserProfile, 'nonexistent')).toBe(false)
+    })
+
+    it('should identify single org admin access correctly', () => {
+      const hasAdminAccess = (userProfile, orgId) => {
+        if (!userProfile || !orgId) return false
+        if (userProfile.role === 'super_admin') return true
+        
+        const getRoleInOrganization = (orgId) => {
+          if (userProfile.organizations) {
+            const org = userProfile.organizations.find(org => org.orgId === orgId)
+            return org?.role || null
+          }
+          if (userProfile.orgId === orgId) {
+            return userProfile.role
+          }
+          return null
+        }
+        
+        const role = getRoleInOrganization(orgId)
+        return role === 'admin' || role === 'super_admin'
+      }
+
+      expect(hasAdminAccess(singleOrgAdminProfile, 'org1')).toBe(true)
+      expect(hasAdminAccess(singleOrgAdminProfile, 'org2')).toBe(false)
+    })
+
+    it('should identify single org user access correctly', () => {
+      const hasAdminAccess = (userProfile, orgId) => {
+        if (!userProfile || !orgId) return false
+        if (userProfile.role === 'super_admin') return true
+        
+        const getRoleInOrganization = (orgId) => {
+          if (userProfile.organizations) {
+            const org = userProfile.organizations.find(org => org.orgId === orgId)
+            return org?.role || null
+          }
+          if (userProfile.orgId === orgId) {
+            return userProfile.role
+          }
+          return null
+        }
+        
+        const role = getRoleInOrganization(orgId)
+        return role === 'admin' || role === 'super_admin'
+      }
+
+      expect(hasAdminAccess(singleOrgUserProfile, 'org1')).toBe(false)
+      expect(hasAdminAccess(singleOrgUserProfile, 'org2')).toBe(false)
+    })
+
+    it('should get admin organizations correctly', () => {
+      const getAdminOrganizations = (userProfile) => {
+        if (!userProfile) return []
+        if (userProfile.role === 'super_admin') return []
+        
+        if (userProfile.organizations) {
+          return userProfile.organizations.filter(org => 
+            org.role === 'admin' || org.role === 'super_admin'
+          )
+        }
+        
+        if (userProfile.orgId && (userProfile.role === 'admin' || userProfile.role === 'super_admin')) {
+          return [{
+            orgId: userProfile.orgId,
+            role: userProfile.role
+          }]
+        }
+        
+        return []
+      }
+
+      expect(getAdminOrganizations(superAdminProfile)).toEqual([])
+      expect(getAdminOrganizations(multiOrgAdminProfile)).toEqual([
+        { orgId: 'org1', role: 'admin' },
+        { orgId: 'org3', role: 'admin' }
+      ])
+      expect(getAdminOrganizations(multiOrgUserProfile)).toEqual([])
+      expect(getAdminOrganizations(singleOrgAdminProfile)).toEqual([
+        { orgId: 'org1', role: 'admin' }
+      ])
+      expect(getAdminOrganizations(singleOrgUserProfile)).toEqual([])
+    })
+  })
 })

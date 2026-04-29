@@ -20,6 +20,11 @@ export const LOG_TYPES = {
   USER_DELETE: 'user_delete',
   USER_ROLE_CHANGE: 'user_role_change',
   
+  // Master data operations
+  MASTER_DATA_CREATE: 'master_data_create',
+  MASTER_DATA_UPDATE: 'master_data_update',
+  MASTER_DATA_DELETE: 'master_data_delete',
+  
   // Product operations
   PRODUCT_CREATE: 'product_create',
   PRODUCT_UPDATE: 'product_update',

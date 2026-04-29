@@ -1,24 +1,25 @@
 import { useState, useEffect } from 'react'
 
-const UNIT_TYPES = {
-  unit:   { label: 'Unit',   units: ['Each', 'Pack', 'Box', 'Dozen', 'Pair'] },
-  weight: { label: 'Weight', units: ['kg', 'g', 'lb', 'oz'] },
-  volume: { label: 'Volume', units: ['L', 'mL', 'fl oz', 'gal'] },
-  length: { label: 'Length', units: ['m', 'y', 'ft', 'in', 'cm'] },
-}
-
 const EMPTY_FORM = {
   name: '',
   category: '',
-  unitType: 'unit',
-  prices: [{ unit: 'Each', price: '' }],
+  prices: [{ unit: '', price: '' }],
   stock: '',
   discount: { enabled: false, type: 'percentage', value: 0 },
 }
 
-export default function ProductFormModal({ product, categories, onSave, onClose, currencySymbol }) {
+export default function ProductFormModal({ product, categories, unitsOfMeasure, onSave, onClose, currencySymbol }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const sym = currencySymbol || '$'
+
+  // Group units by type
+  const unitsByType = unitsOfMeasure.reduce((acc, unit) => {
+    if (!acc[unit.type]) {
+      acc[unit.type] = []
+    }
+    acc[unit.type].push(unit)
+    return acc
+  }, {})
 
   useEffect(() => {
     if (product) {
@@ -27,21 +28,36 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
         ...product,
         prices: product.prices && product.prices.length > 0 
           ? product.prices.map(p => ({ ...p, price: String(p.price) }))
-          : [{ unit: 'Each', price: '' }],
+          : [{ unit: '', price: '' }],
         stock: product.stock != null ? String(product.stock) : '',
         discount: product.discount || EMPTY_FORM.discount,
       })
     } else {
-      setForm({ ...EMPTY_FORM, category: categories[0] || '' })
+      setForm({ 
+        ...EMPTY_FORM, 
+        category: categories[0]?.id || '',
+        prices: [{ unit: unitsOfMeasure.find(u => u.type === 'unit')?.abbreviation || '', price: '' }]
+      })
     }
-  }, [product]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [product, categories, unitsOfMeasure]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
   const setDiscount = (field, value) => setForm(f => ({ ...f, discount: { ...f.discount, [field]: value } }))
 
-  const handleUnitTypeChange = (ut) => {
-    const defaultUnits = UNIT_TYPES[ut].units.slice(0, 3).map(u => ({ unit: u, price: '' }))
-    setForm(f => ({ ...f, unitType: ut, prices: defaultUnits }))
+  const addPriceRow = () => {
+    setForm(f => ({
+      ...f,
+      prices: [...f.prices, { unit: '', price: '' }]
+    }))
+  }
+
+  const removePriceRow = (index) => {
+    if (form.prices.length > 1) {
+      setForm(f => ({
+        ...f,
+        prices: f.prices.filter((_, i) => i !== index)
+      }))
+    }
   }
 
   const updatePrice = (index, field, value) => {
@@ -84,101 +100,34 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {product ? 'Edit Product' : 'Add Product'}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900">
+            {product?.id ? 'Edit Product' : 'Add New Product'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Name */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Product Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
             <input
-              required
-              autoFocus
+              type="text"
               value={form.name}
               onChange={e => set('name', e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder="e.g. Coca Cola"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Enter product name"
+              required
             />
-          </div>
-
-          {/* Sold By */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sold By</label>
-            <div className="flex gap-1 mb-2">
-              {Object.entries(UNIT_TYPES).map(([key, { label }]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleUnitTypeChange(key)}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                    form.unitType === key
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Prices per Unit */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Prices by Unit *</label>
-            <div className="space-y-2">
-              {form.prices.map((priceObj, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <select
-                    value={priceObj.unit}
-                    onChange={e => updatePrice(idx, 'unit', e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="">Select unit</option>
-                    {UNIT_TYPES[form.unitType]?.units.map(u => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={priceObj.price}
-                    onChange={e => updatePrice(idx, 'price', e.target.value)}
-                    className="w-24 border border-gray-300 rounded-lg px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="0.00"
-                  />
-                  <span className="text-sm text-gray-500 w-6">{sym}</span>
-                  {form.prices.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removePrice(idx)}
-                      className="text-gray-400 hover:text-red-500 p-1"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={addPrice}
-              className="mt-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-            >
-              + Add another unit price
-            </button>
           </div>
 
           {/* Category */}
@@ -187,15 +136,71 @@ export default function ProductFormModal({ product, categories, onSave, onClose,
             <select
               value={form.category}
               onChange={e => set('category', e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             >
-              <option value="">— None —</option>
-              {categories.map(c => (
-                <option key={c.id || c.name} value={c.id || c.name}>
-                  {c.name || c}
+              <option value="">No category</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Prices */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Prices</label>
+            <div className="space-y-2">
+              {form.prices.map((price, index) => (
+                <div key={index} className="flex gap-2">
+                  <select
+                    value={price.unit}
+                    onChange={e => updatePrice(index, 'unit', e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Select unit</option>
+                    {Object.entries(unitsByType).map(([type, units]) => (
+                      <optgroup key={type} label={type.charAt(0).toUpperCase() + type.slice(1)}>
+                        {units.map(unit => (
+                          <option key={unit.id} value={unit.abbreviation}>
+                            {unit.name} ({unit.abbreviation})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={price.price}
+                    onChange={e => updatePrice(index, 'price', e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="0.00"
+                    required
+                  />
+                  <span className="flex items-center text-gray-500">{sym}</span>
+                  {form.prices.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePriceRow(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 21m0 0l-1.5 1.5M5 21h14" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addPriceRow}
+                className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              >
+                + Add Price
+              </button>
+            </div>
           </div>
 
           {/* Stock */}
