@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PasswordChangeModal from './PasswordChangeModal'
 import OrganizationSelector from './OrganizationSelector'
 
@@ -10,9 +10,29 @@ export default function Navbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { userProfile, logout, isAdmin, isSuperAdmin } = useAuth()
-  const { selectedOrgId, setSelectedOrgId } = useOrg()
+  const { selectedOrgId, setSelectedOrgId, getAccessibleOrganizations } = useOrg()
   const { organizations } = useOrganizations()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+
+  // Auto-select single organization in navbar
+  useEffect(() => {
+    if (!selectedOrgId) {
+      let accessibleOrgs
+      
+      if (isSuperAdmin) {
+        // For Super Admins, use all organizations
+        accessibleOrgs = organizations.map(org => ({ orgId: org.id, role: 'super_admin' }))
+      } else {
+        // For regular users, use their accessible organizations
+        accessibleOrgs = getAccessibleOrganizations()
+      }
+      
+      // If user has only one organization total, auto-select it
+      if (accessibleOrgs.length === 1) {
+        setSelectedOrgId(accessibleOrgs[0].orgId)
+      }
+    }
+  }, [isSuperAdmin, selectedOrgId, setSelectedOrgId, getAccessibleOrganizations, organizations])
 
   const handleLogout = async () => {
     await logout()
@@ -24,7 +44,6 @@ export default function Navbar() {
   }
 
   // Get current organization info using the new multi-organization structure
-  const { getAccessibleOrganizations } = useOrg()
   const accessibleOrgs = getAccessibleOrganizations()
   const currentOrg = organizations.find(o => o.id === selectedOrgId)
   const orgName = currentOrg?.name || selectedOrgId || ''

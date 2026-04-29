@@ -5,13 +5,16 @@ import { useOrganizations } from '../hooks/useOrganizations'
 import { useToast } from './ToastContainer'
 
 export default function UserProfileManager() {
-  const { userProfile, setPrimaryOrganization } = useAuth()
+  const { userProfile, setPrimaryOrganization, isSuperAdmin } = useAuth()
   const { selectedOrgId, setSelectedOrgId, getAccessibleOrganizations } = useOrg()
   const { organizations, loading } = useOrganizations()
   const { addToast } = useToast()
   const [isSettingPrimary, setIsSettingPrimary] = useState(false)
 
-  const accessibleOrgs = getAccessibleOrganizations()
+  // For Super Admins, all organizations are accessible
+  const accessibleOrgs = isSuperAdmin 
+    ? organizations.map(org => ({ orgId: org.id, role: 'super_admin' }))
+    : getAccessibleOrganizations()
 
   const handleOrgSwitch = async (orgId) => {
     try {
@@ -80,13 +83,30 @@ export default function UserProfileManager() {
       <div className="space-y-4">
         <div>
           <h3 className="font-semibold text-gray-900 mb-3">Organization Access</h3>
-          <p className="text-sm text-gray-500 mb-4">
-            You have access to {accessibleOrgs.length} organization{accessibleOrgs.length !== 1 ? 's' : ''}. 
-            Your primary organization is automatically selected when you log in.
-          </p>
+          {isSuperAdmin ? (
+            <p className="text-sm text-gray-500 mb-4">
+              As a Super Admin, you have access to all {organizations.length} organization{organizations.length !== 1 ? 's' : ''}. 
+              You can manage any organization in the system.
+            </p>
+          ) : (
+            <p className="text-sm text-gray-500 mb-4">
+              You have access to {accessibleOrgs.length} organization{accessibleOrgs.length !== 1 ? 's' : ''}. 
+              Your primary organization is automatically selected when you log in.
+            </p>
+          )}
         </div>
 
-        {accessibleOrgs.length === 0 ? (
+        {isSuperAdmin ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <p className="text-emerald-700 font-medium">Super Admin Access</p>
+            <p className="text-sm text-emerald-600 mt-1">You have full access to all organizations</p>
+          </div>
+        ) : accessibleOrgs.length === 0 ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,7 +185,7 @@ export default function UserProfileManager() {
       </div>
 
       {/* Instructions */}
-      {accessibleOrgs.length > 1 && (
+      {!isSuperAdmin && accessibleOrgs.length > 1 && (
         <div className="mt-6 p-4 bg-blue-50 rounded-lg">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -176,6 +196,24 @@ export default function UserProfileManager() {
             <div className="ml-3">
               <p className="text-sm text-blue-800">
                 <strong>Tip:</strong> Click on any organization to switch to it, or set a primary organization that will be automatically selected when you log in.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Super Admin Instructions */}
+      {isSuperAdmin && organizations.length > 1 && (
+        <div className="mt-6 p-4 bg-emerald-50 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-emerald-800">
+                <strong>Super Admin Tip:</strong> Use the organization selector in the navigation bar to switch between organizations. You have full administrative access to all organizations.
               </p>
             </div>
           </div>

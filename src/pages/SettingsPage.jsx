@@ -278,20 +278,6 @@ function BillingTab({ settings, updateSettings }) {
         </div>
       </section>
 
-      {/* Cart Discount Override */}
-      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">Cart Discount Override</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Allow applying a custom discount amount directly in the cart</p>
-          </div>
-          <Toggle
-            checked={settings.cartDiscountEnabled || false}
-            onChange={e => updateSettings({ cartDiscountEnabled: e.target.checked })}
-          />
-        </div>
-      </section>
-
       {/* Global Discount - shown when global mode selected */}
       {settings.discountMode === 'global' && (
         <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
@@ -364,6 +350,20 @@ function BillingTab({ settings, updateSettings }) {
           <p className="text-xs text-gray-500 mt-1">Set discounts individually on each product in the Products tab.</p>
         </section>
       )}
+
+      {/* Cart Discount Override */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Cart Discount Override</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Allow applying a custom discount amount directly in the cart</p>
+          </div>
+          <Toggle
+            checked={settings.cartDiscountEnabled || false}
+            onChange={e => updateSettings({ cartDiscountEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
 
       {/* Reprint */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100">
@@ -538,11 +538,22 @@ export default function SettingsPage() {
   const adminOrganizations = getAdminOrganizations()
 
   
-  // Auto-select admin organization when needed
+  // Auto-select organization when needed
   useEffect(() => {
     if (!isSuperAdmin) {
+      // Get all accessible organizations for the user
+      const accessibleOrgs = organizations.filter(org => 
+        userProfile.organizations ? 
+          userProfile.organizations.some(userOrg => userOrg.orgId === org.id) :
+          userProfile.orgId === org.id
+      )
+      
+      // If user has only one organization total, auto-select it
+      if (!selectedOrgId && accessibleOrgs.length === 1) {
+        setSelectedOrgId(accessibleOrgs[0].id)
+      }
       // If no organization selected, select the first admin org
-      if (!selectedOrgId && adminOrganizations.length >= 1) {
+      else if (!selectedOrgId && adminOrganizations.length >= 1) {
         setSelectedOrgId(adminOrganizations[0].orgId)
       }
       // If current organization doesn't have admin access, switch to first admin org
@@ -550,7 +561,7 @@ export default function SettingsPage() {
         setSelectedOrgId(adminOrganizations[0].orgId)
       }
     }
-  }, [adminOrganizations, selectedOrgId, setSelectedOrgId, isSuperAdmin, hasAdminAccessToOrganization])
+  }, [adminOrganizations, selectedOrgId, setSelectedOrgId, isSuperAdmin, hasAdminAccessToOrganization, organizations, userProfile])
 
   const tabs = [
     { id: 'products', label: 'Products' },
@@ -564,6 +575,15 @@ export default function SettingsPage() {
   // Show message if no organization selected or no admin access
   // Hide settings for users with multiple organizations until one is selected
   const hasMultipleOrganizations = (isSuperAdmin && organizations.length > 1) || adminOrganizations.length > 1
+  
+  // Get all accessible organizations for the user
+  const accessibleOrgs = organizations.filter(org => 
+    userProfile.organizations ? 
+      userProfile.organizations.some(userOrg => userOrg.orgId === org.id) :
+      userProfile.orgId === org.id
+  )
+  
+  // User needs org selection if they have multiple organizations and none is selected
   const needsOrgSelection = hasMultipleOrganizations && !selectedOrgId
   
   // Handle Super Admin specific cases
@@ -614,8 +634,8 @@ export default function SettingsPage() {
     }
   }
   
-  // Handle Organization Admin cases
-  if (!hasAdminAccess || needsOrgSelection) {
+  // Handle Organization Admin cases (exclude Super Admins as they are handled above)
+  if (!isSuperAdmin && (!hasAdminAccess || needsOrgSelection)) {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
         <div className="max-w-2xl mx-auto">

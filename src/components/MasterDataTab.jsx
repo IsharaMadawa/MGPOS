@@ -194,24 +194,77 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
   const [editingUnit, setEditingUnit] = useState(null)
   const [error, setError] = useState('')
 
-  // Use database defaults if no settings exist
+  // Use database defaults if no settings exist - most common units
   const units = settings?.unitsOfMeasure || [
-    { id: 'kg', name: 'Kilogram', abbreviation: 'kg', type: 'weight', isDefault: true },
-    { id: 'g', name: 'Gram', abbreviation: 'g', type: 'weight', isDefault: true },
-    { id: 'l', name: 'Liter', abbreviation: 'L', type: 'volume', isDefault: true },
-    { id: 'ml', name: 'Milliliter', abbreviation: 'mL', type: 'volume', isDefault: true },
-    { id: 'pcs', name: 'Pieces', abbreviation: 'pcs', type: 'unit', isDefault: true },
-    { id: 'box', name: 'Box', abbreviation: 'box', type: 'unit', isDefault: true },
+    // Weight units
+    { id: 'kg', name: 'Kilogram', abbreviation: 'kg', type: 'weight', isStandard: true },
+    { id: 'g', name: 'Gram', abbreviation: 'g', type: 'weight', isStandard: true },
+    { id: 'mg', name: 'Milligram', abbreviation: 'mg', type: 'weight', isStandard: true },
+    { id: 'lb', name: 'Pound', abbreviation: 'lb', type: 'weight', isStandard: true },
+    { id: 'oz', name: 'Ounce', abbreviation: 'oz', type: 'weight', isStandard: true },
+    { id: 't', name: 'Ton', abbreviation: 't', type: 'weight', isStandard: true },
+    
+    // Volume units
+    { id: 'l', name: 'Liter', abbreviation: 'L', type: 'volume', isStandard: true },
+    { id: 'ml', name: 'Milliliter', abbreviation: 'mL', type: 'volume', isStandard: true },
+    { id: 'gal', name: 'Gallon', abbreviation: 'gal', type: 'volume', isStandard: true },
+    { id: 'qt', name: 'Quart', abbreviation: 'qt', type: 'volume', isStandard: true },
+    { id: 'pt', name: 'Pint', abbreviation: 'pt', type: 'volume', isStandard: true },
+    { id: 'fl_oz', name: 'Fluid Ounce', abbreviation: 'fl oz', type: 'volume', isStandard: true },
+    
+    // Length units
+    { id: 'm', name: 'Meter', abbreviation: 'm', type: 'length', isStandard: true },
+    { id: 'cm', name: 'Centimeter', abbreviation: 'cm', type: 'length', isStandard: true },
+    { id: 'mm', name: 'Millimeter', abbreviation: 'mm', type: 'length', isStandard: true },
+    { id: 'km', name: 'Kilometer', abbreviation: 'km', type: 'length', isStandard: true },
+    { id: 'in', name: 'Inch', abbreviation: 'in', type: 'length', isStandard: true },
+    { id: 'ft', name: 'Foot', abbreviation: 'ft', type: 'length', isStandard: true },
+    { id: 'yd', name: 'Yard', abbreviation: 'yd', type: 'length', isStandard: true },
+    { id: 'mi', name: 'Mile', abbreviation: 'mi', type: 'length', isStandard: true },
+    
+    // Area units
+    { id: 'sq_m', name: 'Square Meter', abbreviation: 'm²', type: 'area', isStandard: true },
+    { id: 'sq_cm', name: 'Square Centimeter', abbreviation: 'cm²', type: 'area', isStandard: true },
+    { id: 'sq_ft', name: 'Square Foot', abbreviation: 'ft²', type: 'area', isStandard: true },
+    { id: 'sq_in', name: 'Square Inch', abbreviation: 'in²', type: 'area', isStandard: true },
+    { id: 'acre', name: 'Acre', abbreviation: 'acre', type: 'area', isStandard: true },
+    { id: 'ha', name: 'Hectare', abbreviation: 'ha', type: 'area', isStandard: true },
+    
+    // Unit/Count units
+    { id: 'pcs', name: 'Pieces', abbreviation: 'pcs', type: 'unit', isStandard: true },
+    { id: 'unit', name: 'Unit', abbreviation: 'unit', type: 'unit', isStandard: true },
+    { id: 'box', name: 'Box', abbreviation: 'box', type: 'unit', isStandard: true },
+    { id: 'pkg', name: 'Package', abbreviation: 'pkg', type: 'unit', isStandard: true },
+    { id: 'set', name: 'Set', abbreviation: 'set', type: 'unit', isStandard: true },
+    { id: 'pair', name: 'Pair', abbreviation: 'pair', type: 'unit', isStandard: true },
+    { id: 'dozen', name: 'Dozen', abbreviation: 'doz', type: 'unit', isStandard: true },
+    { id: 'bottle', name: 'Bottle', abbreviation: 'bottle', type: 'unit', isStandard: true },
+    { id: 'bag', name: 'Bag', abbreviation: 'bag', type: 'unit', isStandard: true },
+    { id: 'carton', name: 'Carton', abbreviation: 'carton', type: 'unit', isStandard: true },
+    
+    // Time units
+    { id: 'sec', name: 'Second', abbreviation: 's', type: 'time', isStandard: true },
+    { id: 'min', name: 'Minute', abbreviation: 'min', type: 'time', isStandard: true },
+    { id: 'hr', name: 'Hour', abbreviation: 'h', type: 'time', isStandard: true },
+    { id: 'day', name: 'Day', abbreviation: 'day', type: 'time', isStandard: true },
+    { id: 'week', name: 'Week', abbreviation: 'week', type: 'time', isStandard: true },
+    { id: 'month', name: 'Month', abbreviation: 'month', type: 'time', isStandard: true },
+    { id: 'year', name: 'Year', abbreviation: 'year', type: 'time', isStandard: true },
+    
+    // Temperature units
+    { id: 'c', name: 'Celsius', abbreviation: '°C', type: 'temperature', isStandard: true },
+    { id: 'f', name: 'Fahrenheit', abbreviation: '°F', type: 'temperature', isStandard: true },
+    { id: 'k', name: 'Kelvin', abbreviation: 'K', type: 'temperature', isStandard: true },
   ]
 
   const unitTypes = [
-    { value: 'weight', label: 'Weight', icon: '⚖️' },
-    { value: 'volume', label: 'Volume', icon: '🥤' },
-    { value: 'length', label: 'Length', icon: '📏' },
-    { value: 'area', label: 'Area', icon: '📐' },
-    { value: 'unit', label: 'Unit/Count', icon: '🔢' },
-    { value: 'time', label: 'Time', icon: '⏰' },
-    { value: 'temperature', label: 'Temperature', icon: '🌡️' },
+    { value: 'weight', label: 'Weight' },
+    { value: 'volume', label: 'Volume' },
+    { value: 'length', label: 'Length' },
+    { value: 'area', label: 'Area' },
+    { value: 'unit', label: 'Unit/Count' },
+    { value: 'time', label: 'Time' },
+    { value: 'temperature', label: 'Temperature' },
   ]
 
   const handleAddUnit = (e) => {
@@ -234,7 +287,7 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
       name: newUnit.name.trim(),
       abbreviation: newUnit.abbreviation.trim(),
       type: newUnit.type,
-      isDefault: false,
+      isStandard: false,
       createdAt: new Date().toISOString()
     }]
 
@@ -392,7 +445,7 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
                 >
                   {unitTypes.map(type => (
                     <option key={type.value} value={type.value}>
-                      {type.icon} {type.label}
+                      {type.label}
                     </option>
                   ))}
                 </select>
@@ -438,7 +491,6 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
           return (
             <div key={type.value} className="border border-gray-200 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-lg">{type.icon}</span>
                 <h5 className="font-medium text-gray-900">{type.label}</h5>
                 <span className="text-xs text-gray-500">({typeUnits.length} units)</span>
               </div>
@@ -447,23 +499,30 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
                   <div key={unit.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">{unit.name}</span>
+                      {unit.isStandard && (
+                        <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded">Standard</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-gray-500 font-mono bg-white px-2 py-1 rounded">
                         {unit.abbreviation}
                       </span>
-                      <button
-                        onClick={() => handleEditUnit(unit)}
-                        className="text-blue-500 hover:text-blue-700 text-xs"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUnit(unit)}
-                        className="text-red-500 hover:text-red-700 text-xs"
-                      >
-                        Delete
-                      </button>
+                      {!unit.isStandard && (
+                        <>
+                          <button
+                            onClick={() => handleEditUnit(unit)}
+                            className="text-blue-500 hover:text-blue-700 text-xs"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUnit(unit)}
+                            className="text-red-500 hover:text-red-700 text-xs"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -479,18 +538,12 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
 // Master Categories Section (fully implemented)
 function MasterCategoriesSection({ settings, updateSettings, userProfile, addToast }) {
   const [showNewCategory, setShowNewCategory] = useState(false)
-  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#6B7280', icon: '??' })
+  const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#6B7280' })
   const [editingCategory, setEditingCategory] = useState(null)
   const [error, setError] = useState('')
 
-  // Use database defaults if no settings exist
-  const masterCategories = settings?.masterCategories || [
-    { id: 'food', name: 'Food & Beverages', description: 'Edible items and drinks', color: '#EF4444', icon: '??', isDefault: true },
-    { id: 'electronics', name: 'Electronics', description: 'Electronic devices and accessories', color: '#3B82F6', icon: '??', isDefault: true },
-    { id: 'clothing', name: 'Clothing', description: 'Apparel and accessories', color: '#8B5CF6', icon: '??', isDefault: true },
-    { id: 'household', name: 'Household', description: 'Home and kitchen items', color: '#10B981', icon: '??', isDefault: true },
-    { id: 'other', name: 'Other', description: 'Miscellaneous items', color: '#6B7280', icon: '??', isDefault: true },
-  ]
+  // Use database defaults if no settings exist - empty for new organizations
+  const masterCategories = settings?.masterCategories || []
 
   const colorOptions = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981', '#14B8A6',
@@ -498,7 +551,6 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
     '#F43F5E', '#6B7280'
   ]
 
-  const iconOptions = ['🍔', '📱', '👕', '🏠', '📦', '🚗', '🏃', '📚', '💻', '🎮', '🎵', '⚽', '🌺', '💎', '🔧', '🎨', '🍷', '☕', '🍰', '🧴']
 
   const handleAddCategory = (e) => {
     e.preventDefault()
@@ -520,7 +572,6 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
       name: newCategory.name.trim(),
       description: newCategory.description.trim(),
       color: newCategory.color,
-      icon: newCategory.icon,
       isDefault: false,
       createdAt: new Date().toISOString()
     }]
@@ -541,7 +592,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
     }
 
     addToast('Master category created successfully!', 'success')
-    setNewCategory({ name: '', description: '', color: '#6B7280', icon: '📦' })
+    setNewCategory({ name: '', description: '', color: '#6B7280' })
     setShowNewCategory(false)
     setError('')
   }
@@ -551,8 +602,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
     setNewCategory({ 
       name: category.name, 
       description: category.description, 
-      color: category.color, 
-      icon: category.icon 
+      color: category.color
     })
     setError('')
   }
@@ -580,8 +630,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
             ...cat, 
             name: newCategory.name.trim(),
             description: newCategory.description.trim(),
-            color: newCategory.color,
-            icon: newCategory.icon
+            color: newCategory.color
           }
         : cat
     )
@@ -609,7 +658,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
 
     addToast('Master category updated successfully!', 'success')
     setEditingCategory(null)
-    setNewCategory({ name: '', description: '', color: '#6B7280', icon: '📦' })
+    setNewCategory({ name: '', description: '', color: '#6B7280' })
     setError('')
   }
 
@@ -670,20 +719,6 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
                   required
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Icon</label>
-                <select
-                  value={newCategory.icon}
-                  onChange={e => setNewCategory({ ...newCategory, icon: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
-                  {iconOptions.map(icon => (
-                    <option key={icon} value={icon}>
-                      {icon} {icon}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
             
             <div>
@@ -734,7 +769,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
                   type="button"
                   onClick={() => {
                     setEditingCategory(null)
-                    setNewCategory({ name: '', description: '', color: '#6B7280', icon: '📦' })
+                    setNewCategory({ name: '', description: '', color: '#6B7280' })
                     setError('')
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
@@ -747,42 +782,44 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {masterCategories.map(category => (
-          <div key={category.id} className="border border-gray-200 rounded-lg p-3">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span 
-                  className="text-lg p-1 rounded" 
-                  style={{ backgroundColor: `${category.color}20` }}
-                >
-                  {category.icon}
-                </span>
-                <div>
-                  <h5 className="font-medium text-gray-900 text-sm">{category.name}</h5>
+      {masterCategories.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-8">No master categories added yet</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {masterCategories.map(category => (
+            <div key={category.id} className="border border-gray-200 rounded-lg p-3">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: category.color }}
+                  />
+                  <div>
+                    <h5 className="font-medium text-gray-900 text-sm">{category.name}</h5>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleEditCategory(category)}
+                    className="text-blue-500 hover:text-blue-700 text-xs"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCategory(category)}
+                    className="text-red-500 hover:text-red-700 text-xs"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleEditCategory(category)}
-                  className="text-blue-500 hover:text-blue-700 text-xs"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteCategory(category)}
-                  className="text-red-500 hover:text-red-700 text-xs"
-                >
-                  Delete
-                </button>
-              </div>
+              {category.description && (
+                <p className="text-xs text-gray-600">{category.description}</p>
+              )}
             </div>
-            {category.description && (
-              <p className="text-xs text-gray-600">{category.description}</p>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
