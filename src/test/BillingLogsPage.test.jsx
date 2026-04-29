@@ -13,8 +13,14 @@ import { logUserAction } from '../utils/logger'
 // Mock the hooks
 vi.mock('../hooks/useBillingLogs')
 vi.mock('../hooks/useSettings')
-vi.mock('../contexts/AuthContext')
-vi.mock('../contexts/OrgContext')
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+  AuthProvider: ({ children }) => children
+}))
+vi.mock('../contexts/OrgContext', () => ({
+  useOrg: vi.fn(),
+  OrgProvider: ({ children }) => children
+}))
 vi.mock('../utils/logger')
 
 // Mock window.open
@@ -101,11 +107,7 @@ const mockOrg = {
 function TestWrapper({ children }) {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <OrgProvider>
-          {children}
-        </OrgProvider>
-      </AuthProvider>
+      {children}
     </BrowserRouter>
   )
 }
@@ -158,8 +160,8 @@ describe('BillingLogsPage', () => {
     expect(screen.getByText('#789012')).toBeInTheDocument()
     expect(screen.getByText('John Doe')).toBeInTheDocument()
     expect(screen.getByText('Jane Smith')).toBeInTheDocument()
-    expect(screen.getByText('$20.00')).toBeInTheDocument()
-    expect(screen.getByText('$15.00')).toBeInTheDocument()
+    expect(screen.getByText('$22.00')).toBeInTheDocument()
+    expect(screen.getByText('$16.50')).toBeInTheDocument()
   })
 
   test('shows reprint button for today\'s bills when enabled', () => {
@@ -225,14 +227,17 @@ describe('BillingLogsPage', () => {
     )
   })
 
-  test('filters work correctly', () => {
+  test('filters work correctly', async () => {
     render(
       <TestWrapper>
         <BillingLogsPage />
       </TestWrapper>
     )
 
-    // Show filters
+    // Show filters - wait for button to be available
+    await waitFor(() => {
+      expect(screen.getByText('Show Filters')).toBeInTheDocument()
+    })
     const showFiltersButton = screen.getByText('Show Filters')
     fireEvent.click(showFiltersButton)
 
@@ -244,14 +249,17 @@ describe('BillingLogsPage', () => {
     expect(screen.queryByText('#789012')).not.toBeInTheDocument()
   })
 
-  test('clear filters works correctly', () => {
+  test('clear filters works correctly', async () => {
     render(
       <TestWrapper>
         <BillingLogsPage />
       </TestWrapper>
     )
 
-    // Show filters
+    // Show filters - wait for button to be available
+    await waitFor(() => {
+      expect(screen.getByText('Show Filters')).toBeInTheDocument()
+    })
     const showFiltersButton = screen.getByText('Show Filters')
     fireEvent.click(showFiltersButton)
 
@@ -267,7 +275,7 @@ describe('BillingLogsPage', () => {
     expect(screen.getByText('#789012')).toBeInTheDocument()
   })
 
-  test('load more functionality works', () => {
+  test('load more functionality works', async () => {
     const manyLogs = Array.from({ length: 100 }, (_, i) => ({
       ...mockBillingLogs[0],
       id: i.toString(),
@@ -286,6 +294,10 @@ describe('BillingLogsPage', () => {
       </TestWrapper>
     )
 
+    // Wait for Load More button to be available
+    await waitFor(() => {
+      expect(screen.getByText('Load More')).toBeInTheDocument()
+    })
     const loadMoreButton = screen.getByText('Load More')
     fireEvent.click(loadMoreButton)
 

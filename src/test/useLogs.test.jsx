@@ -22,6 +22,16 @@ vi.mock('firebase/firestore', () => ({
 }))
 
 // Mock contexts
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+  AuthProvider: ({ children }) => children
+}))
+
+vi.mock('../contexts/OrgContext', () => ({
+  useOrg: vi.fn(),
+  OrgProvider: ({ children }) => children
+}))
+
 const mockUser = {
   id: 'user123',
   displayName: 'Test User',
@@ -38,34 +48,27 @@ const mockSuperAdmin = {
   orgId: null
 }
 
-const wrapper = ({ children }) => (
-  <AuthProvider>
-    <OrgProvider>
-      {children}
-    </OrgProvider>
-  </AuthProvider>
-)
+const wrapper = ({ children }) => children
 
 describe('useLogs Hook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // Mock useAuth and useOrg hooks
-    vi.doMock('../contexts/AuthContext', () => ({
-      useAuth: () => ({
-        userProfile: mockUser,
-        isSuperAdmin: false
-      })
-    }))
-    
-    vi.doMock('../contexts/OrgContext', () => ({
-      useOrg: () => ({
-        selectedOrgId: null
-      })
-    }))
   })
 
   it('should fetch logs for regular admin user', async () => {
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockUser,
+      isSuperAdmin: false
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
     const { onSnapshot } = await import('firebase/firestore')
     const mockUnsubscribe = vi.fn()
     onSnapshot.mockReturnValue(mockUnsubscribe)
@@ -104,6 +107,19 @@ describe('useLogs Hook', () => {
   })
 
   it('should handle fetch errors', async () => {
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockUser,
+      isSuperAdmin: false
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
     const { onSnapshot } = await import('firebase/firestore')
     const mockUnsubscribe = vi.fn()
     onSnapshot.mockReturnValue(mockUnsubscribe)
@@ -125,6 +141,19 @@ describe('useLogs Hook', () => {
   })
 
   it('should apply filters correctly', async () => {
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockUser,
+      isSuperAdmin: false
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
     const { onSnapshot, query, where, orderBy, limit } = await import('firebase/firestore')
     const mockUnsubscribe = vi.fn()
     onSnapshot.mockReturnValue(mockUnsubscribe)
@@ -148,23 +177,22 @@ describe('useLogs Hook', () => {
 describe('useAllLogs Hook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    // Mock super admin context
-    vi.doMock('../contexts/AuthContext', () => ({
-      useAuth: () => ({
-        userProfile: mockSuperAdmin,
-        isSuperAdmin: true
-      })
-    }))
-    
-    vi.doMock('../contexts/OrgContext', () => ({
-      useOrg: () => ({
-        selectedOrgId: null
-      })
-    }))
   })
 
   it('should fetch all logs for super admin', async () => {
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockSuperAdmin,
+      isSuperAdmin: true
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
     const { onSnapshot } = await import('firebase/firestore')
     const mockUnsubscribe = vi.fn()
     onSnapshot.mockReturnValue(mockUnsubscribe)
@@ -213,13 +241,18 @@ describe('useAllLogs Hook', () => {
   })
 
   it('should return unauthorized error for non-super admin', async () => {
-    // Mock regular admin context
-    vi.doMock('../contexts/AuthContext', () => ({
-      useAuth: () => ({
-        userProfile: mockUser,
-        isSuperAdmin: false
-      })
-    }))
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockUser,
+      isSuperAdmin: false
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
 
     const { result } = renderHook(() => useAllLogs(), { wrapper })
 
@@ -235,22 +268,22 @@ describe('useAllLogs Hook', () => {
 describe('useLogStats Hook', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    
-    vi.doMock('../contexts/AuthContext', () => ({
-      useAuth: () => ({
-        userProfile: mockUser,
-        isSuperAdmin: false
-      })
-    }))
-    
-    vi.doMock('../contexts/OrgContext', () => ({
-      useOrg: () => ({
-        selectedOrgId: null
-      })
-    }))
   })
 
   it('should calculate log statistics correctly', async () => {
+    // Mock the contexts
+    const { useAuth } = await import('../contexts/AuthContext')
+    const { useOrg } = await import('../contexts/OrgContext')
+    
+    useAuth.mockReturnValue({
+      userProfile: mockUser,
+      isSuperAdmin: false
+    })
+    
+    useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
     const { getDocs } = await import('firebase/firestore')
 
     const mockLogs = [
