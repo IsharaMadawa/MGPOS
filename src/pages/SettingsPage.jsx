@@ -4,6 +4,8 @@ import { useSettings, CURRENCIES } from '../hooks/useSettings'
 import { useCategories } from '../hooks/useCategories'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { useToast } from '../components/ToastContainer'
+import { logUserAction, LOG_TYPES } from '../utils/logger'
 import { db } from '../firebase'
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import ProductFormModal from '../components/ProductFormModal'
@@ -616,6 +618,7 @@ export default function SettingsPage() {
 function UsersTab() {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
+  const { addToast } = useToast()
   
   // Determine which orgId to use
   const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
@@ -691,6 +694,28 @@ function UsersTab() {
       const newSnapshot = await getDocs(newQ)
       setUsers(newSnapshot.docs.map(d => ({ id: d.id, ...d.data() })))
 
+      addToast('User created successfully!', 'success', { important: true })
+      
+      // Log user creation
+      try {
+        await logUserAction(
+          LOG_TYPES.USER_CREATE,
+          `Created user: ${newUser.displayName} (${newUser.username}) with role: ${newUser.role}`,
+          userProfile,
+          orgId,
+          {
+            userId: userId,
+            username: newUser.username,
+            displayName: newUser.displayName,
+            email: newUser.email,
+            role: newUser.role,
+            orgId: orgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log user creation:', logError)
+      }
+      
       setNewUser({ username: '', password: '', displayName: '', email: '', role: 'user' })
       setShowNewUser(false)
     } catch (err) {
@@ -703,22 +728,71 @@ function UsersTab() {
 
   const handleUpdateRole = async (userId, newRole) => {
     try {
+      const user = users.find(u => u.id === userId)
+      const oldRole = user?.role
+      
       await setDoc(doc(db, 'users', userId), { role: newRole }, { merge: true })
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+      
+      // Log role change
+      try {
+        await logUserAction(
+          LOG_TYPES.USER_ROLE_CHANGE,
+          `Updated user role: ${user?.displayName} (${user?.username}) from ${oldRole} to ${newRole}`,
+          userProfile,
+          orgId,
+          {
+            userId: userId,
+            username: user?.username,
+            displayName: user?.displayName,
+            oldRole: oldRole,
+            newRole: newRole,
+            orgId: orgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log role change:', logError)
+      }
+      
+      addToast('Role updated successfully!', 'success', { important: true })
     } catch (err) {
       console.error('Error updating role:', err)
-      alert('Failed to update role')
+      addToast('Failed to update role', 'error')
     }
   }
 
   const handleDeleteUser = async (userId) => {
     if (!confirm('Are you sure you want to remove this user?')) return
     try {
+      const user = users.find(u => u.id === userId)
+      
       await deleteDoc(doc(db, 'users', userId))
       setUsers(users.filter(u => u.id !== userId))
+      
+      // Log user deletion
+      try {
+        await logUserAction(
+          LOG_TYPES.USER_DELETE,
+          `Deleted user: ${user?.displayName} (${user?.username})`,
+          userProfile,
+          orgId,
+          {
+            userId: userId,
+            username: user?.username,
+            displayName: user?.displayName,
+            email: user?.email,
+            role: user?.role,
+            orgId: orgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log user deletion:', logError)
+      }
+      
+      addToast('User deleted successfully!', 'success', { important: true })
     } catch (err) {
       console.error('Error deleting user:', err)
-      alert('Failed to delete user')
+      addToast('Failed to delete user', 'error')
     }
   }
 

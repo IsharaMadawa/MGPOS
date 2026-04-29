@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
 import { useAuth } from '../contexts/AuthContext'
 import { useBillingLogs } from '../hooks/useBillingLogs'
+import { useToast } from '../components/ToastContainer'
 import ProductModal from './ProductModal'
 
 function fmt(amount, sym) {
@@ -115,6 +116,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
+  const { addToast } = useToast()
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
@@ -175,7 +177,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     const rTotal = rTaxBase + rTax
 
     const win = window.open('', '_blank', 'width=420,height=700')
-    if (!win) { alert('Please allow popups to print.'); return }
+    if (!win) { addToast('Please allow popups to print.', 'warning'); return }
 
     win.document.write(`<!DOCTYPE html>
 <html><head>

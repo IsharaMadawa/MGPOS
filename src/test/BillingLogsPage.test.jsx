@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
+import { ToastProvider } from '../components/ToastContainer'
 import BillingLogsPage from '../pages/BillingLogsPage'
 import { useBillingLogs } from '../hooks/useBillingLogs'
 import { useSettings } from '../hooks/useSettings'
@@ -107,7 +108,9 @@ const mockOrg = {
 function TestWrapper({ children }) {
   return (
     <BrowserRouter>
-      {children}
+      <ToastProvider>
+        {children}
+      </ToastProvider>
     </BrowserRouter>
   )
 }

@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrganizations, useOrgUsers } from '../hooks/useOrganizations'
+import { useToast } from '../components/ToastContainer'
+import { logUserAction, LOG_TYPES } from '../utils/logger'
 import { db } from '../firebase'
 import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore'
 import PasswordChangeModal from '../components/PasswordChangeModal'
 
 export default function SuperAdminPage() {
-  const { isSuperAdmin, loading } = useAuth()
+  const { isSuperAdmin, loading, userProfile } = useAuth()
   const navigate = useNavigate()
   const { organizations, createOrganization, deleteOrganization, loading: orgsLoading } = useOrganizations()
+  const { addToast } = useToast()
   
   const [showNewOrg, setShowNewOrg] = useState(false)
   const [newOrg, setNewOrg] = useState({ code: '', name: '', description: '' })
@@ -24,6 +27,9 @@ export default function SuperAdminPage() {
   // Password change state
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState(null)
+
+  // Refresh trigger for user lists
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   if (loading || orgsLoading) {
     return (
@@ -94,10 +100,33 @@ export default function SuperAdminPage() {
       setNewUser({ username: '', password: '', displayName: '', email: '', role: 'user' })
       setSelectedOrg('')
       setShowNewUser(false)
-      alert('User created successfully!')
+      addToast('User created successfully!', 'success', { important: true })
+      
+      // Log user creation
+      try {
+        await logUserAction(
+          LOG_TYPES.USER_CREATE,
+          `Created user: ${newUser.displayName} (${newUser.username}) with role: ${newUser.role}`,
+          userProfile,
+          selectedOrg,
+          {
+            userId: userId,
+            username: newUser.username,
+            displayName: newUser.displayName,
+            email: newUser.email,
+            role: newUser.role,
+            orgId: selectedOrg
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log user creation:', logError)
+      }
+      
+      // Trigger refresh for user lists
+      setRefreshTrigger(prev => prev + 1)
     } catch (error) {
       console.error('Error creating user:', error)
-      alert('Error creating user: ' + error.message)
+      addToast('Error creating user: ' + error.message, 'error')
     } finally {
       setCreatingUser(false)
     }
@@ -208,6 +237,7 @@ export default function SuperAdminPage() {
                       org={org} 
                       onDelete={() => handleDeleteOrg(org.id)} 
                       onPasswordChange={handlePasswordChange}
+                      refreshTrigger={refreshTrigger}
                     />
                   ))}
                 </tbody>
@@ -331,9 +361,33 @@ export default function SuperAdminPage() {
   )
 }
 
-function OrgRow({ org, onDelete, onPasswordChange }) {
+function OrgRow({ org, onDelete, onPasswordChange, refreshTrigger }) {
   const [showUsers, setShowUsers] = useState(false)
-  const { users, loading: usersLoading, updateUserRole, removeUser } = useOrgUsers(org.id)
+  const { users, loading: usersLoading, updateUserRole, removeUser, refetch } = useOrgUsers(org.id)
+
+  // Refresh user list when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger && showUsers) {
+      refetch()
+      
+      // Log UI refresh
+      try {
+        logUserAction(
+          LOG_TYPES.UI_REFRESH,
+          `Refreshed user list for organization: ${org.id}`,
+          { id: 'system', displayName: 'System' },
+          org.id,
+          {
+            refreshTrigger: refreshTrigger,
+            orgId: org.id,
+            timestamp: new Date().toISOString()
+          }
+        ).catch(console.error)
+      } catch (error) {
+        console.error('Failed to log UI refresh:', error)
+      }
+    }
+  }, [refreshTrigger, showUsers, refetch])
 
   return (
     <>

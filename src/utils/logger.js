@@ -15,6 +15,10 @@ export const LOG_TYPES = {
   USER_LOGOUT: 'user_logout',
   USER_SIGNUP: 'user_signup',
   USER_PASSWORD_CHANGE: 'user_password_change',
+  USER_CREATE: 'user_create',
+  USER_UPDATE: 'user_update',
+  USER_DELETE: 'user_delete',
+  USER_ROLE_CHANGE: 'user_role_change',
   
   // Product operations
   PRODUCT_CREATE: 'product_create',
@@ -46,6 +50,10 @@ export const LOG_TYPES = {
   SYSTEM_WARNING: 'system_warning',
   DATA_IMPORT: 'data_import',
   DATA_EXPORT: 'data_export',
+  
+  // UI operations
+  TOAST_NOTIFICATION: 'toast_notification',
+  UI_REFRESH: 'ui_refresh',
   
   // Reporting operations
   REPORT_GENERATE: 'report_generate',
