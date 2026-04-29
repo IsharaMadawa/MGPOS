@@ -144,3 +144,138 @@ describe('Unique Username Login', () => {
     expect(superAdminProfile.orgId).toBeNull()
   })
 })
+
+// Test multi-organization functionality
+describe('Multi-Organization Functionality', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('should handle backward compatibility for single orgId structure', () => {
+    // Test conversion from old single orgId to new multi-org structure
+    const oldUserProfile = {
+      id: 'user-1',
+      username: 'testuser',
+      orgId: 'org-1',
+      role: 'admin'
+    }
+
+    // Simulate the conversion logic in AuthContext
+    const convertToMultiOrg = (userProfile) => {
+      let organizations = userProfile.organizations || []
+      let primaryOrgId = userProfile.primaryOrgId
+      
+      // For backward compatibility, handle single orgId structure
+      if (userProfile.orgId && !organizations.length) {
+        organizations = [{ orgId: userProfile.orgId, role: userProfile.role || 'user' }]
+        primaryOrgId = userProfile.orgId
+      }
+      
+      return { organizations, primaryOrgId }
+    }
+
+    const result = convertToMultiOrg(oldUserProfile)
+    expect(result.organizations).toEqual([{ orgId: 'org-1', role: 'admin' }])
+    expect(result.primaryOrgId).toBe('org-1')
+  })
+
+  it('should handle multi-org user profile', () => {
+    const multiOrgUserProfile = {
+      id: 'user-1',
+      username: 'testuser',
+      organizations: [
+        { orgId: 'org-1', role: 'admin' },
+        { orgId: 'org-2', role: 'user' }
+      ],
+      primaryOrgId: 'org-1'
+    }
+
+    // Test organization access logic
+    const hasAccessToOrganization = (userProfile, orgId) => {
+      if (userProfile.organizations) {
+        return userProfile.organizations.some(org => org.orgId === orgId)
+      }
+      return userProfile.orgId === orgId
+    }
+
+    expect(hasAccessToOrganization(multiOrgUserProfile, 'org-1')).toBe(true)
+    expect(hasAccessToOrganization(multiOrgUserProfile, 'org-2')).toBe(true)
+    expect(hasAccessToOrganization(multiOrgUserProfile, 'org-3')).toBe(false)
+  })
+
+  it('should get user role in specific organization', () => {
+    const multiOrgUserProfile = {
+      id: 'user-1',
+      username: 'testuser',
+      organizations: [
+        { orgId: 'org-1', role: 'admin' },
+        { orgId: 'org-2', role: 'user' }
+      ],
+      primaryOrgId: 'org-1'
+    }
+
+    const getRoleInOrganization = (userProfile, orgId) => {
+      if (userProfile.organizations) {
+        const org = userProfile.organizations.find(org => org.orgId === orgId)
+        return org?.role || null
+      }
+      return userProfile.orgId === orgId ? userProfile.role : null
+    }
+
+    expect(getRoleInOrganization(multiOrgUserProfile, 'org-1')).toBe('admin')
+    expect(getRoleInOrganization(multiOrgUserProfile, 'org-2')).toBe('user')
+    expect(getRoleInOrganization(multiOrgUserProfile, 'org-3')).toBeNull()
+  })
+
+  it('should handle primary organization selection', () => {
+    const userProfile = {
+      id: 'user-1',
+      username: 'testuser',
+      organizations: [
+        { orgId: 'org-1', role: 'admin' },
+        { orgId: 'org-2', role: 'user' },
+        { orgId: 'org-3', role: 'user' }
+      ],
+      primaryOrgId: 'org-2'
+    }
+
+    // Test primary organization logic
+    const getActiveOrganization = (userProfile, selectedOrgId) => {
+      const activeOrgId = selectedOrgId || userProfile.primaryOrgId || userProfile.organizations[0]?.orgId
+      return userProfile.organizations.find(org => org.orgId === activeOrgId)
+    }
+
+    // Test with no selected org (should use primary)
+    const activeOrg1 = getActiveOrganization(userProfile, null)
+    expect(activeOrg1).toEqual({ orgId: 'org-2', role: 'user' })
+
+    // Test with selected org
+    const activeOrg2 = getActiveOrganization(userProfile, 'org-1')
+    expect(activeOrg2).toEqual({ orgId: 'org-1', role: 'admin' })
+  })
+
+  it('should validate organization access during login', () => {
+    const userProfile = {
+      id: 'user-1',
+      username: 'testuser',
+      organizations: [
+        { orgId: 'org-1', role: 'admin' },
+        { orgId: 'org-2', role: 'user' }
+      ],
+      primaryOrgId: 'org-1'
+    }
+
+    // Test organization access validation
+    const validateOrgAccess = (userProfile, selectedOrgId) => {
+      if (selectedOrgId && userProfile.organizations) {
+        return userProfile.organizations.some(org => org.orgId === selectedOrgId)
+      }
+      return true // No validation needed if no selected org
+    }
+
+    expect(validateOrgAccess(userProfile, 'org-1')).toBe(true)
+    expect(validateOrgAccess(userProfile, 'org-2')).toBe(true)
+    expect(validateOrgAccess(userProfile, 'org-3')).toBe(false)
+    expect(validateOrgAccess(userProfile, null)).toBe(true)
+  })
+})

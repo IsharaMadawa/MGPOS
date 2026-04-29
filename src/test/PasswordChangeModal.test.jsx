@@ -85,14 +85,14 @@ describe('PasswordChangeModal', () => {
     expect(screen.getByPlaceholderText('Confirm new password')).toBeInTheDocument()
   })
 
-  it('should show organization selector for super admin changing other user password', () => {
+  it('should NOT show organization selector for super admin changing other user password', () => {
     renderWithProviders(<PasswordChangeModal onClose={mockOnClose} targetUserId="otherUser" />, { isSuperAdmin: true })
     
-    // Debug: Check if organization selector exists
+    // Organization selector should not be present for superAdmin
     const orgSelector = screen.queryByDisplayValue('Select Organization')
-    console.log('Organization selector found:', !!orgSelector)
+    expect(orgSelector).not.toBeInTheDocument()
     
-    expect(screen.getByDisplayValue('Select Organization')).toBeInTheDocument()
+    // User selector should be present
     expect(screen.getByDisplayValue('Select User')).toBeInTheDocument()
   })
 

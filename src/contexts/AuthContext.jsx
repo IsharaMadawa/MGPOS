@@ -59,14 +59,36 @@ export function AuthProvider({ children }) {
     }
 
     const userObj = { uid: userData.id, username: userData.username }
+    
+    // Handle multi-organization structure
+    let organizations = userData.organizations || []
+    let primaryOrgId = userData.primaryOrgId
+    
+    // For backward compatibility, handle single orgId structure
+    if (userData.orgId && !organizations.length) {
+      organizations = [{ orgId: userData.orgId, role: userData.role || 'user' }]
+      primaryOrgId = userData.orgId
+    }
+    
+    // If selectedOrgId is provided, ensure user has access to it
+    if (selectedOrgId && !organizations.find(org => org.orgId === selectedOrgId)) {
+      throw new Error('Access denied to this organization')
+    }
+    
+    // Use selectedOrgId if provided, otherwise use primaryOrgId
+    const activeOrgId = selectedOrgId || primaryOrgId || (organizations[0]?.orgId)
+    const activeOrg = organizations.find(org => org.orgId === activeOrgId)
+    
     // Store only non-sensitive profile data
     const safeProfile = { 
       id: userData.id, 
       username: userData.username, 
       displayName: userData.displayName,
       email: userData.email,
-      role: userData.role,
-      orgId: userData.orgId
+      role: activeOrg?.role || userData.role || 'user',
+      orgId: activeOrgId,
+      organizations: organizations,
+      primaryOrgId: primaryOrgId
     }
 
     // Store session with minimal data
@@ -78,7 +100,7 @@ export function AuthProvider({ children }) {
 
     // Log successful login
     try {
-      await logUserAction('user_login', `User ${username} logged in`, safeProfile, userData.orgId)
+      await logUserAction('user_login', `User ${username} logged in`, safeProfile, activeOrgId)
     } catch (error) {
       console.error('Failed to log login:', error)
     }
@@ -102,13 +124,24 @@ export function AuthProvider({ children }) {
     // Hash the password before storing
     const { hash, salt } = await hashPassword(password)
     
+    // Handle multi-organization structure
+    let organizations = []
+    let primaryOrgId = null
+    
+    if (orgId) {
+      organizations = [{ orgId, role }]
+      primaryOrgId = orgId
+    }
+    
     const userProfile = {
       username,
       password: hash, // Store hashed password
       salt, // Store salt for verification
       displayName: displayName || username,
       email,
-      role,
+      organizations,
+      primaryOrgId,
+      // Keep orgId for backward compatibility
       orgId,
       createdAt: serverTimestamp(),
     }
@@ -123,7 +156,9 @@ export function AuthProvider({ children }) {
       displayName: displayName || username,
       email,
       role,
-      orgId
+      orgId,
+      organizations,
+      primaryOrgId
     }
     
     localStorage.setItem('pos_user_id', userId)
@@ -285,6 +320,212 @@ export function AuthProvider({ children }) {
   // Check if user is super admin
   const isSuperAdmin = userProfile?.role === 'super_admin'
 
+  // Add user to organization
+  const addUserToOrganization = async (userId, orgId, role = 'user') => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId))
+      if (!userDoc.exists()) {
+        throw new Error('User not found')
+      }
+
+      const userData = userDoc.data()
+      let organizations = userData.organizations || []
+      
+      // For backward compatibility, handle single orgId structure
+      if (userData.orgId && !organizations.length) {
+        organizations = [{ orgId: userData.orgId, role: userData.role || 'user' }]
+      }
+
+      // Check if user is already in this organization
+      if (organizations.find(org => org.orgId === orgId)) {
+        throw new Error('User already has access to this organization')
+      }
+
+      // Add organization to user's organizations
+      organizations.push({ orgId, role })
+      
+      // If this is the first organization, set it as primary
+      const primaryOrgId = userData.primaryOrgId || orgId
+
+      await setDoc(doc(db, 'users', userId), {
+        organizations,
+        primaryOrgId,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+
+      // Update local profile if this is the current user
+      if (userProfile?.id === userId) {
+        const updatedProfile = {
+          ...userProfile,
+          organizations,
+          primaryOrgId
+        }
+        setUserProfile(updatedProfile)
+        localStorage.setItem('pos_user_data', JSON.stringify(updatedProfile))
+      }
+
+      // Log organization addition
+      try {
+        await logUserAction(
+          'user_org_add',
+          `Added user ${userData.username} to organization ${orgId} with role: ${role}`,
+          userProfile,
+          orgId,
+          {
+            userId,
+            username: userData.username,
+            orgId,
+            role,
+            organizations,
+            primaryOrgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log organization addition:', logError)
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error adding user to organization:', error)
+      throw error
+    }
+  }
+
+  // Remove user from organization
+  const removeUserFromOrganization = async (userId, orgId) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId))
+      if (!userDoc.exists()) {
+        throw new Error('User not found')
+      }
+
+      const userData = userDoc.data()
+      let organizations = userData.organizations || []
+      
+      // For backward compatibility, handle single orgId structure
+      if (userData.orgId && !organizations.length) {
+        organizations = [{ orgId: userData.orgId, role: userData.role || 'user' }]
+      }
+
+      // Remove organization from user's organizations
+      organizations = organizations.filter(org => org.orgId !== orgId)
+      
+      // Update primary organization if it was the removed one
+      let primaryOrgId = userData.primaryOrgId
+      if (primaryOrgId === orgId && organizations.length > 0) {
+        primaryOrgId = organizations[0].orgId
+      } else if (primaryOrgId === orgId && organizations.length === 0) {
+        primaryOrgId = null
+      }
+
+      await setDoc(doc(db, 'users', userId), {
+        organizations,
+        primaryOrgId,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+
+      // Update local profile if this is the current user
+      if (userProfile?.id === userId) {
+        const updatedProfile = {
+          ...userProfile,
+          organizations,
+          primaryOrgId,
+          orgId: primaryOrgId
+        }
+        setUserProfile(updatedProfile)
+        localStorage.setItem('pos_user_data', JSON.stringify(updatedProfile))
+      }
+
+      // Log organization removal
+      try {
+        await logUserAction(
+          'user_org_remove',
+          `Removed user ${userData.username} from organization ${orgId}`,
+          userProfile,
+          orgId,
+          {
+            userId,
+            username: userData.username,
+            orgId,
+            organizations,
+            primaryOrgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log organization removal:', logError)
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error removing user from organization:', error)
+      throw error
+    }
+  }
+
+  // Set primary organization for user
+  const setPrimaryOrganization = async (userId, orgId) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId))
+      if (!userDoc.exists()) {
+        throw new Error('User not found')
+      }
+
+      const userData = userDoc.data()
+      let organizations = userData.organizations || []
+      
+      // For backward compatibility, handle single orgId structure
+      if (userData.orgId && !organizations.length) {
+        organizations = [{ orgId: userData.orgId, role: userData.role || 'user' }]
+      }
+
+      // Check if user has access to this organization
+      if (!organizations.find(org => org.orgId === orgId)) {
+        throw new Error('User does not have access to this organization')
+      }
+
+      await setDoc(doc(db, 'users', userId), {
+        primaryOrgId: orgId,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+
+      // Update local profile if this is the current user
+      if (userProfile?.id === userId) {
+        const updatedProfile = {
+          ...userProfile,
+          primaryOrgId: orgId,
+          orgId: orgId,
+          role: organizations.find(org => org.orgId === orgId)?.role || 'user'
+        }
+        setUserProfile(updatedProfile)
+        localStorage.setItem('pos_user_data', JSON.stringify(updatedProfile))
+      }
+
+      // Log primary organization change
+      try {
+        await logUserAction(
+          'user_primary_org_change',
+          `Set primary organization for user ${userData.username} to ${orgId}`,
+          userProfile,
+          orgId,
+          {
+            userId,
+            username: userData.username,
+            orgId,
+            previousPrimaryOrgId: userData.primaryOrgId,
+            newPrimaryOrgId: orgId
+          }
+        )
+      } catch (logError) {
+        console.error('Failed to log primary organization change:', logError)
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('Error setting primary organization:', error)
+      throw error
+    }
+  }
+
   const value = {
     user,
     userProfile,
@@ -297,6 +538,9 @@ export function AuthProvider({ children }) {
     changePassword,
     isAdmin,
     isSuperAdmin,
+    addUserToOrganization,
+    removeUserFromOrganization,
+    setPrimaryOrganization,
   }
 
   return (

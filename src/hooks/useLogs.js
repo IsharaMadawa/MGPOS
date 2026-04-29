@@ -21,8 +21,8 @@ export function useLogs(options = {}) {
     userId = null
   } = options
 
-  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Get the orgId to use - for super admin use selectedOrgId, otherwise use selectedOrgId from context
+  const orgId = isSuperAdmin ? selectedOrgId : selectedOrgId
 
   // Debug logging
   console.log('useLogs Debug:', {
@@ -30,15 +30,17 @@ export function useLogs(options = {}) {
     userProfile,
     selectedOrgId,
     orgId,
-    userRole: userProfile?.role
+    userRole: userProfile?.role,
+    userOrganizations: userProfile?.organizations,
+    primaryOrgId: userProfile?.primaryOrgId
   })
 
   useEffect(() => {
     if (!orgId && !isSuperAdmin) {
-      console.error('Organization admin missing orgId:', { userProfile, isSuperAdmin })
+      console.error('Organization admin missing orgId:', { userProfile, isSuperAdmin, selectedOrgId })
       setLogs([])
       setLoading(false)
-      setError(`No organization found. User role: ${userProfile?.role || 'unknown'}. Please ensure you are assigned to an organization.`)
+      setError(`No organization selected. Please select an organization to view logs.`)
       return
     }
 
@@ -189,7 +191,7 @@ export function useLogStats() {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
 
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  const orgId = isSuperAdmin ? selectedOrgId : selectedOrgId
 
   useEffect(() => {
     if (!orgId && !isSuperAdmin) {

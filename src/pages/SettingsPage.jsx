@@ -10,6 +10,8 @@ import { db } from '../firebase'
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 import ProductFormModal from '../components/ProductFormModal'
 import PasswordChangeModal from '../components/PasswordChangeModal'
+import UserOrganizationManager from '../components/UserOrganizationManager'
+import UserProfileManager from '../components/UserProfileManager'
 
 // ─── Products Tab ────────────────────────────────────────────────────────────
 
@@ -562,6 +564,7 @@ export default function SettingsPage() {
     { id: 'billing',  label: 'Billing' },
     { id: 'quantities', label: 'Quantities' },
     { id: 'users', label: 'Users' },
+    { id: 'profile', label: 'Profile' },
   ]
 
   // Show message if no organization selected
@@ -608,6 +611,7 @@ export default function SettingsPage() {
         {activeTab === 'billing'  && <BillingTab settings={settings} updateSettings={updateSettings} />}
         {activeTab === 'quantities' && <QuickQuantitiesTab settings={settings} updateSettings={updateSettings} />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'profile' && <UserProfileManager />}
       </div>
     </div>
   )
@@ -899,36 +903,43 @@ function UsersTab() {
         {users.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-4">No users in this organization yet.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-4">
             {users.map(user => (
-              <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{user.displayName}</p>
-                  <p className="text-xs text-gray-500">@{user.username} {user.email ? `• ${user.email}` : ''}</p>
+              <div key={user.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{user.displayName}</p>
+                      <p className="text-xs text-gray-500">@{user.username} {user.email ? `· ${user.email}` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={user.role}
+                        onChange={e => handleUpdateRole(user.id, e.target.value)}
+                        className="text-xs border border-gray-300 rounded px-2 py-1"
+                        disabled={user.id === userProfile?.id}
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button
+                        onClick={() => handlePasswordChange(user.id)}
+                        className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                      >
+                        Change Password
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                        disabled={user.id === userProfile?.id}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={user.role}
-                    onChange={e => handleUpdateRole(user.id, e.target.value)}
-                    className="text-xs border border-gray-300 rounded px-2 py-1"
-                    disabled={user.id === userProfile?.id}
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <button
-                    onClick={() => handlePasswordChange(user.id)}
-                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                  >
-                    Change Password
-                  </button>
-                  <button
-                    onClick={() => handleDeleteUser(user.id)}
-                    className="text-xs text-red-500 hover:text-red-700"
-                    disabled={user.id === userProfile?.id}
-                  >
-                    Remove
-                  </button>
+                <div className="p-4">
+                  <UserOrganizationManager userId={user.id} userRole={user.role} />
                 </div>
               </div>
             ))}

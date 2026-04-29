@@ -17,8 +17,18 @@ export function useOrganizations() {
         const snapshot = await getDocs(orgsRef)
         const orgs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
         setOrganizations(orgs)
+      } else if (userProfile?.organizations && userProfile.organizations.length > 0) {
+        // Multi-org users: fetch all their accessible organizations
+        const orgIds = userProfile.organizations.map(org => org.orgId)
+        const orgPromises = orgIds.map(async (orgId) => {
+          const orgDoc = await getDoc(doc(db, 'organizations', orgId))
+          return orgDoc.exists() ? { id: orgDoc.id, ...orgDoc.data() } : null
+        })
+        const orgResults = await Promise.all(orgPromises)
+        const validOrgs = orgResults.filter(org => org !== null)
+        setOrganizations(validOrgs)
       } else if (userProfile?.orgId) {
-        // Other users see their assigned organization
+        // Backward compatibility: single orgId structure
         const orgDoc = await getDoc(doc(db, 'organizations', userProfile.orgId))
         if (orgDoc.exists()) {
           setOrganizations([{ id: orgDoc.id, ...orgDoc.data() }])
@@ -38,7 +48,7 @@ export function useOrganizations() {
 
   useEffect(() => {
     fetchOrganizations()
-  }, [isSuperAdmin, userProfile?.orgId])
+  }, [isSuperAdmin, userProfile?.organizations, userProfile?.orgId])
 
   const createOrganization = async (orgData) => {
     const orgRef = doc(db, 'organizations', orgData.code)
@@ -84,10 +94,37 @@ export function useOrgUsers(orgCode) {
     
     try {
       const usersRef = collection(db, 'users')
-      const q = query(usersRef, where('orgId', '==', orgCode))
-      const snapshot = await getDocs(q)
-      const userList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-      setUsers(userList)
+      
+      // Fetch users with single orgId (backward compatibility)
+      const q1 = query(usersRef, where('orgId', '==', orgCode))
+      const snapshot1 = await getDocs(q1)
+      
+      // Fetch users with multi-org structure
+      const allUsersSnapshot = await getDocs(usersRef)
+      const multiOrgUsers = allUsersSnapshot.docs
+        .filter(doc => {
+          const userData = doc.data()
+          return userData.organizations && userData.organizations.some(org => org.orgId === orgCode)
+        })
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+      
+      // Combine both sets of users, removing duplicates
+      const singleOrgUsers = snapshot1.docs.map(d => ({ id: d.id, ...d.data() }))
+      const allUsers = [...singleOrgUsers]
+      
+      // Add multi-org users that aren't already in the list
+      multiOrgUsers.forEach(multiOrgUser => {
+        if (!allUsers.find(user => user.id === multiOrgUser.id)) {
+          // Set the user's role for this specific organization
+          const orgMembership = multiOrgUser.organizations.find(org => org.orgId === orgCode)
+          allUsers.push({
+            ...multiOrgUser,
+            role: orgMembership?.role || 'user'
+          })
+        }
+      })
+      
+      setUsers(allUsers)
     } catch (error) {
       console.error('Error fetching org users:', error)
     } finally {
@@ -127,17 +164,64 @@ export function useUsers(orgId = null) {
   const fetchUsers = async () => {
     try {
       const usersRef = collection(db, 'users')
-      let q
+      let users = []
 
       if (isSuperAdmin && orgId) {
         // Super admin filtering by specific organization
-        q = query(usersRef, where('orgId', '==', orgId))
+        // Fetch users with single orgId
+        const q1 = query(usersRef, where('orgId', '==', orgId))
+        const snapshot1 = await getDocs(q1)
+        const singleOrgUsers = snapshot1.docs.map(d => ({ id: d.id, ...d.data() }))
+        
+        // Fetch users with multi-org structure
+        const allUsersSnapshot = await getDocs(usersRef)
+        const multiOrgUsers = allUsersSnapshot.docs
+          .filter(doc => {
+            const userData = doc.data()
+            return userData.organizations && userData.organizations.some(org => org.orgId === orgId)
+          })
+          .map(doc => {
+            const userData = doc.data()
+            const orgMembership = userData.organizations.find(org => org.orgId === orgId)
+            return {
+              id: doc.id,
+              ...userData,
+              role: orgMembership?.role || 'user'
+            }
+          })
+        
+        users = [...singleOrgUsers]
+        // Add multi-org users that aren't already in the list
+        multiOrgUsers.forEach(multiOrgUser => {
+          if (!users.find(user => user.id === multiOrgUser.id)) {
+            users.push(multiOrgUser)
+          }
+        })
       } else if (isSuperAdmin) {
         // Super admin sees all users
-        q = usersRef
+        const snapshot = await getDocs(usersRef)
+        users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+      } else if (userProfile?.organizations && userProfile.organizations.length > 0) {
+        // Multi-org admin sees users from all their organizations
+        const orgIds = userProfile.organizations.map(org => org.orgId)
+        const allUsersSnapshot = await getDocs(usersRef)
+        
+        users = allUsersSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(user => {
+            // Include users with single orgId that matches one of admin's orgs
+            if (user.orgId && orgIds.includes(user.orgId)) return true
+            // Include users with multi-org structure that have access to any of admin's orgs
+            if (user.organizations) {
+              return user.organizations.some(org => orgIds.includes(org.orgId))
+            }
+            return false
+          })
       } else if (userProfile?.orgId) {
-        // Regular admin sees users from their organization
-        q = query(usersRef, where('orgId', '==', userProfile.orgId))
+        // Backward compatibility: single org admin
+        const q = query(usersRef, where('orgId', '==', userProfile.orgId))
+        const snapshot = await getDocs(q)
+        users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       } else {
         // No access, return empty
         setUsers([])
@@ -145,9 +229,7 @@ export function useUsers(orgId = null) {
         return
       }
 
-      const snapshot = await getDocs(q)
-      const userList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
-      setUsers(userList)
+      setUsers(users)
     } catch (error) {
       console.error('Error fetching users:', error)
       setUsers([])
@@ -158,7 +240,7 @@ export function useUsers(orgId = null) {
 
   useEffect(() => {
     fetchUsers()
-  }, [isSuperAdmin, userProfile?.orgId, orgId])
+  }, [isSuperAdmin, userProfile?.organizations, userProfile?.orgId, orgId])
 
   const getUserById = (userId) => {
     return users.find(user => user.id === userId)

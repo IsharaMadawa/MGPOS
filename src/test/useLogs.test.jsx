@@ -66,7 +66,7 @@ describe('useLogs Hook', () => {
     })
     
     useOrg.mockReturnValue({
-      selectedOrgId: null
+      selectedOrgId: 'org123'
     })
 
     const { onSnapshot } = await import('firebase/firestore')
@@ -118,7 +118,7 @@ describe('useLogs Hook', () => {
     })
     
     useOrg.mockReturnValue({
-      selectedOrgId: null
+      selectedOrgId: 'org123'
     })
 
     const { onSnapshot } = await import('firebase/firestore')
@@ -152,7 +152,7 @@ describe('useLogs Hook', () => {
     })
     
     useOrg.mockReturnValue({
-      selectedOrgId: null
+      selectedOrgId: 'org123'
     })
 
     const { onSnapshot, query, orderBy, limit } = await import('firebase/firestore')
@@ -312,7 +312,7 @@ describe('useLogStats Hook', () => {
     })
     
     useOrg.mockReturnValue({
-      selectedOrgId: null
+      selectedOrgId: 'org123'
     })
 
     const { getDocs, collection, query, orderBy, limit, where } = await import('firebase/firestore')

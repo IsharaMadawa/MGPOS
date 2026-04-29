@@ -4,6 +4,7 @@ import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
 import { useState } from 'react'
 import PasswordChangeModal from './PasswordChangeModal'
+import OrganizationSelector from './OrganizationSelector'
 
 export default function Navbar() {
   const location = useLocation()
@@ -22,10 +23,12 @@ export default function Navbar() {
     setShowPasswordModal(true)
   }
 
-  // For super admin, use selected org; for others, use their assigned org
-  const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
-  const currentOrg = organizations.find(o => o.id === currentOrgId)
-  const orgName = currentOrg?.name || userProfile?.orgId || ''
+  // Get current organization info using the new multi-organization structure
+  const { getAccessibleOrganizations } = useOrg()
+  const accessibleOrgs = getAccessibleOrganizations()
+  const currentOrg = organizations.find(o => o.id === selectedOrgId)
+  const orgName = currentOrg?.name || selectedOrgId || ''
+  const hasMultipleOrgs = accessibleOrgs.length > 1
 
   return (
     <nav className="bg-emerald-700 text-white px-2 sm:px-3 py-2 flex items-center justify-between shadow-md flex-shrink-0 relative">
@@ -41,6 +44,22 @@ export default function Navbar() {
             {organizations.map(org => (
               <option key={org.id} value={org.id}>{org.name}</option>
             ))}
+          </select>
+        ) : hasMultipleOrgs ? (
+          // For users with multiple orgs, show a compact selector
+          <select
+            value={selectedOrgId || ''}
+            onChange={e => setSelectedOrgId(e.target.value || null)}
+            className="bg-emerald-600 text-emerald-100 text-xs sm:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 max-w-[100px] sm:max-w-[140px] md:max-w-[180px]"
+          >
+            {accessibleOrgs.map(orgAccess => {
+              const org = organizations.find(o => o.id === orgAccess.orgId)
+              return (
+                <option key={orgAccess.orgId} value={orgAccess.orgId}>
+                  {org?.name || orgAccess.orgId}
+                </option>
+              )
+            })}
           </select>
         ) : (
           orgName && (
