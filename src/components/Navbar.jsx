@@ -57,7 +57,7 @@ export default function Navbar() {
           <select
             value={selectedOrgId || ''}
             onChange={e => setSelectedOrgId(e.target.value || null)}
-            className="bg-emerald-600 text-emerald-100 text-xs sm:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 max-w-[100px] sm:max-w-[140px] md:max-w-[180px]"
+            className="bg-emerald-600 text-emerald-100 text-xs sm:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 min-w-[80px] w-auto max-w-[200px] sm:max-w-[250px] lg:max-w-[300px] whitespace-nowrap"
           >
             <option value="">Select Org</option>
             {organizations.map(org => (
@@ -69,7 +69,7 @@ export default function Navbar() {
           <select
             value={selectedOrgId || ''}
             onChange={e => setSelectedOrgId(e.target.value || null)}
-            className="bg-emerald-600 text-emerald-100 text-xs sm:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 max-w-[100px] sm:max-w-[140px] md:max-w-[180px]"
+            className="bg-emerald-600 text-emerald-100 text-xs sm:text-sm font-medium rounded px-2 py-1 border-none focus:outline-none focus:ring-2 focus:ring-emerald-400 min-w-[80px] w-auto max-w-[200px] sm:max-w-[250px] lg:max-w-[300px] whitespace-nowrap"
           >
             {accessibleOrgs.map(orgAccess => {
               const org = organizations.find(o => o.id === orgAccess.orgId)
@@ -82,7 +82,7 @@ export default function Navbar() {
           </select>
         ) : (
           orgName && (
-            <span className="text-xs sm:text-sm font-medium text-emerald-200 px-2 py-1 bg-emerald-600 rounded truncate max-w-[100px] sm:max-w-[140px] md:max-w-[180px]">
+            <span className="text-xs sm:text-sm font-medium text-emerald-200 px-2 py-1 bg-emerald-600 rounded inline-block max-w-[200px] sm:max-w-[250px] lg:max-w-[300px] whitespace-nowrap overflow-hidden text-ellipsis" title={orgName}>
               {orgName}
             </span>
           )
