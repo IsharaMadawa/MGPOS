@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
 import { useAuth } from '../contexts/AuthContext'
 import { useBillingLogs } from '../hooks/useBillingLogs'
+import { useToast } from '../components/ToastContainer'
 import ProductModal from './ProductModal'
 
 function fmt(amount, sym) {
@@ -112,9 +113,11 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const [showReceipt, setShowReceipt] = useState(false)
   const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '' })
   const [editingItem, setEditingItem] = useState(null)
+  const [itemToRemove, setItemToRemove] = useState(null)
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
+  const { addToast } = useToast()
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
@@ -165,6 +168,25 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     setShowReceipt(false)
   }
 
+  const handleRemoveItem = (itemKey) => {
+    const item = cart.find(i => (i.cartItemId || i.id) === itemKey)
+    if (item) {
+      setItemToRemove({ key: itemKey, name: item.name, qty: item.qty })
+    }
+  }
+
+  const confirmRemoveItem = () => {
+    if (itemToRemove) {
+      onRemoveItem(itemToRemove.key)
+      setItemToRemove(null)
+      addToast(`${itemToRemove.name} removed from cart`, 'success')
+    }
+  }
+
+  const cancelRemoveItem = () => {
+    setItemToRemove(null)
+  }
+
   const handlePrint = () => {
     const { no, time, cart: rCart } = receiptSnapshot
     const storeInfo = settings?.storeInfo || {}
@@ -175,7 +197,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     const rTotal = rTaxBase + rTax
 
     const win = window.open('', '_blank', 'width=420,height=700')
-    if (!win) { alert('Please allow popups to print.'); return }
+    if (!win) { addToast('Please allow popups to print.', 'warning'); return }
 
     win.document.write(`<!DOCTYPE html>
 <html><head>
@@ -405,12 +427,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        onRemoveItem(itemKey)
+                        handleRemoveItem(itemKey)
                       }}
-                      className="text-gray-300 hover:text-red-400 transition-colors p-1 flex-shrink-0"
+                      className="text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all p-1.5 flex-shrink-0 group"
+                      title="Remove item"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m0 0h14m-7 0v6m-7 0h14m-9-4h4m4 0h4" />
                       </svg>
                     </button>
                   </div>
@@ -515,6 +538,45 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           settings={settings}
           isEdit={true}
         />
+      )}
+
+      {/* Remove Item Confirmation Dialog */}
+      {itemToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Remove Item</h3>
+                <p className="text-sm text-gray-500">Are you sure you want to remove this item?</p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <p className="font-medium text-gray-900">{itemToRemove.name}</p>
+              <p className="text-sm text-gray-500">Quantity: {itemToRemove.qty}</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={cancelRemoveItem}
+                className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemoveItem}
+                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

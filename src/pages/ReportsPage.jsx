@@ -6,6 +6,7 @@ import { useOrganizations } from '../hooks/useOrganizations'
 import { useReports, getDateRange } from '../hooks/useReports'
 import { CURRENCIES } from '../hooks/useSettings'
 import { logUserAction } from '../utils/logger'
+import { useToast } from '../components/ToastContainer'
 
 export default function ReportsPage() {
   const { userProfile, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
@@ -20,6 +21,7 @@ export default function ReportsPage() {
     getCashierBreakdown,
     getDailyBreakdown 
   } = useReports()
+  const { addToast } = useToast()
 
   const [period, setPeriod] = useState('today')
   const [reportType, setReportType] = useState('summary') // 'summary' or 'detailed'
@@ -119,7 +121,7 @@ export default function ReportsPage() {
     
     const printWindow = window.open('', '_blank', 'width=800,height=600')
     if (!printWindow) {
-      alert('Please allow popups to print reports.')
+      addToast('Please allow popups to print reports.', 'warning')
       return
     }
     

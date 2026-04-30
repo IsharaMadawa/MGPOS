@@ -21,66 +21,96 @@ export function useLogs(options = {}) {
     userId = null
   } = options
 
-  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Get the orgId to use - for super admin use selectedOrgId, otherwise use selectedOrgId from context
+  const orgId = isSuperAdmin ? selectedOrgId : selectedOrgId
+
+  // Debug logging
+  console.log('useLogs Debug:', {
+    isSuperAdmin,
+    userProfile,
+    selectedOrgId,
+    orgId,
+    userRole: userProfile?.role,
+    userOrganizations: userProfile?.organizations,
+    primaryOrgId: userProfile?.primaryOrgId
+  })
 
   useEffect(() => {
     if (!orgId && !isSuperAdmin) {
+      console.error('Organization admin missing orgId:', { userProfile, isSuperAdmin, selectedOrgId })
       setLogs([])
       setLoading(false)
+      setError(`No organization selected. Please select an organization to view logs.`)
       return
     }
 
     let logsRef
-    let q
-
+    
     if (isSuperAdmin && !orgId) {
-      // Super admin viewing all logs
+      // Super admin viewing all logs from system_logs
       logsRef = collection(db, 'system_logs')
-      q = query(logsRef, orderBy('createdAt', 'desc'), limit(logLimit))
     } else if (orgId) {
-      // Organization-specific logs
-      logsRef = collection(db, 'organizations', orgId, 'logs')
-      q = query(logsRef, orderBy('createdAt', 'desc'), limit(logLimit))
+      // Organization-specific logs - use system_logs with orgId filter
+      logsRef = collection(db, 'system_logs')
+      console.log('Organization admin accessing logs for orgId:', orgId)
     } else {
       setLogs([])
       setLoading(false)
+      setError('No organization specified')
       return
     }
 
-    // Add filters if provided
-    const constraints = []
-    if (level) {
-      constraints.push(where('level', '==', level))
-    }
-    if (type) {
-      constraints.push(where('type', '==', type))
-    }
-    if (userId) {
-      constraints.push(where('userId', '==', userId))
-    }
-    if (startDate) {
-      constraints.push(where('createdAt', '>=', startDate))
-    }
-    if (endDate) {
-      constraints.push(where('createdAt', '<=', endDate))
-    }
-
-    if (constraints.length > 0) {
-      q = query(logsRef, ...constraints, orderBy('createdAt', 'desc'), limit(logLimit))
-    }
+    // Build query without composite index - fetch all and filter client-side
+    let q = query(
+      logsRef, 
+      orderBy('createdAt', 'desc'),
+      limit(orgId ? logLimit * 2 : logLimit) // Fetch more if we need to filter
+    )
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logsArray = snapshot.docs.map(doc => ({
+      console.log('Logs query successful, found:', snapshot.docs.length, 'logs')
+      let logsArray = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
-      setLogs(logsArray)
-      setLoading(false)
-      setError(null)
+      
+      // Filter by orgId on client side if needed
+      if (orgId) {
+        logsArray = logsArray.filter(log => log.orgId === orgId)
+        console.log('Filtered logs for orgId', orgId, ':', logsArray.length, 'logs')
+      }
+      
+      // If no logs found in system_logs and this is an organization admin, try organization-specific logs
+      if (logsArray.length === 0 && !isSuperAdmin && orgId) {
+        console.log('No logs in system_logs, trying organization-specific logs for orgId:', orgId)
+        const orgLogsRef = collection(db, 'organizations', orgId, 'logs')
+        const orgQuery = query(orgLogsRef, orderBy('createdAt', 'desc'), limit(logLimit))
+        
+        // Fetch organization-specific logs
+        getDocs(orgQuery).then((orgSnapshot) => {
+          const orgLogsArray = orgSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+          console.log('Organization-specific logs found:', orgLogsArray.length)
+          setLogs(orgLogsArray)
+          setLoading(false)
+          setError(null)
+        }).catch((orgError) => {
+          console.error('Error fetching organization logs:', orgError)
+          setLogs([])
+          setLoading(false)
+          setError(null) // Don't show error if no logs found
+        })
+      } else {
+        setLogs(logsArray)
+        setLoading(false)
+        setError(null)
+      }
     }, (error) => {
       console.error('Error fetching logs:', error)
-      setError(error.message)
+      console.error('Query details:', { orgId, isSuperAdmin })
+      setError(`Failed to fetch logs: ${error.message}`)
       setLoading(false)
     })
 
@@ -115,38 +145,26 @@ export function useAllLogs(options = {}) {
     }
 
     const logsRef = collection(db, 'system_logs')
-    let q = query(logsRef, orderBy('createdAt', 'desc'), limit(logLimit))
-
-    // Add filters if provided
-    const constraints = []
-    if (level) {
-      constraints.push(where('level', '==', level))
-    }
-    if (type) {
-      constraints.push(where('type', '==', type))
-    }
-    if (orgId) {
-      constraints.push(where('orgId', '==', orgId))
-    }
-    if (userId) {
-      constraints.push(where('userId', '==', userId))
-    }
-    if (startDate) {
-      constraints.push(where('createdAt', '>=', startDate))
-    }
-    if (endDate) {
-      constraints.push(where('createdAt', '<=', endDate))
-    }
-
-    if (constraints.length > 0) {
-      q = query(logsRef, ...constraints, orderBy('createdAt', 'desc'), limit(logLimit))
-    }
+    
+    // Build query without composite index - fetch all and filter client-side
+    let q = query(
+      logsRef, 
+      orderBy('createdAt', 'desc'),
+      limit(orgId ? logLimit * 2 : logLimit) // Fetch more if we need to filter
+    )
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const logsArray = snapshot.docs.map(doc => ({
+      let logsArray = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
+      
+      // Filter by orgId on client side if needed
+      if (orgId) {
+        logsArray = logsArray.filter(log => log.orgId === orgId)
+        console.log('Filtered all logs for orgId', orgId, ':', logsArray.length, 'logs')
+      }
+      
       setLogs(logsArray)
       setLoading(false)
       setError(null)
@@ -173,7 +191,7 @@ export function useLogStats() {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
 
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  const orgId = isSuperAdmin ? selectedOrgId : selectedOrgId
 
   useEffect(() => {
     if (!orgId && !isSuperAdmin) {
@@ -192,20 +210,51 @@ export function useLogStats() {
         let logsRef
         
         if (isSuperAdmin && !orgId) {
+          // Super admin viewing all logs
           logsRef = collection(db, 'system_logs')
         } else if (orgId) {
-          logsRef = collection(db, 'organizations', orgId, 'logs')
+          // Organization-specific logs - use system_logs with orgId filter
+          logsRef = collection(db, 'system_logs')
         } else {
           return
         }
 
-        // Get recent logs for stats
-        const q = query(logsRef, orderBy('createdAt', 'desc'), limit(1000))
+        // Build query without composite index - fetch all and filter client-side
+        let q = query(
+          logsRef, 
+          orderBy('createdAt', 'desc'),
+          limit(orgId ? 2000 : 1000) // Fetch more if we need to filter
+        )
         const snapshot = await getDocs(q)
-        const logsArray = snapshot.docs.map(doc => ({
+        let logsArray = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }))
+
+        // Filter by orgId on client side if needed
+        if (orgId) {
+          logsArray = logsArray.filter(log => log.orgId === orgId)
+          console.log('Filtered stats for orgId', orgId, ':', logsArray.length, 'logs')
+        }
+
+        // If no logs found in system_logs and this is an organization admin, try organization-specific logs
+        if (logsArray.length === 0 && !isSuperAdmin && orgId) {
+          console.log('No stats in system_logs, trying organization-specific logs for orgId:', orgId)
+          try {
+            const orgLogsRef = collection(db, 'organizations', orgId, 'logs')
+            const orgQuery = query(orgLogsRef, orderBy('createdAt', 'desc'), limit(1000))
+            const orgSnapshot = await getDocs(orgQuery)
+            const orgLogsArray = orgSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }))
+            console.log('Organization-specific stats found:', orgLogsArray.length)
+            logsArray = orgLogsArray
+          } catch (orgError) {
+            console.error('Error fetching organization stats:', orgError)
+            logsArray = []
+          }
+        }
 
         // Calculate stats
         const byLevel = {}

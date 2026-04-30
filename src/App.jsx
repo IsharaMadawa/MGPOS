@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { OrgProvider } from './contexts/OrgContext'
+import { ToastProvider } from './components/ToastContainer'
 import Navbar from './components/Navbar'
 import POSPage from './pages/POSPage'
 import SettingsPage from './pages/SettingsPage'
@@ -110,12 +111,14 @@ export default function App() {
   return (
     <AuthProvider>
       <OrgProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/*" element={<AppContent />} />
-          </Routes>
-        </BrowserRouter>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/*" element={<AppContent />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
       </OrgProvider>
     </AuthProvider>
   )

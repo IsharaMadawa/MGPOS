@@ -22,9 +22,10 @@ export default function LogsPage() {
   const { organizations } = useOrganizations()
   
   // Use appropriate hook based on user role
-  const { logs, loading, error } = isSuperAdmin && !selectedOrgId 
+  const { logs, loading, error } = isSuperAdmin 
     ? useAllLogs({ 
         limit: logsPerPage * currentPage,
+        orgId: selectedOrgId || null,
         ...filters 
       })
     : useLogs({ 

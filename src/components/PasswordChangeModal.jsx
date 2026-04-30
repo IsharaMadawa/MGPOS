@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useUsers } from '../hooks/useOrganizations'
 import { useOrganizations } from '../hooks/useOrganizations'
+import { collection, getDocs } from 'firebase/firestore'
+import { db } from '../firebase'
 
 export default function PasswordChangeModal({ onClose, targetUserId = null }) {
   const [currentPassword, setCurrentPassword] = useState('')
@@ -15,8 +17,17 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
   const { changePassword, userProfile, isSuperAdmin } = useAuth()
   const { users, loading: usersLoading } = useUsers(selectedOrgId)
   const { organizations, loading: orgsLoading } = useOrganizations()
+  const [allUsers, setAllUsers] = useState([])
+  const [allUsersLoading, setAllUsersLoading] = useState(false)
 
   const isChangingOwnPassword = !targetUserId || targetUserId === userProfile?.id
+
+  // Ensure selectedUserId is set when changing own password
+  useEffect(() => {
+    if (isChangingOwnPassword && !selectedUserId) {
+      setSelectedUserId(userProfile?.id || '')
+    }
+  }, [isChangingOwnPassword, selectedUserId, userProfile?.id])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -83,6 +94,31 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
     return true
   })
 
+  // For superAdmins changing other users' passwords, get all users from all organizations
+  useEffect(() => {
+    if (isSuperAdmin && !isChangingOwnPassword) {
+      // Fetch all users for superAdmin
+      const fetchAllUsers = async () => {
+        setAllUsersLoading(true)
+        try {
+          const usersRef = collection(db, 'users')
+          const snapshot = await getDocs(usersRef)
+          const allUsersData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+          // Filter out super admins and current user
+          const filteredAllUsers = allUsersData.filter(user => 
+            user.role !== 'super_admin' && user.id !== userProfile?.id
+          )
+          setAllUsers(filteredAllUsers)
+        } catch (error) {
+          console.error('Error fetching all users:', error)
+        } finally {
+          setAllUsersLoading(false)
+        }
+      }
+      fetchAllUsers()
+    }
+  }, [isSuperAdmin, isChangingOwnPassword, userProfile?.id])
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -101,25 +137,8 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Organization Selection (Super Admin Only) */}
-          {isSuperAdmin && !isChangingOwnPassword && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Organization</label>
-              <select
-                value={selectedOrgId}
-                onChange={(e) => handleOrgSelect(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                disabled={orgsLoading}
-              >
-                <option value="">Select Organization</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name} ({org.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Organization Selection - Removed for SuperAdmin to avoid confusion */}
+          {/* SuperAdmins should be able to change any user's password without org selection */}
 
           {/* User Selection */}
           {!isChangingOwnPassword && (
@@ -129,12 +148,12 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
                 value={selectedUserId}
                 onChange={(e) => handleUserSelect(e.target.value)}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                disabled={usersLoading || (!isSuperAdmin && !selectedOrgId)}
+                disabled={usersLoading || allUsersLoading || (!isSuperAdmin && !selectedOrgId)}
               >
                 <option value="">Select User</option>
-                {filteredUsers.map((user) => (
+                {(isSuperAdmin ? allUsers : filteredUsers).map((user) => (
                   <option key={user.id} value={user.id}>
-                    {user.displayName || user.username} ({user.role})
+                    {user.displayName || user.username} ({user.role}) {user.orgId ? `· ${user.orgId}` : ''}
                   </option>
                 ))}
               </select>
@@ -149,7 +168,7 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 placeholder="Enter current password"
                 required
               />
@@ -163,7 +182,7 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               placeholder="Enter new password (min. 6 characters)"
               required
               minLength="6"
@@ -177,7 +196,7 @@ export default function PasswordChangeModal({ onClose, targetUserId = null }) {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               placeholder="Confirm new password"
               required
               minLength="6"

@@ -3,6 +3,7 @@ import { useBillingLogs } from '../hooks/useBillingLogs'
 import { useSettings } from '../hooks/useSettings'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { useToast } from '../components/ToastContainer'
 import { logUserAction } from '../utils/logger'
 
 function fmt(amount, sym) {
@@ -121,6 +122,7 @@ export default function BillingLogsPage() {
   const { settings } = useSettings()
   const { userProfile } = useAuth()
   const { selectedOrgId } = useOrg()
+  const { addToast } = useToast()
 
   const sym = settings?.currency ? 
     (settings.currency === 'USD' ? '$' : 
@@ -184,7 +186,7 @@ export default function BillingLogsPage() {
       const storeInfo = settings?.storeInfo || {}
 
       const win = window.open('', '_blank', 'width=420,height=700')
-      if (!win) { alert('Please allow popups to print.'); return }
+      if (!win) { addToast('Please allow popups to print.', 'warning'); return }
 
       const reprintDateTime = new Date().toLocaleString()
 

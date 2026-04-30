@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Navigate } from 'react-router-dom'
+import { logUserAction, LOG_TYPES } from '../utils/logger'
 
 export default function LoginPage() {
   const { login, signup, user, loading, initializing } = useAuth()
@@ -15,7 +16,29 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // Redirect if already logged in
+  // Log login screen changes (organization selection removed)
+  useEffect(() => {
+    const logLoginScreenChange = async () => {
+      try {
+        await logUserAction(
+          'ui_change',
+          'Login screen updated: Organization selection removed for login (usernames are now unique)',
+          { id: 'system', username: 'system', displayName: 'System' },
+          null,
+          { 
+            changeType: 'login_screen_update',
+            description: 'Organization code field removed from login form, kept only for signup',
+            timestamp: new Date().toISOString()
+          }
+        )
+      } catch (error) {
+        console.error('Failed to log login screen change:', error)
+      }
+    }
+    
+    logLoginScreenChange()
+  }, [])
+
   if (!loading && !initializing && user) {
     return <Navigate to="/" replace />
   }
@@ -34,9 +57,7 @@ export default function LoginPage() {
         }
         await signup(username, password, displayName || username, email || null, 'user', orgCode.trim())
       } else {
-        // For login, pass orgCode if user is selecting an organization
-        // This helps resolve duplicate usernames across organizations
-        await login(username, password, orgCode.trim() || null)
+        await login(username, password)
       }
       navigate('/')
     } catch (err) {
@@ -125,19 +146,19 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Organization Code {isSignup ? '' : <span className="text-gray-400 font-normal">(required if multiple accounts exist)</span>}
-            </label>
-            <input
-              type="text"
-              value={orgCode}
-              onChange={e => setOrgCode(e.target.value)}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              placeholder={isSignup ? "Enter org code to join" : "Enter your organization code"}
-              required={isSignup}
-            />
-          </div>
+          {isSignup && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Code</label>
+              <input
+                type="text"
+                value={orgCode}
+                onChange={e => setOrgCode(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="Enter org code to join"
+                required
+              />
+            </div>
+          )}
 
           {error && (
             <div className="bg-rose-50 text-rose-600 text-sm p-3 rounded-lg">
