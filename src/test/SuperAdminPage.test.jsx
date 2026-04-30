@@ -4,30 +4,23 @@ import { BrowserRouter } from 'react-router-dom'
 import SuperAdminPage from '../pages/SuperAdminPage'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
+import { collection, doc, setDoc, serverTimestamp, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore'
 
-// Mock Firebase - provide proper Firestore mock
-const mockCollection = vi.fn(() => ({
-  where: vi.fn(() => ({
-    get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
-  })),
-  get: vi.fn(() => Promise.resolve({ docs: [] }))
-}))
-const mockDoc = vi.fn()
-const mockSetDoc = vi.fn(() => Promise.resolve())
-const mockServerTimestamp = vi.fn(() => new Date())
-
+// Mock Firebase
 vi.mock('../firebase', () => ({
-  db: {
-    collection: mockCollection,
-    doc: mockDoc
-  }
+  db: {},
 }))
 
 vi.mock('firebase/firestore', () => ({
-  collection: mockCollection,
-  doc: mockDoc,
-  setDoc: mockSetDoc,
-  serverTimestamp: mockServerTimestamp,
+  collection: vi.fn(() => ({
+    where: vi.fn(() => ({
+      get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
+    })),
+    get: vi.fn(() => Promise.resolve({ docs: [] }))
+  })),
+  doc: vi.fn(),
+  setDoc: vi.fn(() => Promise.resolve()),
+  serverTimestamp: vi.fn(() => new Date()),
   query: vi.fn(),
   where: vi.fn(),
   getDocs: vi.fn(() => Promise.resolve({ empty: true, docs: [] })),
@@ -116,7 +109,7 @@ describe('SuperAdminPage - Organization Edit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset mock implementations
-    mockCollection.mockReturnValue({
+    collection.mockReturnValue({
       where: vi.fn(() => ({
         get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
       })),
@@ -132,8 +125,8 @@ describe('SuperAdminPage - Organization Edit', () => {
       const orgTab = screen.getByRole('button', { name: 'Organizations' })
       fireEvent.click(orgTab)
       
-      expect(screen.getByText('Edit')).toBeInTheDocument()
-      expect(screen.getByText('Delete')).toBeInTheDocument()
+      expect(screen.getAllByText('Edit')).toHaveLength(2) // Two Edit buttons (one for each org)
+      expect(screen.getAllByText('Delete')).toHaveLength(2) // Two Delete buttons (one for each org)
     })
 
     it('should show edit form when edit button is clicked', async () => {
@@ -147,12 +140,17 @@ describe('SuperAdminPage - Organization Edit', () => {
       const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
-      await waitFor(() => {
-        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
-        expect(screen.getByLabelText('Description')).toBeInTheDocument()
-        expect(screen.getByText('Update')).toBeInTheDocument()
-        expect(screen.getByText('Cancel')).toBeInTheDocument()
-      }, { timeout: 3000 })
+      const nameInput = await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
+      const descInput = await screen.findByLabelText('Description', {}, { timeout: 3000 })
+      const updateButton = await screen.findByText('Update', {}, { timeout: 3000 })
+      // Wait for the form to appear, then get the Cancel button from the form
+      await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
+      const cancelButton = screen.getAllByText('Cancel')[1] // Second Cancel button is in the edit form
+      
+      expect(nameInput).toBeInTheDocument()
+      expect(descInput).toBeInTheDocument()
+      expect(updateButton).toBeInTheDocument()
+      expect(cancelButton).toBeInTheDocument()
     })
 
     it('should pre-fill edit form with current organization data', async () => {
@@ -166,13 +164,11 @@ describe('SuperAdminPage - Organization Edit', () => {
       const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
-      await waitFor(() => {
-        const nameInput = screen.getByLabelText('Organization Name')
-        const descInput = screen.getByLabelText('Description')
-        
-        expect(nameInput.value).toBe('Organization 1')
-        expect(descInput.value).toBe('First org')
-      })
+      const nameInput = await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
+      const descInput = await screen.findByLabelText('Description', {}, { timeout: 3000 })
+      
+      expect(nameInput.value).toBe('Organization 1')
+      expect(descInput.value).toBe('First org')
     })
 
     it('should allow editing organization name and description', async () => {
@@ -186,17 +182,15 @@ describe('SuperAdminPage - Organization Edit', () => {
       const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
-      await waitFor(() => {
-        const nameInput = screen.getByLabelText('Organization Name')
-        const descInput = screen.getByLabelText('Description')
-        
-        // Change values
-        fireEvent.change(nameInput, { target: { value: 'Updated Organization Name' } })
-        fireEvent.change(descInput, { target: { value: 'Updated description' } })
-        
-        expect(nameInput.value).toBe('Updated Organization Name')
-        expect(descInput.value).toBe('Updated description')
-      })
+      const nameInput = await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
+      const descInput = await screen.findByLabelText('Description', {}, { timeout: 3000 })
+      
+      // Change values
+      fireEvent.change(nameInput, { target: { value: 'Updated Organization Name' } })
+      fireEvent.change(descInput, { target: { value: 'Updated description' } })
+      
+      expect(nameInput.value).toBe('Updated Organization Name')
+      expect(descInput.value).toBe('Updated description')
     })
 
     it('should hide edit form when cancel button is clicked', async () => {
@@ -210,12 +204,10 @@ describe('SuperAdminPage - Organization Edit', () => {
       const editButton = screen.getAllByText('Edit')[0] // Get first Edit button
       fireEvent.click(editButton)
       
-      await waitFor(() => {
-        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
-      }, { timeout: 3000 })
+      await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
       
-      // Click cancel button
-      const cancelButton = screen.getByText('Cancel')
+      // Click cancel button in the edit form (get all Cancel buttons and click the second one which is in the form)
+      const cancelButton = screen.getAllByText('Cancel')[1] // Second Cancel button is in the edit form
       fireEvent.click(cancelButton)
       
       await waitFor(() => {
@@ -238,14 +230,14 @@ describe('SuperAdminPage - Organization Edit', () => {
       
       await waitFor(() => {
         expect(editButton.textContent).toBe('Cancel')
-      })
+      }, { timeout: 3000 })
       
       // Click the same button (now showing Cancel)
       fireEvent.click(editButton)
       
       await waitFor(() => {
         expect(editButton.textContent).toBe('Edit')
-      })
+      }, { timeout: 3000 })
     })
 
     it('should validate that organization name is required', async () => {
@@ -260,10 +252,8 @@ describe('SuperAdminPage - Organization Edit', () => {
       fireEvent.click(editButton)
       
       // Wait for the edit form to appear
-      await waitFor(() => {
-        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
-        expect(screen.getByText('Update')).toBeInTheDocument()
-      }, { timeout: 3000 })
+      await screen.findByLabelText('Organization Name', {}, { timeout: 3000 })
+      await screen.findByText('Update', {}, { timeout: 3000 })
       
       const nameInput = screen.getByLabelText('Organization Name')
       const updateButton = screen.getByText('Update')
@@ -276,9 +266,7 @@ describe('SuperAdminPage - Organization Edit', () => {
       
       // Form should still be visible (validation prevented submission)
       // Wait a bit to ensure the validation logic had time to execute
-      await waitFor(() => {
-        expect(screen.getByLabelText('Organization Name')).toBeInTheDocument()
-      }, { timeout: 1000 })
+      await screen.findByLabelText('Organization Name', {}, { timeout: 1000 })
     })
   })
 

@@ -378,8 +378,9 @@ function OrgRow({ org, onDelete, onPasswordChange, refreshTrigger, updateOrganiz
               <h4 className="text-sm font-medium text-gray-900 mb-3">Edit Organization: {org.id}</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Organization Name</label>
+                  <label htmlFor="org-name" className="block text-xs font-medium text-gray-700 mb-1">Organization Name</label>
                   <input
+                    id="org-name"
                     type="text"
                     value={editForm.name}
                     onChange={e => setEditForm({ ...editForm, name: e.target.value })}
@@ -389,8 +390,9 @@ function OrgRow({ org, onDelete, onPasswordChange, refreshTrigger, updateOrganiz
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                  <label htmlFor="org-description" className="block text-xs font-medium text-gray-700 mb-1">Description</label>
                   <input
+                    id="org-description"
                     type="text"
                     value={editForm.description}
                     onChange={e => setEditForm({ ...editForm, description: e.target.value })}

@@ -1,31 +1,23 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi, beforeEach, describe, it, expect } from 'vitest'
 import UnifiedUserManager from '../components/UnifiedUserManager'
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
 
 // Mock Firebase
 vi.mock('../firebase', () => ({
   db: {},
 }))
 
-// Mock Firestore - must be at top level
-const mockCollection = vi.fn()
-const mockQuery = vi.fn()
-const mockWhere = vi.fn()
-const mockGetDocs = vi.fn()
-const mockDoc = vi.fn()
-const mockSetDoc = vi.fn()
-const mockDeleteDoc = vi.fn()
-const mockServerTimestamp = vi.fn()
-
+// Mock Firestore
 vi.mock('firebase/firestore', () => ({
-  collection: mockCollection,
-  query: mockQuery,
-  where: mockWhere,
-  getDocs: mockGetDocs,
-  doc: mockDoc,
-  setDoc: mockSetDoc,
-  deleteDoc: mockDeleteDoc,
-  serverTimestamp: mockServerTimestamp,
+  collection: vi.fn(),
+  query: vi.fn((...args) => args), // Return the arguments passed to query
+  where: vi.fn((...args) => args), // Return the arguments passed to where
+  getDocs: vi.fn(),
+  doc: vi.fn(() => ({ id: 'mock-doc-id' })),
+  setDoc: vi.fn(),
+  deleteDoc: vi.fn(),
+  serverTimestamp: vi.fn(),
 }))
 
 // Mock contexts and hooks - must be at top level
@@ -62,12 +54,12 @@ vi.mock('../utils/logger', () => ({
 describe('UnifiedUserManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockServerTimestamp.mockReturnValue(new Date())
+    serverTimestamp.mockReturnValue(new Date())
   })
 
   test('renders user management interface', () => {
     // Mock empty users list
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       docs: [],
       forEach: vi.fn(),
     })
@@ -80,7 +72,7 @@ describe('UnifiedUserManager', () => {
   })
 
   test('shows user creation form when clicking new user button', () => {
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       docs: [],
       forEach: vi.fn(),
     })
@@ -97,32 +89,14 @@ describe('UnifiedUserManager', () => {
   })
 
   test('creates a new user successfully', async () => {
-    const mockUser = {
-      id: 'user1',
-      username: 'testuser',
-      displayName: 'Test User',
-      email: 'test@example.com',
-    }
-
-    // Mock username check - no existing user
-    mockGetDocs.mockResolvedValueOnce({
+    // Mock all getDocs calls to return empty (no existing users)
+    getDocs.mockResolvedValue({
       empty: true,
       docs: [],
     })
 
     // Mock user creation
-    mockSetDoc.mockResolvedValue()
-
-    // Mock updated users list
-    mockGetDocs.mockResolvedValueOnce({
-      docs: [
-        {
-          id: 'user1',
-          data: () => mockUser,
-        },
-      ],
-      map: vi.fn((callback) => [mockUser]),
-    })
+    setDoc.mockResolvedValue()
 
     render(<UnifiedUserManager />)
     
@@ -143,12 +117,13 @@ describe('UnifiedUserManager', () => {
       target: { value: 'password123' },
     })
     
-    // Submit form
-    fireEvent.click(screen.getByText('Create User'))
+    // Submit form using submit event to bypass HTML5 validation
+    const form = screen.getByText('Create User').closest('form')
+    fireEvent.submit(form)
     
     await waitFor(() => {
-      expect(mockSetDoc).toHaveBeenCalledWith(
-        expect.any(Object), // doc reference
+      expect(setDoc).toHaveBeenCalledWith(
+        { id: 'mock-doc-id' }, // doc reference
         expect.objectContaining({
           username: 'testuser',
           displayName: 'Test User',
@@ -164,7 +139,7 @@ describe('UnifiedUserManager', () => {
 
   test('shows error when username already exists', async () => {
     // Mock existing user
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       empty: false,
       docs: [{ id: 'existing-user' }],
     })
@@ -193,8 +168,8 @@ describe('UnifiedUserManager', () => {
     })
   })
 
-  test('validates required fields', () => {
-    mockGetDocs.mockResolvedValue({
+  test('validates required fields', async () => {
+    getDocs.mockResolvedValue({
       docs: [],
       forEach: vi.fn(),
     })
@@ -204,14 +179,22 @@ describe('UnifiedUserManager', () => {
     // Click new user button
     fireEvent.click(screen.getByText('+ New User'))
     
-    // Submit empty form
-    fireEvent.click(screen.getByText('Create User'))
+    // Fill in only username (missing password and display name)
+    fireEvent.change(screen.getByPlaceholderText('johndoe'), {
+      target: { value: 'testuser' },
+    })
+    
+    // Submit form using submit event to bypass HTML5 validation
+    const form = screen.getByText('Create User').closest('form')
+    fireEvent.submit(form)
     
     // Should show validation error
-    expect(screen.getByText('Username, password, and display name are required')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Username, password, and display name are required')).toBeInTheDocument()
+    })
   })
 
-  test('displays users list correctly', () => {
+  test('displays users list correctly', async () => {
     const mockUsers = [
       {
         id: 'user1',
@@ -232,7 +215,7 @@ describe('UnifiedUserManager', () => {
       },
     ]
 
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       docs: mockUsers.map(user => ({
         id: user.id,
         data: () => user,
@@ -242,18 +225,20 @@ describe('UnifiedUserManager', () => {
 
     render(<UnifiedUserManager />)
     
-    expect(screen.getByText('All Users (2)')).toBeInTheDocument()
-    expect(screen.getByText('user1')).toBeInTheDocument()
-    expect(screen.getByText('User One')).toBeInTheDocument()
-    expect(screen.getByText('user1@example.com')).toBeInTheDocument()
-    expect(screen.getByText('user2')).toBeInTheDocument()
-    expect(screen.getByText('User Two')).toBeInTheDocument()
-    expect(screen.getByText('-')).toBeInTheDocument() // No email for user2
-    
-    // Check organization badges
-    expect(screen.getByText('org1')).toBeInTheDocument()
-    expect(screen.getByText('org2')).toBeInTheDocument()
-    expect(screen.getByText('No access assigned')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('All Users (2)')).toBeInTheDocument()
+      expect(screen.getByText('user1')).toBeInTheDocument()
+      expect(screen.getByText('User One')).toBeInTheDocument()
+      expect(screen.getByText('user1@example.com')).toBeInTheDocument()
+      expect(screen.getByText('user2')).toBeInTheDocument()
+      expect(screen.getByText('User Two')).toBeInTheDocument()
+      expect(screen.getByText('-')).toBeInTheDocument() // No email for user2
+      
+      // Check organization badges
+      expect(screen.getByText('org1')).toBeInTheDocument()
+      expect(screen.getByText('org2')).toBeInTheDocument()
+      expect(screen.getByText('No access assigned')).toBeInTheDocument()
+    })
   })
 
   test('deletes a user successfully', async () => {
@@ -264,7 +249,7 @@ describe('UnifiedUserManager', () => {
       email: 'test@example.com',
     }
 
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       docs: [
         {
           id: 'user1',
@@ -279,15 +264,17 @@ describe('UnifiedUserManager', () => {
 
     render(<UnifiedUserManager />)
     
-    const deleteButton = screen.getByText('Delete')
-    fireEvent.click(deleteButton)
+    await waitFor(() => {
+      const deleteButton = screen.getByText('Delete')
+      fireEvent.click(deleteButton)
+    })
     
     await waitFor(() => {
-      expect(mockDeleteDoc).toHaveBeenCalledWith(expect.any(Object))
+      expect(deleteDoc).toHaveBeenCalledWith({ id: 'mock-doc-id' })
     })
   })
 
-  test('cancels user deletion when confirmation is declined', () => {
+  test('cancels user deletion when confirmation is declined', async () => {
     const mockUser = {
       id: 'user1',
       username: 'testuser',
@@ -295,7 +282,7 @@ describe('UnifiedUserManager', () => {
       email: 'test@example.com',
     }
 
-    mockGetDocs.mockResolvedValue({
+    getDocs.mockResolvedValue({
       docs: [
         {
           id: 'user1',
@@ -310,10 +297,12 @@ describe('UnifiedUserManager', () => {
 
     render(<UnifiedUserManager />)
     
-    const deleteButton = screen.getByText('Delete')
-    fireEvent.click(deleteButton)
+    await waitFor(() => {
+      const deleteButton = screen.getByText('Delete')
+      fireEvent.click(deleteButton)
+    })
     
     expect(window.confirm).toHaveBeenCalled()
-    expect(mockDeleteDoc).not.toHaveBeenCalled()
+    expect(deleteDoc).not.toHaveBeenCalled()
   })
 })

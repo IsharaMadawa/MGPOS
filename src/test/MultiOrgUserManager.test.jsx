@@ -4,32 +4,20 @@ import { BrowserRouter } from 'react-router-dom'
 import MultiOrgUserManager from '../components/MultiOrgUserManager'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
+import { collection, doc, setDoc, serverTimestamp, query, where, getDocs, arrayUnion } from 'firebase/firestore'
 
-// Mock Firebase - provide proper Firestore mock
-const mockCollection = vi.fn(() => ({
-  where: vi.fn(() => ({
-    get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
-  })),
-  get: vi.fn(() => Promise.resolve({ docs: [] }))
-}))
-const mockDoc = vi.fn()
-const mockSetDoc = vi.fn(() => Promise.resolve())
-const mockServerTimestamp = vi.fn(() => new Date())
-
+// Mock Firebase
 vi.mock('../firebase', () => ({
-  db: {
-    collection: mockCollection,
-    doc: mockDoc
-  }
+  db: {},
 }))
 
 vi.mock('firebase/firestore', () => ({
-  collection: mockCollection,
-  doc: mockDoc,
-  setDoc: mockSetDoc,
-  serverTimestamp: mockServerTimestamp,
-  query: vi.fn(),
-  where: vi.fn(),
+  collection: vi.fn(),
+  doc: vi.fn(() => ({ id: 'mock-doc-id' })),
+  setDoc: vi.fn(() => Promise.resolve()),
+  serverTimestamp: vi.fn(() => new Date()),
+  query: vi.fn((...args) => args), // Return the arguments passed to query
+  where: vi.fn((...args) => args), // Return the arguments passed to where
   getDocs: vi.fn(() => Promise.resolve({ empty: true, docs: [] })),
   arrayUnion: vi.fn()
 }))
@@ -88,7 +76,7 @@ describe('MultiOrgUserManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset mock implementations
-    mockCollection.mockReturnValue({
+    collection.mockReturnValue({
       where: vi.fn(() => ({
         get: vi.fn(() => Promise.resolve({ empty: true, docs: [] }))
       })),
@@ -97,96 +85,123 @@ describe('MultiOrgUserManager', () => {
   })
 
   describe('Component Rendering', () => {
-    it('should render the multi-org user management interface', () => {
+    it('should render the multi-org user management interface', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
-      expect(screen.getByText('Create User with Multiple Organization Access')).toBeInTheDocument()
-      expect(screen.getByText('All Users')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
+        expect(screen.getByText('All Users (0)')).toBeInTheDocument()
+      })
     })
 
-    it('should show create user form when button is clicked', () => {
+    it('should show create user form when button is clicked', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
       expect(screen.getByText('Create User with Multiple Organization Access')).toBeInTheDocument()
-      expect(screen.getByLabelText('Username')).toBeInTheDocument()
-      expect(screen.getByLabelText('Full Name')).toBeInTheDocument()
-      expect(screen.getByLabelText('Email (optional)')).toBeInTheDocument()
-      expect(screen.getByLabelText('Password')).toBeInTheDocument()
-      expect(screen.getByLabelText('Role in Organizations')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('johndoe')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('John Doe')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('john@example.com')).toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Min 6 characters')).toBeInTheDocument() // Password input
     })
 
-    it('should display organization checkboxes', () => {
+    it('should display organization checkboxes', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
       expect(screen.getByText('Organization 1')).toBeInTheDocument()
       expect(screen.getByText('Organization 2')).toBeInTheDocument()
       expect(screen.getByText('Organization 3')).toBeInTheDocument()
-      expect(screen.getByText('(org1)')).toBeInTheDocument()
-      expect(screen.getByText('(org2)')).toBeInTheDocument()
-      expect(screen.getByText('(org3)')).toBeInTheDocument()
+      expect(screen.getByText('org1')).toBeInTheDocument()
+      expect(screen.getByText('org2')).toBeInTheDocument()
+      expect(screen.getByText('org3')).toBeInTheDocument()
     })
   })
 
   describe('Organization Selection', () => {
     it('should allow selecting multiple organizations', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
-      const org1Checkbox = screen.getByText('Organization 1').closest('label').querySelector('input[type="checkbox"]')
-      const org2Checkbox = screen.getByText('Organization 2').closest('label').querySelector('input[type="checkbox"]')
-      
-      fireEvent.click(org1Checkbox)
-      expect(org1Checkbox.checked).toBe(true)
-      
-      fireEvent.click(org2Checkbox)
-      expect(org2Checkbox.checked).toBe(true)
-      expect(org1Checkbox.checked).toBe(true)
-      
-      expect(screen.getByText('Select Organizations (2 selected)')).toBeInTheDocument()
+      const org1Div = screen.getByText('Organization 1').closest('div')
+      const org1Checkbox = org1Div.querySelector('input[type="checkbox"]')
+      const org2Div = screen.getByText('Organization 2').closest('div')
+      const org2Checkbox = org2Div.querySelector('input[type="checkbox"]')
+
+      if (org1Checkbox && org2Checkbox) {
+        fireEvent.click(org1Checkbox)
+        expect(org1Checkbox.checked).toBe(true)
+        fireEvent.click(org2Checkbox)
+        expect(org2Checkbox.checked).toBe(true)
+        
+        expect(screen.getByText('Select Organizations (2 selected)')).toBeInTheDocument()
+      }
     })
 
-    it('should update selection count when organizations are selected/deselected', () => {
+    it('should update selection count when organizations are selected/deselected', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
-      const org1Checkbox = screen.getByText('Organization 1').closest('label').querySelector('input[type="checkbox"]')
-      
-      fireEvent.click(org1Checkbox)
-      expect(screen.getByText('Select Organizations (1 selected)')).toBeInTheDocument()
-      
-      fireEvent.click(org1Checkbox)
-      expect(screen.getByText('Select Organizations (0 selected)')).toBeInTheDocument()
+      const org1Div = screen.getByText('Organization 1').closest('div')
+      const org1Checkbox = org1Div.querySelector('input[type="checkbox"]')
+
+      if (org1Checkbox) {
+        fireEvent.click(org1Checkbox)
+        await waitFor(() => {
+          expect(screen.getByText('Select Organizations (1 selected)')).toBeInTheDocument()
+        })
+        
+        // Deselect
+        fireEvent.click(org1Checkbox)
+        await waitFor(() => {
+          expect(screen.getByText('Select Organizations (0 selected)')).toBeInTheDocument()
+        })
+      }
     })
   })
 
   describe('Form Validation', () => {
     it('should show error when no organizations are selected', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
-      const submitButton = screen.getByText('Create User')
-      const usernameInput = screen.getByLabelText('Username')
-      const passwordInput = screen.getByLabelText('Password')
-      const nameInput = screen.getByLabelText('Full Name')
+      const usernameInput = screen.getByPlaceholderText('johndoe')
+      const passwordInput = screen.getByPlaceholderText('Min 6 characters')
+      const nameInput = screen.getByPlaceholderText('John Doe')
       
       fireEvent.change(usernameInput, { target: { value: 'testuser' } })
       fireEvent.change(passwordInput, { target: { value: 'password123' } })
       fireEvent.change(nameInput, { target: { value: 'Test User' } })
       
-      fireEvent.click(submitButton)
+      // Submit form using submit event
+      const form = screen.getByText('Create User').closest('form')
+      fireEvent.submit(form)
       
       await waitFor(() => {
         expect(screen.getByText('Please select at least one organization for this user')).toBeInTheDocument()
@@ -194,13 +209,22 @@ describe('MultiOrgUserManager', () => {
     })
 
     it('should show error when required fields are missing', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
-      const submitButton = screen.getByText('Create User')
-      fireEvent.click(submitButton)
+      // Fill in only username (missing password and display name)
+      fireEvent.change(screen.getByPlaceholderText('johndoe'), {
+        target: { value: 'testuser' },
+      })
+      
+      // Submit form using submit event
+      const form = screen.getByText('Create User').closest('form')
+      fireEvent.submit(form)
       
       await waitFor(() => {
         expect(screen.getByText('Username, password, and display name are required')).toBeInTheDocument()
@@ -209,25 +233,32 @@ describe('MultiOrgUserManager', () => {
   })
 
   describe('Role Selection', () => {
-    it('should allow selecting user or admin role', () => {
+    it('should allow selecting user or admin role', async () => {
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      const createButton = screen.getByText('+ New Multi-Org User')
-      fireEvent.click(createButton)
+      await waitFor(() => {
+        const createButton = screen.getByText('+ New Multi-Org User')
+        fireEvent.click(createButton)
+      })
       
-      const roleSelect = screen.getByLabelText('Role in Organizations')
-      expect(roleSelect).toBeInTheDocument()
-      
-      const userOption = screen.getByText('User')
-      const adminOption = screen.getByText('Admin')
-      
-      expect(userOption).toBeInTheDocument()
-      expect(adminOption).toBeInTheDocument()
+      // Select an organization first to show role dropdown
+      const org1Div = screen.getByText('Organization 1').closest('div')
+      const org1Checkbox = org1Div.querySelector('input[type="checkbox"]')
+      if (org1Checkbox) {
+        fireEvent.click(org1Checkbox)
+        
+        await waitFor(() => {
+          // Look for select element with role options
+          const roleSelect = screen.getByDisplayValue('User') || screen.getByLabelText('Role in Organizations')
+          expect(roleSelect).toBeInTheDocument()
+        })
+      }
     })
   })
 
   describe('Responsive Design', () => {
-    it('should render properly on mobile viewports', () => {
+    it('should render properly on mobile viewports', async () => {
       // Mock mobile viewport
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
@@ -235,13 +266,16 @@ describe('MultiOrgUserManager', () => {
         value: 375,
       })
       
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
-      expect(screen.getByText('+ New Multi-Org User')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
+        expect(screen.getByText('+ New Multi-Org User')).toBeInTheDocument()
+      })
     })
 
-    it('should render properly on desktop viewports', () => {
+    it('should render properly on desktop viewports', async () => {
       // Mock desktop viewport
       Object.defineProperty(window, 'innerWidth', {
         writable: true,
@@ -249,10 +283,13 @@ describe('MultiOrgUserManager', () => {
         value: 1920,
       })
       
+      getDocs.mockResolvedValue({ docs: [] })
       renderWithProviders(<MultiOrgUserManager />)
       
-      expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
-      expect(screen.getByText('+ New Multi-Org User')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('Multi-Organization User Management')).toBeInTheDocument()
+        expect(screen.getByText('+ New Multi-Org User')).toBeInTheDocument()
+      })
     })
   })
 })

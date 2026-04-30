@@ -157,12 +157,15 @@ describe('MasterDataTab', () => {
       const addButton = screen.getByText('Add')
       
       fireEvent.change(input, { target: { value: '-1' } })
-      fireEvent.click(addButton)
+      
+      // Submit the form instead of clicking the button
+      fireEvent.submit(input.closest('form'))
       
       // The component shows "Enter a valid positive number" for invalid input
-      // Use queryByText to avoid throwing if element not found
-      const errorMessage = screen.queryByText('Enter a valid positive number')
-      expect(errorMessage).toBeInTheDocument()
+      await waitFor(() => {
+        const errorMessage = screen.getByText('Enter a valid positive number')
+        expect(errorMessage).toBeInTheDocument()
+      })
     })
   })
 
