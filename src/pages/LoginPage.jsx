@@ -4,30 +4,26 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import { logUserAction, LOG_TYPES } from '../utils/logger'
 
 export default function LoginPage() {
-  const { login, signup, user, loading, initializing } = useAuth()
+  const { login, user, loading, initializing } = useAuth()
   const navigate = useNavigate()
   
-  const [isSignup, setIsSignup] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [email, setEmail] = useState('')
-  const [displayName, setDisplayName] = useState('')
-  const [orgCode, setOrgCode] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // Log login screen changes (organization selection removed)
+  // Log login screen changes (self signup removed)
   useEffect(() => {
     const logLoginScreenChange = async () => {
       try {
         await logUserAction(
           'ui_change',
-          'Login screen updated: Organization selection removed for login (usernames are now unique)',
+          'Login screen updated: Self signup functionality removed - only admins can create users',
           { id: 'system', username: 'system', displayName: 'System' },
           null,
           { 
             changeType: 'login_screen_update',
-            description: 'Organization code field removed from login form, kept only for signup',
+            description: 'Self signup removed from login screen, user creation restricted to admins only',
             timestamp: new Date().toISOString()
           }
         )
@@ -49,16 +45,7 @@ export default function LoginPage() {
     setSubmitting(true)
 
     try {
-      if (isSignup) {
-        if (!orgCode.trim()) {
-          setError('Organization code is required')
-          setSubmitting(false)
-          return
-        }
-        await signup(username, password, displayName || username, email || null, 'user', orgCode.trim())
-      } else {
-        await login(username, password)
-      }
+      await login(username, password)
       navigate('/')
     } catch (err) {
       console.error('Auth error:', err)
@@ -86,27 +73,13 @@ export default function LoginPage() {
         </div>
         
         <h2 className="text-xl font-semibold text-gray-900 mb-1 text-center">
-          {isSignup ? 'Create Account' : 'Sign In'}
+          Sign In
         </h2>
         <p className="text-sm text-gray-500 text-center mb-6">
-          {isSignup ? 'Enter your details to get started' : 'Enter your credentials to continue'}
+          Enter your credentials to continue
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignup && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={e => setDisplayName(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Your name"
-                required={isSignup}
-              />
-            </div>
-          )}
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
             <input
@@ -133,33 +106,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {isSignup && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-gray-400 font-normal">(optional)</span></label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="you@example.com"
-              />
-            </div>
-          )}
-
-          {isSignup && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Organization Code</label>
-              <input
-                type="text"
-                value={orgCode}
-                onChange={e => setOrgCode(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="Enter org code to join"
-                required
-              />
-            </div>
-          )}
-
           {error && (
             <div className="bg-rose-50 text-rose-600 text-sm p-3 rounded-lg">
               {error}
@@ -171,19 +117,9 @@ export default function LoginPage() {
             disabled={submitting}
             className="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Please wait...' : (isSignup ? 'Create Account' : 'Sign In')}
+            {submitting ? 'Please wait...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => { setIsSignup(!isSignup); setError('') }}
-            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-          >
-            {isSignup ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-          </button>
-        </div>
       </div>
     </div>
   )

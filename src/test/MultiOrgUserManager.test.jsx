@@ -37,7 +37,8 @@ vi.mock('../contexts/AuthContext', () => ({
       id: 'super_admin_1',
       displayName: 'Super Admin',
       role: 'super_admin'
-    }
+    },
+    isSuperAdmin: true
   })
 }))
 
