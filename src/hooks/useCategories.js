@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
@@ -13,8 +13,8 @@ export function useCategories() {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
 
-  // Determine which orgId to use
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Determine which orgId to use - always use selectedOrgId when available
+  const orgId = selectedOrgId || userProfile?.orgId
 
   // Sync categories from Firestore in real-time
   useEffect(() => {
@@ -25,21 +25,15 @@ export function useCategories() {
     }
 
     const categoriesRef = collection(db, CATEGORIES_COLLECTION)
-    const q = query(categoriesRef, orderBy('name'))
+    // Query with orgId filter for better performance
+    const q = query(categoriesRef, where('orgId', '==', orgId), orderBy('name'))
     
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const categoriesArray = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }))
-      // Filter client-side: show categories for current org OR legacy categories (no orgId)
-      const filtered = categoriesArray.filter(c => 
-        c.orgId === orgId || 
-        c.orgId === null || 
-        c.orgId === undefined ||
-        c.orgId === ''
-      )
-      setCategories(filtered)
+      setCategories(categoriesArray)
       setLoading(false)
     }, (error) => {
       console.error("Error fetching categories:", error)
