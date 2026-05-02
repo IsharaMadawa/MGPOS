@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from './ToastContainer'
 import { logUserAction, LOG_TYPES } from '../utils/logger'
+import { useCategories } from '../hooks/useCategories'
+import { CURRENCIES } from '../hooks/useSettings'
 
 function MasterDataTab({ settings, updateSettings }) {
   const { userProfile } = useAuth()
@@ -535,15 +537,40 @@ function UnitsOfMeasureSection({ settings, updateSettings, userProfile, addToast
   )
 }
 
+// Toggle component for category discounts
+function Toggle({ checked, onChange }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        checked={checked}
+        onChange={onChange}
+      />
+      <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-emerald-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+    </label>
+  )
+}
+
 // Master Categories Section (fully implemented)
 function MasterCategoriesSection({ settings, updateSettings, userProfile, addToast }) {
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [newCategory, setNewCategory] = useState({ name: '', description: '', color: '#6B7280' })
   const [editingCategory, setEditingCategory] = useState(null)
   const [error, setError] = useState('')
-
+  
   // Use database defaults if no settings exist - empty for new organizations
   const masterCategories = settings?.masterCategories || []
+
+  const updateCategoryDiscount = (category, field, value) => {
+    const current = settings.categoryDiscounts?.[category] || { enabled: false, type: 'percentage', value: 0 }
+    updateSettings({
+      categoryDiscounts: {
+        ...settings.categoryDiscounts,
+        [category]: { ...current, [field]: value },
+      },
+    })
+  }
 
   const colorOptions = [
     '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981', '#14B8A6',
@@ -604,6 +631,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
       description: category.description, 
       color: category.color
     })
+    setShowNewCategory(true) // Show the form when editing
     setError('')
   }
 
@@ -694,7 +722,15 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
           </p>
         </div>
         <button
-          onClick={() => setShowNewCategory(!showNewCategory)}
+          onClick={() => {
+            if (showNewCategory && editingCategory) {
+              // Canceling edit mode
+              setEditingCategory(null)
+              setNewCategory({ name: '', description: '', color: '#6B7280' })
+              setError('')
+            }
+            setShowNewCategory(!showNewCategory)
+          }}
           className="px-3 py-1.5 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors"
         >
           {showNewCategory ? 'Cancel' : '+ New Category'}
@@ -770,6 +806,7 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
                   onClick={() => {
                     setEditingCategory(null)
                     setNewCategory({ name: '', description: '', color: '#6B7280' })
+                    setShowNewCategory(false) // Hide form when canceling edit
                     setError('')
                   }}
                   className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 transition-colors"
@@ -818,6 +855,53 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Category Discounts Section */}
+      {settings.discountMode === 'category' && (
+        <div className="bg-white rounded-xl p-4 border border-gray-100 mt-6">
+          <h4 className="font-semibold text-gray-900 mb-3">Category Discounts</h4>
+          <p className="text-xs text-gray-500 mb-3">Set discount for each category (only shown when Category Discount mode is selected in Billing settings)</p>
+          {masterCategories.length === 0 ? (
+            <p className="text-gray-400 text-sm">No categories defined. Add categories using the form above.</p>
+          ) : (
+            <div className="space-y-3">
+              {masterCategories.map(cat => {
+                const disc = settings.categoryDiscounts?.[cat.id] || { enabled: false, type: 'percentage', value: 0 }
+                return (
+                  <div key={cat.id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                    <Toggle
+                      checked={disc.enabled}
+                      onChange={e => updateCategoryDiscount(cat.id, 'enabled', e.target.checked)}
+                    />
+                    <span className="flex-1 font-medium text-sm text-gray-700">{cat.name}</span>
+                    {disc.enabled && (
+                      <>
+                        <select
+                          value={disc.type}
+                          onChange={e => updateCategoryDiscount(cat.id, 'type', e.target.value)}
+                          className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        >
+                          <option value="percentage">%</option>
+                          <option value="fixed">{CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'}</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          max={disc.type === 'percentage' ? 100 : 99999}
+                          step="0.01"
+                          value={disc.value}
+                          onChange={e => updateCategoryDiscount(cat.id, 'value', parseFloat(e.target.value) || 0)}
+                          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        />
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

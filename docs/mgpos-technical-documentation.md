@@ -241,6 +241,7 @@ mgpos/
   businessName: string,  // Business name
   currency: string,      // Currency code
   taxRate: number,       // Default tax rate
+  taxEnabled: boolean,   // Whether tax is enabled
   address: string,       // Business address
   phone: string,         // Business phone
   email: string,         // Business email
@@ -248,6 +249,20 @@ mgpos/
   receiptFooter: string, // Receipt footer text
   masterCategories: array, // Master categories list
   unitsOfMeasure: array,  // Units of measure list
+  // Discount Configuration
+  discountMode: string,   // Discount mode: 'global', 'category', or 'item'
+  globalDiscount: number, // Global discount percentage (when mode is 'global')
+  categoryDiscounts: object, // Category-wise discounts (when mode is 'category')
+  cartDiscountEnabled: boolean, // Allow cart discount override
+  reprintEnabled: boolean, // Allow bill reprint
+  miscEnabled: boolean,   // Allow miscellaneous items
+  defaultQuantities: array, // Default quick quantities
+  storeInfo: {           // Store information
+    name: string,
+    address: string,
+    phone: string,
+    footer: string
+  },
   updatedAt: timestamp   // Last update timestamp
 }
 ```
@@ -939,6 +954,93 @@ const useCustomHook = (dependency) => {
 - **Code Splitting**: Lazy loading with React.lazy
 - **Virtual Scrolling**: For large lists
 - **Debouncing**: Input field optimization
+
+---
+
+## Discount System
+
+### Overview
+MGPOS supports a flexible discount system with three modes: Global, Category-wise, and Item-level discounts. The discount configuration is stored in the Settings collection and applied in real-time during cart calculations.
+
+### Discount Modes
+
+#### Global Discount
+- Applies a single discount percentage to all items
+- Configured in Settings > Billing > Discount Type > Global Discount
+- Stored in `settings.globalDiscount` as a percentage value
+
+#### Category-wise Discount
+- Allows different discounts per product category
+- Configured in Settings > Billing > Discount Type > Category Discount, then manage discounts in Settings > Master Data > Categories
+- Stored in `settings.categoryDiscounts` as an object with category IDs as keys
+- Each category discount has:
+  ```javascript
+  {
+    enabled: boolean,    // Whether discount is active
+    type: string,        // 'percentage' or 'fixed'
+    value: number        // Discount value
+  }
+  ```
+
+#### Item Discount
+- Individual product discounts set per product
+- Configured in Products tab per product
+- Stored in each product document's `discount` field
+
+### Discount Calculation Logic
+Discounts are calculated in the following order of precedence:
+1. Item-level discount (highest priority)
+2. Category-wise discount
+3. Global discount (lowest priority)
+
+### Implementation Details
+
+#### Category Discount Update Function
+```javascript
+const updateCategoryDiscount = (category, field, value) => {
+  const current = settings.categoryDiscounts?.[category] || { 
+    enabled: false, 
+    type: 'percentage', 
+    value: 0 
+  }
+  updateSettings({
+    categoryDiscounts: {
+      ...settings.categoryDiscounts,
+      [category]: { ...current, [field]: value },
+    },
+  })
+}
+```
+
+#### Cart Discount Application
+```javascript
+// Category-level discount calculation
+if (mode === 'category') {
+  const catDisc = settings?.categoryDiscounts?.[item.category]
+  if (catDisc?.enabled) {
+    const lineTotal = item.price * item.qty
+    if (catDisc.type === 'percentage') {
+      discount = lineTotal * (catDisc.value / 100)
+    } else {
+      discount = Math.min(catDisc.value * item.qty, lineTotal)
+    }
+  }
+}
+```
+
+### UI Components
+- **SettingsPage**: Contains discount mode selection and global/item discount configuration
+- **MasterDataTab**: Contains category-wise discount configuration in Categories section
+- **CartPanel**: Displays and applies discounts
+- **ProductGrid**: Shows discounted prices
+- **BillingLogsPage**: Reports discount calculations
+
+### Key Features
+- Real-time discount updates
+- Support for percentage and fixed amount discounts
+- Category-wise discount toggle and configuration
+- Cart discount override option
+- Discount information display in cart and receipts
 
 ---
 

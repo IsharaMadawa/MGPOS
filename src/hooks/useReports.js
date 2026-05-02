@@ -55,10 +55,14 @@ export function useReports() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const { userProfile, isSuperAdmin } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, getAdminOrganizations } = useOrg()
 
   // Determine which orgId to use
   const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  
+  // Check if user has multi-organization admin access
+  const adminOrganizations = getAdminOrganizations()
+  const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
 
   // Fetch reports for a single organization
   const fetchOrgReports = async (organizationId, period, customStart, customEnd) => {
@@ -95,8 +99,8 @@ export function useReports() {
     try {
       let orgsToQuery = []
       
-      if (isSuperAdmin) {
-        // Super admin: use selected orgs or current selected org
+      if (hasMultiOrgAccess) {
+        // Super admin or multi-org admin: use selected orgs or current selected org
         if (selectedOrgs && selectedOrgs.length > 0) {
           orgsToQuery = selectedOrgs
         } else if (selectedOrgId) {
@@ -107,7 +111,7 @@ export function useReports() {
           return null
         }
       } else {
-        // Regular org admin: only their org
+        // Single org admin: only their assigned org
         if (!orgId) {
           setError('No organization assigned')
           setLoading(false)

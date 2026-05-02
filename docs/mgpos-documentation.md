@@ -237,6 +237,40 @@ For items not in the inventory:
 - **Time Zone**: Set local time zone
 - **Date Format**: Choose date display format
 
+### Discount Configuration
+MGPOS supports flexible discount options to meet various business needs:
+
+#### Discount Types
+1. **Global Discount**: Apply a single discount percentage to all items
+2. **Category Discount**: Set different discounts for each product category
+3. **Item Discount**: Configure individual discounts per product
+
+#### Setting Up Category-wise Discounts
+1. Go to Settings → Billing tab
+2. Select "Category Discount" from Discount Type options
+3. Go to Settings → Master Data → Categories tab
+4. Configure discounts for each category:
+   - Toggle the discount switch for each category
+   - Choose discount type (percentage or fixed amount)
+   - Enter the discount value
+5. Discounts are automatically applied to items in those categories
+
+#### Global Discount Setup
+1. Go to Settings → Billing tab
+2. Select "Global Discount" from Discount Type options
+3. Enter the discount percentage to apply to all items
+
+#### Item Discount Setup
+1. Go to Settings → Products tab
+2. Edit individual products
+3. Configure discount settings in the product form
+4. Set discount type (percentage or fixed amount) and value
+
+#### Additional Discount Features
+- **Cart Discount Override**: Allow custom discounts directly in the cart
+- **Bill Reprint**: Enable reprinting bills from today
+- **Miscellaneous Items**: Add one-off items at checkout
+
 ### Security Settings
 - **Password Policies**: Minimum length and complexity requirements
 - **Session Timeout**: Auto-logout duration
@@ -251,7 +285,33 @@ For items not in the inventory:
 1. Go to Reports section from the main menu
 2. Select the type of report you want to view
 3. Set date range and filters
-4. Generate and view the report
+4. **For Super Admins & Multi-Org Admins**: Select organizations (optional - you can select multiple organizations or leave empty to use current selected organization)
+5. Generate and view the report
+
+### Multi-Organization Reporting (Super Admin & Multi-Org Admin Feature)
+Super administrators and organization administrators with access to multiple organizations can generate reports across multiple organizations:
+
+#### Organization Selection
+- **Single Organization**: Leave the organization selector empty to use the currently selected organization from the navigation bar
+- **Multiple Organizations**: Click on organization names in the selector to select multiple organizations
+- **Visual Feedback**: Selected organizations appear highlighted in green
+- **Selection Display**: Shows "Selected: [Organization Names]" when multiple organizations are chosen
+
+#### Report Generation
+- **Combined Data**: Reports aggregate data from all selected organizations
+- **Organization Breakdown**: Detailed reports show which organization each transaction belongs to
+- **Unified Analytics**: Summary statistics combine data across all selected organizations
+
+#### Access Levels
+- **Super Admins**: Can generate reports for any organization in the system
+- **Multi-Org Admins**: Can generate reports only for organizations they have admin access to
+- **Single-Org Admins**: Can only generate reports for their assigned organization
+
+#### Best Practices
+- Use specific date ranges when generating multi-organization reports to manage data volume
+- Consider using summary reports for large date ranges across multiple organizations
+- Verify organization selections before generating large reports
+- Multi-org admins will only see organizations they have access to in the selector
 
 ### Report Types
 

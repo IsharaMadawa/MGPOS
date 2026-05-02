@@ -34,6 +34,16 @@ describe('useReports', () => {
     orgId: null
   }
 
+  const mockMultiOrgAdminUser = {
+    id: 'multiAdmin1',
+    displayName: 'Multi Org Admin',
+    role: 'admin',
+    organizations: [
+      { orgId: 'org1', role: 'admin' },
+      { orgId: 'org2', role: 'admin' }
+    ]
+  }
+
   const mockOrg = {
     id: 'org1',
     name: 'Test Organization'
@@ -96,7 +106,16 @@ describe('useReports', () => {
         isSuperAdmin: user?.orgId === null,
         loading: false 
       }}>
-        <OrgContext.Provider value={{ selectedOrgId }}>
+        <OrgContext.Provider value={{ 
+          selectedOrgId,
+          getAdminOrganizations: () => {
+            if (user?.role === 'super_admin') return []
+            if (user?.organizations) {
+              return user.organizations.filter(org => org.role === 'admin')
+            }
+            return user?.role === 'admin' ? [{ orgId: user.orgId, role: 'admin' }] : []
+          }
+        }}>
           {children}
         </OrgContext.Provider>
       </AuthContext.Provider>
@@ -369,5 +388,57 @@ describe('useReports', () => {
     
     expect(cashierBreakdown).toEqual([])
     expect(dailyBreakdown).toEqual([])
+  })
+
+  it('should handle multi-organization admin with selected organizations', async () => {
+    const { result } = renderHook(() => useReports(), {
+      wrapper: ({ children }) => wrapper({ user: mockMultiOrgAdminUser, selectedOrgId: 'org1', children })
+    })
+
+    // Generate report with multiple organizations
+    await result.current.generateReport('today', null, null, ['org1', 'org2'])
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(4) // 2 logs from each org
+    })
+
+    // Verify reports from both organizations are included
+    const org1Reports = result.current.reports.filter(report => report.orgId === 'org1')
+    const org2Reports = result.current.reports.filter(report => report.orgId === 'org2')
+    
+    expect(org1Reports).toHaveLength(2)
+    expect(org2Reports).toHaveLength(2)
+  })
+
+  it('should handle multi-organization admin with no selected orgs (fallback to current)', async () => {
+    const { result } = renderHook(() => useReports(), {
+      wrapper: ({ children }) => wrapper({ user: mockMultiOrgAdminUser, selectedOrgId: 'org2', children })
+    })
+
+    // Generate report without specifying organizations (should use current org)
+    await result.current.generateReport('today')
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(2) // Only from current org (org2)
+    })
+
+    // Verify all reports are from the current organization
+    expect(result.current.reports.every(report => report.orgId === 'org2')).toBe(true)
+  })
+
+  it('should handle single organization admin correctly', async () => {
+    const { result } = renderHook(() => useReports(), {
+      wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+    })
+
+    // Generate report (single org admin should only get their org)
+    await result.current.generateReport('today')
+
+    await waitFor(() => {
+      expect(result.current.reports).toHaveLength(2) // Only from their assigned org
+    })
+
+    // Verify all reports are from their assigned organization
+    expect(result.current.reports.every(report => report.orgId === 'org1')).toBe(true)
   })
 })
