@@ -248,7 +248,9 @@ describe('ReportsPage Multi-Organization Selection', () => {
 
     // Should show selected organizations
     expect(screen.getByText(/Selected:/)).toBeInTheDocument()
-    expect(screen.getByText(/Organization 2/)).toBeInTheDocument()
+    // Look for Organization 2 within the selected text paragraph specifically
+    const selectedParagraph = screen.getByText(/Selected:/).closest('p')
+    expect(selectedParagraph?.textContent).toContain('Organization 2')
   })
 
   it('should show error message for multi-org admin with no org selected', () => {

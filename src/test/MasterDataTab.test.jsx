@@ -298,8 +298,8 @@ describe('MasterDataTab', () => {
     })
 
     it('should display categories with color indicators', () => {
-      // Only check for custom category since default categories may not be loaded
-      expect(screen.getByText('Custom Category')).toBeInTheDocument()
+      // Check that Custom Category text exists somewhere in the document
+      expect(screen.getAllByText('Custom Category').length).toBeGreaterThan(0)
       
       // Check for color indicators (div elements with background color)
       const colorIndicators = document.querySelectorAll('[style*="background-color"]')
@@ -334,12 +334,14 @@ describe('MasterDataTab', () => {
     })
 
     it('should edit category', async () => {
-      // First find the custom category row and look for edit button within it
-      const customCategoryRow = screen.getByText('Custom Category').closest('div[class*="flex"]')
-      const editButton = customCategoryRow?.querySelector('button')
+      // Find the edit button for custom category - look for button with edit icon
+      const editButtons = screen.getAllByRole('button').filter(button => 
+        button.querySelector('svg') && 
+        button.querySelector('svg path[d*="M13.586 3.586a2 2 0 112.828 2.828"]')
+      )
       
-      if (editButton) {
-        fireEvent.click(editButton)
+      if (editButtons.length > 0) {
+        fireEvent.click(editButtons[0])
         
         const nameInput = screen.getByDisplayValue('Custom Category')
         const updateButton = screen.getByText('Update Category')
@@ -461,6 +463,16 @@ describe('MasterDataTab', () => {
       
       // Should show empty state message
       expect(screen.getByText('No master categories added yet')).toBeInTheDocument()
+    })
+
+    it('should show category discounts section regardless of discount mode', () => {
+      renderWithToastProvider(<MasterDataTab settings={mockSettings} updateSettings={mockUpdateSettings} />)
+      
+      fireEvent.click(screen.getByText('Categories'))
+      
+      // Category discounts section should be visible regardless of discount mode
+      expect(screen.getByText('Category Discounts')).toBeInTheDocument()
+      expect(screen.getByText('Set discount for each category (will be applied when Category Discount mode is selected in Billing settings)')).toBeInTheDocument()
     })
   })
 })

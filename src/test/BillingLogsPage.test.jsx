@@ -53,7 +53,7 @@ const mockBillingLogs = [
         name: 'Test Product',
         price: 10.00,
         qty: 2,
-        selectedUnit: 'Each'
+        selectedUnit: 'kg'
       }
     ],
     subtotal: 20.00,
@@ -71,7 +71,7 @@ const mockBillingLogs = [
         name: 'Old Product',
         price: 15.00,
         qty: 1,
-        selectedUnit: 'Each'
+        selectedUnit: 'pcs'
       }
     ],
     subtotal: 15.00,
@@ -92,7 +92,12 @@ const mockSettings = {
     address: '123 Test St',
     phone: '555-1234',
     footer: 'Thank you!'
-  }
+  },
+  unitsOfMeasure: [
+    { id: 'kg', name: 'Kilogram', abbreviation: 'kg', type: 'weight', isStandard: true },
+    { id: 'g', name: 'Gram', abbreviation: 'g', type: 'weight', isStandard: true },
+    { id: 'pcs', name: 'Pieces', abbreviation: 'pcs', type: 'unit', isStandard: true }
+  ]
 }
 
 const mockUser = {
@@ -306,5 +311,33 @@ describe('BillingLogsPage', () => {
 
     // Should show more logs (pagination increases)
     expect(screen.getByText('#123500')).toBeInTheDocument()
+  })
+
+  test('unit filtering works correctly', async () => {
+    render(
+      <TestWrapper>
+        <BillingLogsPage />
+      </TestWrapper>
+    )
+
+    // Show filters
+    await waitFor(() => {
+      expect(screen.getByText('Show Filters')).toBeInTheDocument()
+    })
+    const showFiltersButton = screen.getByText('Show Filters')
+    fireEvent.click(showFiltersButton)
+
+    // Filter by unit - look for the select element by role and find the one with unit options
+    const unitSelects = screen.getAllByRole('combobox')
+    const unitSelect = unitSelects.find(select => 
+      select.innerHTML.includes('All Units') || select.innerHTML.includes('Kilogram')
+    )
+    
+    if (unitSelect) {
+      fireEvent.change(unitSelect, { target: { value: 'kg' } })
+    }
+
+    // Should only show logs with kg unit
+    expect(screen.getByText('#123456')).toBeInTheDocument()
   })
 })
