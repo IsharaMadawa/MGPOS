@@ -859,10 +859,9 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
       )}
 
       {/* Category Discounts Section */}
-      {settings.discountMode === 'category' && (
-        <div className="bg-white rounded-xl p-4 border border-gray-100 mt-6">
-          <h4 className="font-semibold text-gray-900 mb-3">Category Discounts</h4>
-          <p className="text-xs text-gray-500 mb-3">Set discount for each category (only shown when Category Discount mode is selected in Billing settings)</p>
+      <div className="bg-white rounded-xl p-4 border border-gray-100 mt-6">
+        <h4 className="font-semibold text-gray-900 mb-3">Category Discounts</h4>
+        <p className="text-xs text-gray-500 mb-3">Set discount for each category (will be applied when Category Discount mode is selected in Billing settings)</p>
           {masterCategories.length === 0 ? (
             <p className="text-gray-400 text-sm">No categories defined. Add categories using the form above.</p>
           ) : (
@@ -903,7 +902,6 @@ function MasterCategoriesSection({ settings, updateSettings, userProfile, addToa
             </div>
           )}
         </div>
-      )}
     </div>
   )
 }
