@@ -10,7 +10,7 @@ import { useToast } from '../components/ToastContainer'
 
 export default function ReportsPage() {
   const { userProfile, isAdmin, isSuperAdmin, loading: authLoading } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, getAdminOrganizations } = useOrg()
   const { organizations } = useOrganizations()
   const { 
     reports, 
@@ -35,6 +35,10 @@ export default function ReportsPage() {
   const currentOrg = organizations.find(o => o.id === currentOrgId)
   const currencySymbol = CURRENCIES.find(c => c.code === 'USD')?.symbol || '$'
 
+  // Check if user has multi-organization admin access
+  const adminOrganizations = getAdminOrganizations()
+  const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
+
   if (authLoading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-gray-50">
@@ -47,8 +51,8 @@ export default function ReportsPage() {
     return <Navigate to="/" replace />
   }
 
-  // Show message if no org selected for super admin
-  if (isSuperAdmin && !selectedOrgId && selectedOrgs.length === 0) {
+  // Show message if no org selected for users with multi-org access
+  if (hasMultiOrgAccess && !selectedOrgId && selectedOrgs.length === 0) {
     return (
       <div className="flex-1 overflow-y-auto bg-gray-50 p-6">
         <div className="max-w-4xl mx-auto">
@@ -58,7 +62,7 @@ export default function ReportsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Select an Organization</h3>
-            <p className="text-gray-600">Please select an organization from the navigation bar to generate reports.</p>
+            <p className="text-gray-600">Please select an organization from the navigation bar or use the multi-organization selector below to generate reports.</p>
           </div>
         </div>
       </div>
@@ -69,7 +73,22 @@ export default function ReportsPage() {
     const customStartDate = customStart ? new Date(customStart) : null
     const customEndDate = customEnd ? new Date(customEnd) : null
     
-    const orgs = isSuperAdmin ? (selectedOrgs.length > 0 ? selectedOrgs : [selectedOrgId]) : [currentOrgId]
+    let orgs = []
+    
+    if (hasMultiOrgAccess) {
+      // For users with multi-org access (super admin or multi-org admin): use selected orgs if any, otherwise use current selected org
+      orgs = selectedOrgs.length > 0 ? selectedOrgs : (selectedOrgId ? [selectedOrgId] : [])
+    } else {
+      // For single-org admins: always use their assigned org
+      orgs = [currentOrgId]
+    }
+    
+    // Don't generate report if no organizations are selected
+    if (orgs.length === 0) {
+      addToast('Please select at least one organization', 'error')
+      return
+    }
+    
     await generateReport(period, customStartDate, customEndDate, orgs)
     setGenerated(true)
     
@@ -110,7 +129,7 @@ export default function ReportsPage() {
   const handlePrint = async () => {
     if (!generated || !summary) return
     
-    const reportOrgs = isSuperAdmin && selectedOrgs.length > 0 
+    const reportOrgs = hasMultiOrgAccess && selectedOrgs.length > 0 
       ? selectedOrgs.map(id => organizations.find(o => o.id === id))
       : [currentOrg]
     
@@ -310,7 +329,7 @@ export default function ReportsPage() {
         {
           period,
           reportType,
-          orgIds: isSuperAdmin && selectedOrgs.length > 0 ? selectedOrgs : [currentOrgId],
+          orgIds: hasMultiOrgAccess && selectedOrgs.length > 0 ? selectedOrgs : [currentOrgId],
           transactionCount: reports.length,
           summary
         }
@@ -406,14 +425,21 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Super Admin: Multi-org Selection */}
-          {isSuperAdmin && (
+          {/* Multi-org Selection for Super Admins and Organization Admins with multi-org access */}
+          {hasMultiOrgAccess && (
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Organizations (leave empty for current org)
+                Select Organizations (optional - leave empty to use current selected organization)
               </label>
               <div className="flex flex-wrap gap-2">
-                {organizations.map(org => (
+                {organizations
+                  .filter(org => {
+                    // For super admins, show all organizations
+                    if (isSuperAdmin) return true
+                    // For organization admins, only show organizations they have admin access to
+                    return adminOrganizations.some(adminOrg => adminOrg.orgId === org.id)
+                  })
+                  .map(org => (
                   <button
                     key={org.id}
                     onClick={() => handleOrgToggle(org.id)}

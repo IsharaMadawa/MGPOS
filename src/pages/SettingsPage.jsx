@@ -296,50 +296,12 @@ function BillingTab({ settings, updateSettings }) {
         </section>
       )}
 
-      {/* Category Discounts - shown when category mode selected */}
+      
+      {/* Category Discounts info - shown when category mode selected */}
       {settings.discountMode === 'category' && (
-        <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <section className="bg-white rounded-2xl p-5 border border-gray-100">
           <h3 className="font-semibold text-gray-900">Category Discounts</h3>
-          <p className="text-xs text-gray-500 mb-3">Set discount for each category</p>
-          {categories.length === 0 ? (
-            <p className="text-gray-400 text-sm">No categories defined. Add categories in Products tab.</p>
-          ) : (
-            <div className="space-y-3">
-              {categories.map(cat => {
-                const disc = settings.categoryDiscounts?.[cat] || { enabled: false, type: 'percentage', value: 0 }
-                return (
-                  <div key={cat} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-                    <Toggle
-                      checked={disc.enabled}
-                      onChange={e => updateCategoryDiscount(cat, 'enabled', e.target.checked)}
-                    />
-                    <span className="flex-1 font-medium text-sm text-gray-700">{cat.name}</span>
-                    {disc.enabled && (
-                      <>
-                        <select
-                          value={disc.type}
-                          onChange={e => updateCategoryDiscount(cat, 'type', e.target.value)}
-                          className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                        >
-                          <option value="percentage">%</option>
-                          <option value="fixed">{CURRENCIES.find(c => c.code === settings.currency)?.symbol || '$'}</option>
-                        </select>
-                        <input
-                          type="number"
-                          min="0"
-                          max={disc.type === 'percentage' ? 100 : 99999}
-                          step="0.01"
-                          value={disc.value}
-                          onChange={e => updateCategoryDiscount(cat, 'value', parseFloat(e.target.value) || 0)}
-                          className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-emerald-400"
-                        />
-                      </>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <p className="text-xs text-gray-500 mt-1">Category-wise discounts are managed in the Master Data → Categories tab.</p>
         </section>
       )}
 

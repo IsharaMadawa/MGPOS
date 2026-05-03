@@ -11,8 +11,8 @@ export function useBillingLogs() {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
 
-  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Get the orgId to use - prioritize selectedOrgId for all users including multi-org users
+  const orgId = selectedOrgId || (isSuperAdmin ? null : userProfile?.orgId)
 
   // Fetch recent billing logs for the organization
   useEffect(() => {
@@ -78,8 +78,8 @@ export function useReceiptLog(receiptNo) {
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId } = useOrg()
 
-  // Get the orgId to use - for super admin use selectedOrgId, otherwise use userProfile.orgId
-  const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
+  // Get the orgId to use - prioritize selectedOrgId for all users including multi-org users
+  const orgId = selectedOrgId || (isSuperAdmin ? null : userProfile?.orgId)
 
   useEffect(() => {
     if (!orgId || !receiptNo) {

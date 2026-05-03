@@ -112,7 +112,8 @@ export default function BillingLogsPage() {
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
-    receiptNo: ''
+    receiptNo: '',
+    unit: ''
   })
   const [showFilters, setShowFilters] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -145,7 +146,8 @@ export default function BillingLogsPage() {
     setFilters({
       startDate: '',
       endDate: '',
-      receiptNo: ''
+      receiptNo: '',
+      unit: ''
     })
     setCurrentPage(1)
   }
@@ -167,7 +169,14 @@ export default function BillingLogsPage() {
   }
 
   const handleReprint = async (log) => {
-    if (!canReprint(log)) return
+    if (!canReprint(log)) {
+      if (!settings?.reprintEnabled) {
+        addToast('Reprint functionality is disabled. Please enable it in settings to reprint bills.', 'warning')
+      } else if (!isSameDay(log.createdAt)) {
+        addToast('Reprint is only available for bills created today. This bill was created on a different date.', 'warning')
+      }
+      return
+    }
 
     try {
       // Log the reprint action
@@ -267,6 +276,15 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
       matches = matches && log.receiptNo.toLowerCase().includes(filters.receiptNo.toLowerCase())
     }
     
+    if (filters.unit) {
+      const hasUnitInCart = log.cart?.some(item => 
+        item.selectedUnit === filters.unit || 
+        item.unit === filters.unit ||
+        (item.unit && item.unit.toLowerCase() === filters.unit.toLowerCase())
+      )
+      matches = matches && hasUnitInCart
+    }
+    
     return matches
   })
 
@@ -310,7 +328,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
           {showFilters && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -340,6 +358,22 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                     placeholder="Enter receipt number"
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                  <select
+                    value={filters.unit}
+                    onChange={(e) => handleFilterChange('unit', e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
+                  >
+                    <option value="">All Units</option>
+                    {settings?.unitsOfMeasure?.map(unit => (
+                      <option key={unit.id} value={unit.abbreviation}>
+                        {unit.name} ({unit.abbreviation})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
