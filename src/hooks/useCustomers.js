@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { collection, query, where, orderBy, limit, onSnapshot, addDoc, doc, updateDoc, deleteDoc, getDoc, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
-import { useAuth } from '../contexts/AuthContext'
-import { useOrg } from '../contexts/OrgContext'
+import { db } from '../firebase.js'
+import { useAuth } from '../contexts/AuthContext.jsx'
+import { useOrg } from '../contexts/OrgContext.jsx'
 import { logUserAction, logCrudOperation, logError } from '../utils/logger'
 
 export function useCustomers() {

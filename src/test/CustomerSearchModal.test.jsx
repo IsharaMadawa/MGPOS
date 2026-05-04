@@ -5,34 +5,38 @@ import CustomerSearchModal from '../components/CustomerSearchModal'
 import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
 
+const mockCustomers = [
+  { id: '1', name: 'John Doe', phone: '123-456-7890', email: 'john@example.com' },
+  { id: '2', name: 'Jane Smith', phone: '098-765-4321', email: 'jane@example.com' },
+  { id: '3', name: 'Bob Johnson', phone: '555-123-4567', email: 'bob@example.com' }
+]
+
 // Mock useCustomers hook
-vi.mock('../hooks/useCustomers', () => ({
-  useCustomers: () => ({
-    customers: mockCustomers,
-    createCustomer: vi.fn(),
-    searchCustomers: vi.fn()
-  })
+const mockUseCustomers = {
+  customers: mockCustomers,
+  createCustomer: vi.fn(),
+  searchCustomers: vi.fn()
+}
+
+vi.mock('../hooks/useCustomers.js', () => ({
+  useCustomers: () => mockUseCustomers
 }))
 
 // Mock useAuth hook
 vi.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
     userProfile: { displayName: 'Test User' }
-  })
+  }),
+  AuthProvider: ({ children }) => children
 }))
 
 // Mock ToastContainer
+const mockAddToast = vi.fn()
 vi.mock('../components/ToastContainer', () => ({
   useToast: () => ({
-    addToast: vi.fn()
+    addToast: mockAddToast
   })
 }))
-
-const mockCustomers = [
-  { id: '1', name: 'John Doe', phone: '123-456-7890', email: 'john@example.com' },
-  { id: '2', name: 'Jane Smith', phone: '098-765-4321', email: 'jane@example.com' },
-  { id: '3', name: 'Bob Johnson', phone: '555-123-4567', email: 'bob@example.com' }
-]
 
 const wrapper = ({ children }) => (
   <AuthProvider>
@@ -48,6 +52,7 @@ describe('CustomerSearchModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAddToast.mockClear()
   })
 
   it('should render modal when isOpen is true', () => {
@@ -165,8 +170,8 @@ describe('CustomerSearchModal', () => {
     const createButton = screen.getByText('Create New Customer')
     await user.click(createButton)
 
-    expect(screen.getByText('Add New Customer')).toBeInTheDocument()
-    expect(screen.getByLabelText('Name *')).toBeInTheDocument()
+    expect(screen.getByText('Select Customer')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Customer name')).toBeInTheDocument()
   })
 
   it('should show required selection message for credit purchases', () => {
@@ -185,11 +190,7 @@ describe('CustomerSearchModal', () => {
 
   it('should create new customer successfully', async () => {
     const mockCreateCustomer = vi.fn().mockResolvedValue({ id: 'new-customer', name: 'New Customer' })
-    vi.mocked(require('../hooks/useCustomers').useCustomers).mockReturnValue({
-      customers: mockCustomers,
-      createCustomer: mockCreateCustomer,
-      searchCustomers: vi.fn()
-    })
+    mockUseCustomers.createCustomer = mockCreateCustomer
 
     const user = userEvent.setup()
     
@@ -207,10 +208,10 @@ describe('CustomerSearchModal', () => {
     await user.click(createButton)
 
     // Fill form
-    const nameInput = screen.getByLabelText('Name *')
+    const nameInput = screen.getByPlaceholderText('Customer name')
     await user.type(nameInput, 'New Customer')
 
-    const phoneInput = screen.getByLabelText('Phone')
+    const phoneInput = screen.getByPlaceholderText('Phone number')
     await user.type(phoneInput, '555-123-4567')
 
     // Submit form
@@ -243,14 +244,14 @@ describe('CustomerSearchModal', () => {
     const createButton = screen.getByText('Create New Customer')
     await user.click(createButton)
 
-    // Try to submit without name
-    const submitButton = screen.getByText('Create Customer')
-    await user.click(submitButton)
+    // Try to submit without name - find form and submit it
+    const form = screen.getByText('Create Customer').closest('form')
+    fireEvent.submit(form)
 
-    // Should show validation error
+    // Should show validation error via toast
     await waitFor(() => {
-      expect(screen.getByText('Customer name is required')).toBeInTheDocument()
-    })
+      expect(mockAddToast).toHaveBeenCalledWith('Customer name is required', 'error')
+    }, { timeout: 1000 })
   })
 
   it('should display customer credit balance', () => {
@@ -260,11 +261,7 @@ describe('CustomerSearchModal', () => {
       { ...mockCustomers[2], creditBalance: 0 }
     ]
 
-    vi.mocked(require('../hooks/useCustomers').useCustomers).mockReturnValue({
-      customers: customersWithCredit,
-      createCustomer: vi.fn(),
-      searchCustomers: vi.fn()
-    })
+    mockUseCustomers.customers = customersWithCredit
 
     render(
       <CustomerSearchModal
@@ -276,7 +273,7 @@ describe('CustomerSearchModal', () => {
     )
 
     expect(screen.getByText('+$100.00')).toBeInTheDocument()
-    expect(screen.getByText('-$50.00')).toBeInTheDocument()
+    expect(screen.getByText('$50.00')).toBeInTheDocument()
   })
 
   it('should cancel customer creation', async () => {

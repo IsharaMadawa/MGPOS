@@ -5,6 +5,14 @@ import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
 import { doc, collection, addDoc, updateDoc, deleteDoc, getDoc, getDocs, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore'
 
+// Define mockUser at file level so it's available to vi.mock calls
+const mockUser = {
+  uid: 'test-user-id',
+  displayName: 'Test User',
+  role: 'admin',
+  orgId: 'test-org-id'
+}
+
 // Mock Firebase
 vi.mock('../firebase', () => ({
   db: {}
@@ -35,12 +43,6 @@ vi.mock('../utils/logger', () => ({
 }))
 
 describe('useCustomers', () => {
-  const mockUser = {
-    uid: 'test-user-id',
-    displayName: 'Test User',
-    role: 'admin',
-    orgId: 'test-org-id'
-  }
 
   const wrapper = ({ children }) => (
     <AuthProvider>
@@ -58,7 +60,8 @@ describe('useCustomers', () => {
       useAuth: () => ({
         userProfile: mockUser,
         isSuperAdmin: false
-      })
+      }),
+      AuthProvider: ({ children }) => children
     }))
 
     // Mock org context
@@ -66,14 +69,15 @@ describe('useCustomers', () => {
       useOrg: () => ({
         selectedOrgId: 'test-org-id',
         hasAdminAccessToOrganization: () => true
-      })
+      }),
+      OrgProvider: ({ children }) => children
     }))
   })
 
   it('should initialize with empty customers array', () => {
-    // Mock onSnapshot to return empty array
+    // Mock onSnapshot to return empty array asynchronously
     onSnapshot.mockImplementation((query, callback) => {
-      callback({ docs: [] })
+      setTimeout(() => callback({ docs: [] }), 0)
       return vi.fn()
     })
 
@@ -278,12 +282,6 @@ describe('useCustomers', () => {
 })
 
 describe('useCustomer', () => {
-  const mockUser = {
-    uid: 'test-user-id',
-    displayName: 'Test User',
-    role: 'admin',
-    orgId: 'test-org-id'
-  }
 
   const wrapper = ({ children }) => (
     <AuthProvider>
@@ -301,7 +299,8 @@ describe('useCustomer', () => {
       useAuth: () => ({
         userProfile: mockUser,
         isSuperAdmin: false
-      })
+      }),
+      AuthProvider: ({ children }) => children
     }))
 
     // Mock org context
@@ -309,7 +308,8 @@ describe('useCustomer', () => {
       useOrg: () => ({
         selectedOrgId: 'test-org-id',
         hasAdminAccessToOrganization: () => true
-      })
+      }),
+      OrgProvider: ({ children }) => children
     }))
   })
 
