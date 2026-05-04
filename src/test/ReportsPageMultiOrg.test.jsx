@@ -40,7 +40,10 @@ vi.mock('../hooks/useReports', () => ({
 vi.mock('../hooks/useSettings', () => ({
   CURRENCIES: [
     { code: 'USD', symbol: '$' }
-  ]
+  ],
+  useSettings: () => ({
+    currencySymbol: '$'
+  })
 }))
 
 vi.mock('../utils/logger', () => ({

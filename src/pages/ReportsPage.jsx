@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
 import { useReports, getDateRange } from '../hooks/useReports'
-import { CURRENCIES } from '../hooks/useSettings'
+import { useSettings } from '../hooks/useSettings'
 import { logUserAction } from '../utils/logger'
 import { useToast } from '../components/ToastContainer'
 
@@ -23,6 +23,7 @@ export default function ReportsPage() {
     getDailyBreakdownByOrg
   } = useReports()
   const { addToast } = useToast()
+  const { currencySymbol } = useSettings()
 
   const [period, setPeriod] = useState('today')
   const [reportType, setReportType] = useState('summary') // 'summary' or 'detailed'
@@ -34,7 +35,6 @@ export default function ReportsPage() {
   // For super admin, determine current org
   const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
   const currentOrg = organizations.find(o => o.id === currentOrgId)
-  const currencySymbol = CURRENCIES.find(c => c.code === 'USD')?.symbol || '$'
 
   // Check if user has multi-organization admin access
   const adminOrganizations = getAdminOrganizations()
