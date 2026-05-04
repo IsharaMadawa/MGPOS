@@ -263,6 +263,7 @@ mgpos/
     phone: string,
     footer: string
   },
+  loggingEnabled: boolean, // Whether activity logging is enabled (default: false)
   updatedAt: timestamp   // Last update timestamp
 }
 ```
@@ -681,31 +682,154 @@ export const verifyPasswordLegacy = async (password, legacyHash) => {
 ```javascript
 // src/utils/logger.js
 export const LOG_TYPES = {
+  // User actions
   USER_LOGIN: 'user_login',
   USER_LOGOUT: 'user_logout',
-  PRODUCT_ADDED: 'product_added',
-  PRODUCT_UPDATED: 'product_updated',
-  PRODUCT_DELETED: 'product_deleted',
-  SALE_COMPLETED: 'sale_completed',
-  // ... more log types
+  USER_SIGNUP: 'user_signup',
+  USER_PASSWORD_CHANGE: 'user_password_change',
+  USER_CREATE: 'user_create',
+  USER_UPDATE: 'user_update',
+  USER_DELETE: 'user_delete',
+  USER_ROLE_CHANGE: 'user_role_change',
+  
+  // Master data operations
+  MASTER_DATA_CREATE: 'master_data_create',
+  MASTER_DATA_UPDATE: 'master_data_update',
+  MASTER_DATA_DELETE: 'master_data_delete',
+  
+  // Product operations
+  PRODUCT_CREATE: 'product_create',
+  PRODUCT_UPDATE: 'product_update',
+  PRODUCT_DELETE: 'product_delete',
+  
+  // Category operations
+  CATEGORY_CREATE: 'category_create',
+  CATEGORY_UPDATE: 'category_update',
+  CATEGORY_DELETE: 'category_delete',
+  
+  // Billing/Sales operations
+  SALE_CREATE: 'sale_create',
+  SALE_UPDATE: 'sale_update',
+  SALE_DELETE: 'sale_delete',
+  SALE_VOID: 'sale_void',
+  BILL_REPRINT: 'bill_reprint',
+  
+  // Organization operations
+  ORG_CREATE: 'org_create',
+  ORG_UPDATE: 'org_update',
+  ORG_DELETE: 'org_delete',
+  
+  // Settings operations
+  SETTINGS_UPDATE: 'settings_update',
+  
+  // System operations
+  SYSTEM_ERROR: 'system_error',
+  SYSTEM_WARNING: 'system_warning',
+  DATA_IMPORT: 'data_import',
+  DATA_EXPORT: 'data_export',
+  
+  // UI operations
+  TOAST_NOTIFICATION: 'toast_notification',
+  UI_REFRESH: 'ui_refresh',
+  
+  // Reporting operations
+  REPORT_GENERATE: 'report_generate',
+  REPORT_PRINT: 'report_print',
+  REPORT_VIEW: 'report_view'
 }
 
-export const logUserAction = async (orgId, userId, action, details) => {
+// Check if logging is enabled for an organization
+export const isLoggingEnabled = async (orgId) => {
   try {
-    await addDoc(collection(db, 'logs'), {
-      orgId,
-      userId,
-      action,
-      details,
-      timestamp: serverTimestamp(),
-      ipAddress: await getClientIP(),
-      userAgent: navigator.userAgent
-    })
+    if (!orgId) return true // System logs always enabled
+    
+    const settingsRef = doc(db, 'organizations', orgId, 'settings', 'config')
+    const settingsSnap = await getDoc(settingsRef)
+    
+    if (settingsSnap.exists()) {
+      const settings = settingsSnap.data()
+      return settings.loggingEnabled !== false // Default to enabled
+    }
+    
+    return true // Default to enabled if no settings exist
   } catch (error) {
-    console.error('Error logging user action:', error)
+    console.error('Error checking logging settings:', error)
+    return true // Fail-safe to enabled
   }
 }
+
+// Create log entry with logging check
+export const createLog = async (logData) => {
+  const { orgId, ...restOfLogData } = logData
+  
+  // Check if logging is enabled for this organization
+  const loggingEnabled = await isLoggingEnabled(orgId)
+  if (!loggingEnabled) {
+    return null // Logging disabled, skip creating log
+  }
+  
+  // Create log entry...
+}
+
+export const logUserAction = async (actionType, description, user, orgId, metadata = {}) => {
+  return createLog({
+    type: actionType,
+    level: LOG_LEVELS.INFO,
+    description,
+    userId: user.id,
+    userName: user.displayName || user.username,
+    orgId,
+    metadata
+  })
+}
 ```
+
+### Logging System Features
+
+#### Organization-Based Logging Control
+- **Per-Organization Settings**: Each organization can enable/disable logging independently
+- **Default State**: Logging is disabled by default for new organizations
+- **Super Admin Context**: Super admin operations respect organization logging settings when performed within an organization context
+- **System-Level Logs**: Truly system-wide operations (no organization context) are always logged
+- **Fail-Safe Behavior**: Errors in checking settings default to enabled to prevent log loss
+
+#### Log Types and Levels
+- **Log Levels**: INFO, WARNING, ERROR, SUCCESS
+- **Comprehensive Coverage**: User actions, CRUD operations, system events, UI interactions
+- **Metadata Support**: Additional context data stored with each log entry
+
+#### Storage Locations
+- **Global Logs**: All logs stored in `system_logs` collection for super admin access
+- **Organization Logs**: Organization-specific logs stored in `organizations/{orgId}/logs` subcollection
+
+#### Super Admin Logging Behavior
+Super admin logging behavior depends on the context of the operation:
+
+**Organization-Context Operations** (respect organization settings):
+- User management within specific organizations
+- Organization updates and configuration changes
+- UI refreshes for specific organizations
+- Any operation where `orgId` is provided
+
+**System-Level Operations** (always logged):
+- Login screen changes (system-wide UI updates)
+- System error reporting
+- Global system configuration changes
+- Operations with no `orgId` (truly system-wide)
+
+**Examples**:
+```javascript
+// Respects organization logging settings
+await logUserAction('user_create', 'Created user in org', superAdmin, 'org123')
+
+// Always logged (system-level)
+await logUserAction('ui_change', 'Updated login screen', systemUser, null)
+```
+
+#### Performance Considerations
+- **Async Operations**: All logging operations are non-blocking
+- **Early Exit**: When logging is disabled, functions return early without database operations
+- **Error Handling**: Logging failures don't affect main application functionality
 
 ---
 

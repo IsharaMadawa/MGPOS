@@ -271,6 +271,63 @@ MGPOS supports flexible discount options to meet various business needs:
 - **Bill Reprint**: Enable reprinting bills from today
 - **Miscellaneous Items**: Add one-off items at checkout
 
+### Activity Logging Settings
+
+Organization administrators and super administrators can control whether user actions and system events are logged for audit purposes.
+
+#### Accessing Logging Settings
+1. Go to Settings → Billing tab
+2. Scroll down to the "Activity Logging" section
+3. Toggle the logging switch to enable or disable activity logging
+
+#### Logging Behavior
+- **When Enabled**: All user actions, system events, and administrative operations are recorded in the system logs
+- **When Disabled**: No activity logs are written to the database for the organization
+- **Default State**: Logging is disabled by default for new organizations
+- **Super Admin Context**: Super admin operations respect organization logging settings when performed within an organization context
+- **System-Level Logs**: Truly system-wide operations (like login screen changes) are always logged
+
+#### What Gets Logged
+When logging is enabled, the following activities are recorded:
+- User login and logout events
+- Product additions, updates, and deletions
+- Category management operations
+- Sales transactions and billing activities
+- Settings changes
+- User account management
+- System errors and warnings
+
+#### Privacy and Performance Considerations
+- **Data Privacy**: Consider privacy implications when enabling logging
+- **Storage Impact**: Logs consume database storage over time
+- **Performance**: Minimal performance impact when logging is enabled
+- **Audit Trail**: Essential for security investigations and compliance
+
+#### Super Admin Logging Behavior
+Super administrators have two types of operations that are handled differently:
+
+**Organization-Context Operations** (respect organization settings):
+- Creating, updating, or deleting users within specific organizations
+- Modifying organization settings and configurations
+- Refreshing user lists for specific organizations
+- Any action performed while working within a specific organization
+
+**System-Level Operations** (always logged):
+- Login screen changes and system-wide UI updates
+- Global system configuration changes
+- System error reporting
+- Operations that affect the entire system
+
+**Example Scenarios**:
+- If logging is disabled for Organization A, super admin actions within Organization A will not be logged
+- System-wide changes (like login screen updates) will always be logged regardless of organization settings
+- Super admin can still view all logs across all organizations, but creation of new logs respects organization settings
+
+#### Access to Logs
+- **Organization Admins**: Can view logs for their organization
+- **Super Admins**: Can view logs for all organizations
+- **Regular Users**: No access to system logs
+
 ### Security Settings
 - **Password Policies**: Minimum length and complexity requirements
 - **Session Timeout**: Auto-logout duration

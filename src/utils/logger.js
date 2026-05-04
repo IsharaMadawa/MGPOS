@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 // Log levels and types
@@ -67,6 +67,36 @@ export const LOG_TYPES = {
 }
 
 /**
+ * Check if logging is enabled for an organization
+ * @param {string} orgId - Organization ID
+ * @returns {Promise<boolean>} - Whether logging is enabled
+ */
+export const isLoggingEnabled = async (orgId) => {
+  try {
+    if (!orgId) {
+      // If no orgId provided, default to enabled for system-level logs
+      return true
+    }
+
+    const settingsRef = doc(db, 'organizations', orgId, 'settings', 'config')
+    const settingsSnap = await getDoc(settingsRef)
+    
+    if (settingsSnap.exists()) {
+      const settings = settingsSnap.data()
+      // Check if logging is explicitly enabled, default to disabled for backward compatibility
+      return settings.loggingEnabled === true
+    }
+    
+    // Default to disabled if no settings exist (new organizations)
+    return false
+  } catch (error) {
+    console.error('Error checking logging settings:', error)
+    // Default to enabled on error to avoid losing logs
+    return true
+  }
+}
+
+/**
  * Create a log entry in the system logs collection
  * @param {Object} logData - Log entry data
  * @param {string} logData.type - Type of log (from LOG_TYPES)
@@ -92,6 +122,13 @@ export const createLog = async (logData) => {
 
     if (!type || !description || !userId || !userName) {
       throw new Error('Missing required log fields: type, description, userId, userName')
+    }
+
+    // Check if logging is enabled for this organization
+    const loggingEnabled = await isLoggingEnabled(orgId)
+    if (!loggingEnabled) {
+      // Logging is disabled, return early without creating log entry
+      return null
     }
 
     const logEntry = {
@@ -128,6 +165,13 @@ export const createOrgLog = async (logData) => {
     
     if (!orgId) {
       throw new Error('Organization ID is required for organization logs')
+    }
+
+    // Check if logging is enabled for this organization
+    const loggingEnabled = await isLoggingEnabled(orgId)
+    if (!loggingEnabled) {
+      // Logging is disabled, return early without creating log entry
+      return null
     }
 
     // Create log in organization-specific subcollection
