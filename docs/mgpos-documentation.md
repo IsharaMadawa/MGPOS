@@ -8,12 +8,13 @@
 5. [Point of Sale (POS) Operations](#point-of-sale-pos-operations)
 6. [Product Management](#product-management)
 7. [Category Management](#category-management)
-8. [Settings and Configuration](#settings-and-configuration)
-9. [Reports and Analytics](#reports-and-analytics)
-10. [User Management](#user-management)
-11. [Organization Management](#organization-management)
-12. [Troubleshooting](#troubleshooting)
-13. [Best Practices](#best-practices)
+8. [Customer Management](#customer-management)
+9. [Settings and Configuration](#settings-and-configuration)
+10. [Reports and Analytics](#reports-and-analytics)
+11. [User Management](#user-management)
+12. [Organization Management](#organization-management)
+13. [Troubleshooting](#troubleshooting)
+14. [Best Practices](#best-practices)
 
 ---
 
@@ -97,7 +98,15 @@ MGPOS is a comprehensive Point of Sale (POS) system designed for multi-organizat
 - **Unit Management**: Handle different units of measure
 - **Category Organization**: Group products by categories
 
-### 3. User Management
+### 3. Customer Management
+- **Customer Database**: Maintain comprehensive customer profiles with contact information
+- **Credit Account Management**: Track and manage customer credit balances and purchases
+- **Purchase History**: View complete purchase history for each customer
+- **Customer Search**: Quickly find customers by name, phone, or email
+- **Credit Purchases**: Enable credit sales with automatic balance tracking
+- **Customer Analytics**: Generate reports on customer purchasing patterns and credit usage
+
+### 4. User Management
 - **User Accounts**: Create and manage user profiles
 - **Role Assignment**: Assign appropriate roles and permissions
 - **Password Management**: Secure password policies and changes
@@ -126,12 +135,36 @@ MGPOS is a comprehensive Point of Sale (POS) system designed for multi-organizat
 - **Applying Discounts**: Enter discount amounts or percentages
 - **Adding Notes**: Add special notes for specific items
 
+### Customer Selection (Optional)
+For better customer relationship management:
+1. Click **"Add Customer"** button in the cart
+2. Search for existing customer by name, phone, or email
+3. Select customer from search results
+4. Or click **"Create New Customer"** to add a new customer
+5. Customer information will be linked to the sale
+
 ### Payment Processing
 1. Review your cart items and total amount
-2. Select payment method (Cash, Card, or other)
-3. Enter payment amount (for cash payments)
-4. Click "Complete Sale" to finalize the transaction
-5. Print or email the receipt as needed
+2. Select payment method:
+   - **Cash**: Traditional cash payment
+   - **Card**: Credit/debit card payment
+   - **Credit**: Credit purchase (requires customer selection and feature enablement)
+   - **Split**: Partial cash and partial card payment
+3. For split payments:
+   - Enter cash amount
+   - Enter card amount
+   - System will show remaining balance or change
+4. For credit purchases:
+   - Customer selection is mandatory
+   - Credit balance will be automatically updated
+5. Click **"Complete Sale"** to finalize the transaction
+6. Print or email the receipt as needed
+
+### Payment Method Features
+- **Credit Purchases**: Available when enabled in organization settings
+- **Customer Linking**: Credit purchases require customer selection
+- **Split Payments**: Support for partial cash and card combinations
+- **Receipt Information**: Receipts show payment method and customer details
 
 ### Miscellaneous Items
 For items not in the inventory:
@@ -210,6 +243,75 @@ For items not in the inventory:
 - **Product Count**: See number of products in each category
 - **Color Coding**: Visual distinction between categories
 - **Quick Access**: Filter products by category in POS
+
+---
+
+## Customer Management
+
+### Overview
+Customer Management allows you to maintain a comprehensive database of your customers, track their purchase history, and manage credit accounts. This feature is particularly useful for businesses that offer credit purchases or want to build customer relationships.
+
+### Accessing Customer Management
+1. Navigate to the **Customers** section in the top navigation bar
+2. Only admin users can access customer management features
+3. The customer list displays all registered customers with their contact information and credit status
+
+### Adding New Customers
+1. Click the **"Add Customer"** button in the Customer Management page
+2. Fill in the customer information:
+   - **Name** (required): Customer's full name
+   - **Phone**: Contact phone number
+   - **Email**: Email address for notifications
+   - **Address**: Physical address
+3. Click **"Create Customer"** to save
+
+### Searching Customers
+- Use the search bar to find customers by name, phone, or email
+- Results update in real-time as you type
+- Customer credit balances are displayed with color coding:
+  - Green: Positive credit balance (customer has credit)
+  - Red: Negative credit balance (customer owes money)
+
+### Managing Customer Information
+#### Editing Customer Details
+1. Click the edit icon (pencil) next to any customer
+2. Update the customer information as needed
+3. Click **"Update"** to save changes
+
+#### Updating Credit Balance
+1. Click the credit icon (dollar sign) next to any customer
+2. Enter the amount to adjust:
+   - Positive numbers: Add credit to customer account
+   - Negative numbers: Subtract credit (customer payment)
+3. Add a description for the credit adjustment (optional)
+4. Click **"Update Balance"** to save
+
+#### Deleting Customers
+1. Click the delete icon (trash) next to any customer
+2. Confirm the deletion in the popup dialog
+3. **Note**: Customers with outstanding credit balances cannot be deleted
+
+### Customer Information Display
+Each customer card shows:
+- **Name and Contact**: Basic contact information
+- **Credit Balance**: Current credit status with color coding
+- **Purchase Statistics**: 
+  - Total number of purchases
+  - Total purchase amount
+  - Customer creation date
+
+### Credit Purchases Integration
+When credit purchases are enabled in organization settings:
+- Customers can be linked to sales transactions
+- Credit purchases automatically update customer balances
+- Customer selection is required for credit sales
+- Purchase history is tracked for each customer
+
+### Best Practices
+- **Regular Updates**: Keep customer information current for better service
+- **Credit Management**: Review credit balances regularly and follow up on outstanding amounts
+- **Data Quality**: Ensure accurate contact information for customer communications
+- **Privacy**: Respect customer privacy and data protection regulations
 
 ---
 

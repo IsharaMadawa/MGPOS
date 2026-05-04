@@ -10,6 +10,7 @@ import SuperAdminPage from './pages/SuperAdminPage'
 import ReportsPage from './pages/ReportsPage'
 import LogsPage from './pages/LogsPage'
 import BillingLogsPage from './pages/BillingLogsPage'
+import CustomersPage from './pages/CustomersPage'
 
 // Protected route wrapper
 function ProtectedRoute({ children }) {
@@ -97,6 +98,7 @@ function AppContent() {
           <Route path="/" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
           <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
+          <Route path="/customers" element={<AdminRoute><CustomersPage /></AdminRoute>} />
           <Route path="/logs" element={<AdminRoute><LogsPage /></AdminRoute>} />
           <Route path="/billing-logs" element={<AdminRoute><BillingLogsPage /></AdminRoute>} />
           <Route path="/super-admin" element={<SuperAdminRoute><SuperAdminPage /></SuperAdminRoute>} />

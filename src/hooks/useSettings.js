@@ -104,6 +104,7 @@ export const DEFAULT_SETTINGS = {
     { id: 'k', name: 'Kelvin', abbreviation: 'K', type: 'temperature', isStandard: true },
   ],
   loggingEnabled: false, // Default to disabled for logging
+  creditPurchaseEnabled: false, // Credit purchase feature disabled by default
 }
 
 export function useSettings() {

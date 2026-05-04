@@ -638,6 +638,142 @@ export default function ReportsPage() {
                   </div>
                 </div>
 
+                {/* Payment Method Breakdown */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900">Payment Method Breakdown</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+                        <tr>
+                          <th className="px-4 py-3">Payment Method</th>
+                          <th className="px-4 py-3 text-right">Transactions</th>
+                          <th className="px-4 py-3 text-right">Amount</th>
+                          <th className="px-4 py-3 text-right">Percentage</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {(() => {
+                          const paymentBreakdown = reports.reduce((acc, bill) => {
+                            const method = bill.paymentMethod || 'unknown'
+                            if (!acc[method]) {
+                              acc[method] = { count: 0, amount: 0 }
+                            }
+                            acc[method].count += 1
+                            acc[method].amount += bill.total || 0
+                            return acc
+                          }, {})
+
+                          const totalAmount = Object.values(paymentBreakdown).reduce((sum, p) => sum + p.amount, 0)
+
+                          return Object.entries(paymentBreakdown)
+                            .sort(([,a], [,b]) => b.amount - a.amount)
+                            .map(([method, data]) => (
+                              <tr key={method} className="hover:bg-gray-50">
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    method === 'cash' ? 'bg-green-100 text-green-800' :
+                                    method === 'card' ? 'bg-blue-100 text-blue-800' :
+                                    method === 'credit' ? 'bg-purple-100 text-purple-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {method === 'cash' ? 'Cash' :
+                                     method === 'card' ? 'Card' :
+                                     method === 'credit' ? 'Credit' :
+                                     method === 'split' ? 'Split' : 'Unknown'}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">{data.count}</td>
+                                <td className="px-4 py-3 text-right font-medium">{formatCurrency(data.amount)}</td>
+                                <td className="px-4 py-3 text-right">
+                                  {totalAmount > 0 ? `${((data.amount / totalAmount) * 100).toFixed(1)}%` : '0%'}
+                                </td>
+                              </tr>
+                            ))
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Credit Sales Summary (if any credit sales exist) */}
+                {reports.some(bill => bill.paymentMethod === 'credit') && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="p-4 border-b border-gray-200">
+                      <h3 className="font-semibold text-gray-900">Credit Sales Summary</h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {(() => {
+                        const creditSales = reports.filter(bill => bill.paymentMethod === 'credit')
+                        const creditCustomers = creditSales.reduce((acc, bill) => {
+                          if (bill.customer && bill.customer.id) {
+                            if (!acc[bill.customer.id]) {
+                              acc[bill.customer.id] = {
+                                name: bill.customer.name,
+                                phone: bill.customer.phone,
+                                count: 0,
+                                amount: 0
+                              }
+                            }
+                            acc[bill.customer.id].count += 1
+                            acc[bill.customer.id].amount += bill.total || 0
+                          }
+                          return acc
+                        }, {})
+
+                        return (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="bg-purple-50 rounded-lg p-3">
+                                <p className="text-xs text-purple-600 uppercase">Credit Transactions</p>
+                                <p className="text-xl font-bold text-purple-900">{creditSales.length}</p>
+                              </div>
+                              <div className="bg-purple-50 rounded-lg p-3">
+                                <p className="text-xs text-purple-600 uppercase">Credit Amount</p>
+                                <p className="text-xl font-bold text-purple-900">
+                                  {formatCurrency(creditSales.reduce((sum, bill) => sum + (bill.total || 0), 0))}
+                                </p>
+                              </div>
+                              <div className="bg-purple-50 rounded-lg p-3">
+                                <p className="text-xs text-purple-600 uppercase">Unique Customers</p>
+                                <p className="text-xl font-bold text-purple-900">{Object.keys(creditCustomers).length}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="overflow-x-auto">
+                              <table className="w-full">
+                                <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+                                  <tr>
+                                    <th className="px-4 py-3">Customer</th>
+                                    <th className="px-4 py-3">Phone</th>
+                                    <th className="px-4 py-3 text-right">Transactions</th>
+                                    <th className="px-4 py-3 text-right">Total Credit</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {Object.values(creditCustomers)
+                                    .sort((a, b) => b.amount - a.amount)
+                                    .map((customer, idx) => (
+                                      <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-4 py-3 font-medium">{customer.name}</td>
+                                        <td className="px-4 py-3 text-sm text-gray-500">{customer.phone || '-'}</td>
+                                        <td className="px-4 py-3 text-right">{customer.count}</td>
+                                        <td className="px-4 py-3 text-right font-medium text-purple-600">
+                                          {formatCurrency(customer.amount)}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 {/* Bill Details */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                   <div className="p-4 border-b border-gray-200">
@@ -656,6 +792,7 @@ export default function ReportsPage() {
                           <th className="px-4 py-3 text-right">Items</th>
                           <th className="px-4 py-3 text-right">Gross</th>
                           <th className="px-4 py-3 text-right">Discount</th>
+                          <th className="px-4 py-3">Payment</th>
                           <th className="px-4 py-3 text-right">Net</th>
                         </tr>
                       </thead>
@@ -700,6 +837,24 @@ export default function ReportsPage() {
                                 const globalDiscount = bill.discountAmount || 0
                                 return formatCurrency(itemDiscounts + globalDiscount)
                               })()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                bill.paymentMethod === 'cash' ? 'bg-green-100 text-green-800' :
+                                bill.paymentMethod === 'card' ? 'bg-blue-100 text-blue-800' :
+                                bill.paymentMethod === 'credit' ? 'bg-purple-100 text-purple-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {bill.paymentMethod === 'cash' ? 'Cash' :
+                                 bill.paymentMethod === 'card' ? 'Card' :
+                                 bill.paymentMethod === 'credit' ? 'Credit' :
+                                 bill.paymentMethod === 'split' ? 'Split' : 'Unknown'}
+                              </span>
+                              {bill.customer && (
+                                <div className="text-xs text-gray-500 mt-1 truncate">
+                                  {bill.customer.name}
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right font-medium">
                               {(() => {
@@ -767,6 +922,7 @@ export default function ReportsPage() {
                               return sum + itemDiscounts + globalDiscount
                             }, 0))}
                           </td>
+                          <td></td>
                           <td className="px-4 py-3 text-right font-medium text-emerald-600">
                             {formatCurrency(reports.reduce((sum, bill) => {
                               const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useBillingLogs } from '../hooks/useBillingLogs'
 import { useToast } from '../components/ToastContainer'
 import ProductModal from './ProductModal'
+import CustomerSearchModal from './CustomerSearchModal'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -114,6 +115,11 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '' })
   const [editingItem, setEditingItem] = useState(null)
   const [itemToRemove, setItemToRemove] = useState(null)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [showCustomerModal, setShowCustomerModal] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState('cash') // cash, card, credit
+  const [cashAmount, setCashAmount] = useState('')
+  const [cardAmount, setCardAmount] = useState('')
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
@@ -134,11 +140,55 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0
   const total = taxBase + taxAmount
 
+  // Payment method calculations
+  const cashPayment = parseFloat(cashAmount) || 0
+  const cardPayment = parseFloat(cardAmount) || 0
+  const totalPaid = cashPayment + cardPayment
+  const remainingAmount = total - totalPaid
+
+  // Check if credit purchases are enabled
+  const creditEnabled = settings?.creditPurchaseEnabled || false
+
+  // Validate checkout requirements
+  const canCheckout = () => {
+    if (cart.length === 0) return false
+    
+    if (paymentMethod === 'credit') {
+      if (!creditEnabled) return false
+      if (!selectedCustomer) return false
+    }
+    
+    if (paymentMethod === 'split') {
+      if (totalPaid < total) return false
+    }
+    
+    return true
+  }
+
   const handleCheckout = async () => {
-    if (cart.length === 0) return
+    if (!canCheckout()) return
     
     const receiptNo = Date.now().toString().slice(-6)
     const now = Date.now()
+    
+    // Determine payment details
+    let paymentDetails = {
+      method: paymentMethod,
+      cashAmount: 0,
+      cardAmount: 0,
+      creditAmount: 0
+    }
+    
+    if (paymentMethod === 'cash') {
+      paymentDetails.cashAmount = total
+    } else if (paymentMethod === 'card') {
+      paymentDetails.cardAmount = total
+    } else if (paymentMethod === 'credit') {
+      paymentDetails.creditAmount = total
+    } else if (paymentMethod === 'split') {
+      paymentDetails.cashAmount = cashPayment
+      paymentDetails.cardAmount = cardPayment
+    }
     
     // Create billing log
     const saleData = {
@@ -149,6 +199,14 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       taxAmount,
       total,
       itemCount: cart.length,
+      paymentMethod: paymentDetails.method,
+      paymentDetails,
+      customer: selectedCustomer ? {
+        id: selectedCustomer.id,
+        name: selectedCustomer.name,
+        phone: selectedCustomer.phone
+      } : null,
+      customerId: selectedCustomer?.id || null
     }
     
     // Save to billing logs (async, don't wait)
@@ -159,6 +217,9 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       time: now,
       cart: cart.map(i => ({ ...i })),
       cashierName: userProfile?.displayName || 'Unknown',
+      paymentMethod: paymentDetails.method,
+      paymentDetails,
+      customer: selectedCustomer
     })
     setShowReceipt(true)
   }
@@ -166,6 +227,10 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const handleNewSale = () => {
     onClear()
     setShowReceipt(false)
+    setSelectedCustomer(null)
+    setPaymentMethod('cash')
+    setCashAmount('')
+    setCardAmount('')
   }
 
   const handleRemoveItem = (itemKey) => {
@@ -185,6 +250,14 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
 
   const cancelRemoveItem = () => {
     setItemToRemove(null)
+  }
+
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer)
+  }
+
+  const handleCustomerRemove = () => {
+    setSelectedCustomer(null)
   }
 
   const handlePrint = () => {
@@ -225,6 +298,8 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
 <div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'}</span></div>
+${receiptSnapshot.customer ? `<div class="row muted"><span>Customer:</span><span>${receiptSnapshot.customer.name}${receiptSnapshot.customer.phone ? ` (${receiptSnapshot.customer.phone})` : ''}</span></div>` : ''}
+${receiptSnapshot.paymentMethod ? `<div class="row muted"><span>Payment:</span><span>${receiptSnapshot.paymentMethod === 'cash' ? 'Cash' : receiptSnapshot.paymentMethod === 'card' ? 'Card' : receiptSnapshot.paymentMethod === 'credit' ? 'Credit' : 'Split'}</span></div>` : ''}
 <div class="divider"></div>
 ${rCart.map(item => {
   const itemDisc = getItemDiscount(item, settings)
@@ -516,11 +591,144 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             <span>Total</span>
             <span className="text-lg">{fmt(total, sym)}</span>
           </div>
+
+          {/* Customer Selection */}
+          <div className="space-y-2">
+            {selectedCustomer ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900 truncate">{selectedCustomer.name}</p>
+                  {selectedCustomer.phone && (
+                    <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>
+                  )}
+                </div>
+                <button
+                  onClick={handleCustomerRemove}
+                  className="text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCustomerModal(true)}
+                className="w-full py-2 border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Add Customer (Optional)
+              </button>
+            )}
+          </div>
+
+          {/* Payment Method Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setPaymentMethod('cash')}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === 'cash'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Cash
+              </button>
+              <button
+                onClick={() => setPaymentMethod('card')}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === 'card'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Card
+              </button>
+              {creditEnabled && (
+                <button
+                  onClick={() => setPaymentMethod('credit')}
+                  className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                    paymentMethod === 'credit'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Credit
+                </button>
+              )}
+              <button
+                onClick={() => setPaymentMethod('split')}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === 'split'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Split
+              </button>
+            </div>
+          </div>
+
+          {/* Split Payment Amounts */}
+          {paymentMethod === 'split' && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cash Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cardAmount}
+                  onChange={(e) => setCardAmount(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="0.00"
+                />
+              </div>
+              {totalPaid > 0 && (
+                <div className="text-sm text-gray-600">
+                  Total Paid: {fmt(totalPaid, sym)}
+                  {remainingAmount > 0 && <span className="text-amber-600"> (Remaining: {fmt(remainingAmount, sym)})</span>}
+                  {remainingAmount < 0 && <span className="text-green-600"> (Change: {fmt(Math.abs(remainingAmount), sym)})</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Validation Messages */}
+          {paymentMethod === 'credit' && !creditEnabled && (
+            <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-2">
+              Credit purchases are not enabled. Please contact your administrator.
+            </div>
+          )}
+          {paymentMethod === 'credit' && creditEnabled && !selectedCustomer && (
+            <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-2">
+              Customer selection is required for credit purchases.
+            </div>
+          )}
+
+          {/* Checkout Button */}
           <button
             onClick={handleCheckout}
-            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors mt-1"
+            disabled={!canCheckout()}
+            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Checkout
+            {paymentMethod === 'credit' ? 'Complete Credit Sale' : 'Checkout'}
           </button>
         </div>
       )}
@@ -577,6 +785,16 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Search Modal */}
+      {showCustomerModal && (
+        <CustomerSearchModal
+          isOpen={showCustomerModal}
+          onClose={() => setShowCustomerModal(false)}
+          onSelectCustomer={handleCustomerSelect}
+          requireSelection={paymentMethod === 'credit'}
+        />
       )}
     </div>
   )

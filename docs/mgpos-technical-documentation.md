@@ -81,6 +81,8 @@ mgpos/
 │   ├── components/            # Reusable UI components
 │   │   ├── AccessManagement.jsx
 │   │   ├── CartPanel.jsx
+│   │   ├── CustomerManagement.jsx
+│   │   ├── CustomerSearchModal.jsx
 │   │   ├── MasterDataTab.jsx
 │   │   ├── MiscItemModal.jsx
 │   │   ├── MultiOrgUserManager.jsx
@@ -101,6 +103,7 @@ mgpos/
 │   ├── hooks/                 # Custom React hooks
 │   │   ├── useBillingLogs.js
 │   │   ├── useCategories.js
+│   │   ├── useCustomers.js     # Customer management operations
 │   │   ├── useLogs.js
 │   │   ├── useOrganizations.js
 │   │   ├── useProducts.js
@@ -108,6 +111,7 @@ mgpos/
 │   │   └── useSettings.js
 │   ├── pages/                 # Page components
 │   │   ├── BillingLogsPage.jsx
+│   │   ├── CustomersPage.jsx   # Customer management interface
 │   │   ├── LoginPage.jsx
 │   │   ├── LogsPage.jsx
 │   │   ├── POSPage.jsx
@@ -216,18 +220,44 @@ mgpos/
 }
 ```
 
+#### Customers Collection
+```javascript
+{
+  id: string,            // Customer ID
+  orgId: string,         // Organization ID
+  name: string,          // Customer full name
+  phone: string,         // Phone number (optional)
+  email: string,         // Email address (optional)
+  address: string,       // Physical address (optional)
+  creditBalance: number, // Current credit balance
+  totalPurchases: number, // Total purchase amount
+  purchaseCount: number, // Number of purchases made
+  lastPurchaseDate: timestamp, // Date of last purchase
+  isActive: boolean,     // Customer status
+  createdAt: timestamp,  // Creation timestamp
+  updatedAt: timestamp   // Last update timestamp
+}
+```
+
 #### Sales Collection
 ```javascript
 {
   id: string,            // Sale ID
   orgId: string,         // Organization ID
   userId: string,        // User who made the sale
-  items: array,          // Array of sale items
+  receiptNo: string,     // Receipt number
+  cart: array,           // Array of sale items
   subtotal: number,      // Subtotal before tax
-  tax: number,           // Tax amount
+  discountAmount: number, // Discount amount
+  taxAmount: number,     // Tax amount
   total: number,         // Total amount
-  paymentMethod: string, // Payment method
-  paymentStatus: string, // Payment status
+  itemCount: number,     // Number of items
+  paymentMethod: string, // Payment method: 'cash', 'card', 'credit', 'split'
+  paymentDetails: object, // Payment method details
+  customer: object,       // Customer information (if applicable)
+  customerId: string,     // Customer ID (if applicable)
+  cashierId: string,     // Cashier ID
+  cashierName: string,   // Cashier name
   createdAt: timestamp,  // Sale timestamp
   updatedAt: timestamp   // Last update timestamp
 }
@@ -256,6 +286,7 @@ mgpos/
   cartDiscountEnabled: boolean, // Allow cart discount override
   reprintEnabled: boolean, // Allow bill reprint
   miscEnabled: boolean,   // Allow miscellaneous items
+  creditPurchaseEnabled: boolean, // Enable credit purchases (default: false)
   defaultQuantities: array, // Default quick quantities
   storeInfo: {           // Store information
     name: string,

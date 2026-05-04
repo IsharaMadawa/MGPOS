@@ -327,6 +327,20 @@ function BillingTab({ settings, updateSettings }) {
         </div>
       </section>
 
+      {/* Credit Purchase */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Credit Purchase</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Enable credit purchases and customer account management</p>
+          </div>
+          <Toggle
+            checked={settings.creditPurchaseEnabled || false}
+            onChange={e => updateSettings({ creditPurchaseEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
+
       {/* Reprint */}
       <section className="bg-white rounded-2xl p-5 border border-gray-100">
         <div className="flex items-center justify-between">
