@@ -354,6 +354,34 @@ function BillingTab({ settings, updateSettings }) {
           />
         </div>
       </section>
+
+      {/* Logging Settings */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Activity Logging</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Record user actions and system events for audit trails</p>
+          </div>
+          <Toggle
+            checked={settings.loggingEnabled || false}
+            onChange={e => updateSettings({ loggingEnabled: e.target.checked })}
+          />
+        </div>
+        {settings.loggingEnabled && (
+          <div className="mt-3 p-3 bg-emerald-50 rounded-lg">
+            <p className="text-xs text-emerald-700">
+              ✓ Logging is enabled. All user actions and system events will be recorded.
+            </p>
+          </div>
+        )}
+        {!settings.loggingEnabled && (
+          <div className="mt-3 p-3 bg-amber-50 rounded-lg">
+            <p className="text-xs text-amber-700">
+              ⚠ Logging is disabled. No activity logs will be recorded.
+            </p>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

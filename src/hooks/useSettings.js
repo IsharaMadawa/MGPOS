@@ -103,6 +103,7 @@ export const DEFAULT_SETTINGS = {
     { id: 'f', name: 'Fahrenheit', abbreviation: '°F', type: 'temperature', isStandard: true },
     { id: 'k', name: 'Kelvin', abbreviation: 'K', type: 'temperature', isStandard: true },
   ],
+  loggingEnabled: false, // Default to disabled for logging
 }
 
 export function useSettings() {
