@@ -119,10 +119,10 @@ export default function BillingLogsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const logsPerPage = 50
 
-  const { logs, loading } = useBillingLogs()
+  const { logs, loading, hasMultiOrgAccess } = useBillingLogs()
   const { settings } = useSettings()
   const { userProfile } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, getCurrentOrganization } = useOrg()
   const { addToast } = useToast()
 
   const sym = settings?.currency ? 
@@ -307,6 +307,11 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           <p className="mt-2 text-gray-600">
             View and reprint bills from your organization
           </p>
+          {hasMultiOrgAccess && getCurrentOrganization() && (
+            <p className="mt-1 text-sm text-blue-600 font-medium">
+              Showing bills for: {getCurrentOrganization().name}
+            </p>
+          )}
           {settings?.reprintEnabled && (
             <p className="mt-1 text-sm text-emerald-600">
               Reprint is enabled for today's bills only
@@ -407,6 +412,11 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date & Time
                   </th>
+                  {hasMultiOrgAccess && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Organization
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cashier
                   </th>
@@ -424,7 +434,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginatedLogs.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={hasMultiOrgAccess ? "7" : "6"} className="px-6 py-12 text-center text-gray-500">
                       No bills found matching your criteria
                     </td>
                   </tr>
@@ -440,6 +450,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                           <div className="text-gray-500 text-xs">{fmtTime(log.createdAt)}</div>
                         </div>
                       </td>
+                      {hasMultiOrgAccess && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                            {log.orgName || 'Unknown Organization'}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {log.cashierName || 'Unknown'}
                       </td>

@@ -19,7 +19,8 @@ export default function ReportsPage() {
     generateReport, 
     calculateSummary,
     getCashierBreakdown,
-    getDailyBreakdown 
+    getDailyBreakdown,
+    getDailyBreakdownByOrg
   } = useReports()
   const { addToast } = useToast()
 
@@ -114,7 +115,7 @@ export default function ReportsPage() {
 
   const summary = generated ? calculateSummary(reports) : null
   const cashierBreakdown = generated ? getCashierBreakdown(reports) : null
-  const dailyBreakdown = generated ? getDailyBreakdown(reports) : null
+  const dailyBreakdown = generated ? (hasMultiOrgAccess && selectedOrgs.length > 0 ? getDailyBreakdownByOrg(reports) : getDailyBreakdown(reports)) : null
 
   const formatCurrency = (amount) => `${currencySymbol}${Number(amount || 0).toFixed(2)}`
 
@@ -231,6 +232,7 @@ export default function ReportsPage() {
             <tr>
               <th>Receipt #</th>
               <th>Date/Time</th>
+              ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
               <th>Cashier</th>
               <th class="text-right">Items</th>
               <th class="text-right">Gross</th>
@@ -267,6 +269,7 @@ export default function ReportsPage() {
                 <tr>
                   <td>${bill.receiptNo}</td>
                   <td>${new Date(bill.createdAt).toLocaleDateString()} ${new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? `<td>${bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>` : ''}
                   <td>${bill.cashierName}</td>
                   <td class="text-right">${bill.itemCount}</td>
                   <td class="text-right">${formatCurrency(trueGross)}</td>
@@ -276,6 +279,71 @@ export default function ReportsPage() {
               `
             }).join('')}
           </tbody>
+          <tfoot>
+            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '4' : '3'}" style="text-align: right; padding: 8px;">
+                TOTALS
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${reports.reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(reports.reduce((sum, bill) => {
+                  return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                }, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #dc2626;">
+                ${formatCurrency(reports.reduce((sum, bill) => {
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === 'percentage') {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  return sum + itemDiscounts + globalDiscount
+                }, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+                ${formatCurrency(reports.reduce((sum, bill) => {
+                  const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === 'percentage') {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  const netSales = trueGross - itemDiscounts - globalDiscount
+                  return sum + netSales
+                }, 0))}
+              </td>
+            </tr>
+          </tfoot>
         </table>
         ` : ''}
         
@@ -285,6 +353,7 @@ export default function ReportsPage() {
           <thead>
             <tr>
               <th>Date</th>
+              ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
               <th class="text-right">Transactions</th>
               <th class="text-right">Gross Sales</th>
               <th class="text-right">Discounts</th>
@@ -295,6 +364,7 @@ export default function ReportsPage() {
             ${dailyBreakdown.map(day => `
               <tr>
                 <td>${new Date(day.date).toLocaleDateString()}</td>
+                ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? `<td>${day.orgName || 'Unknown Organization'}</td>` : ''}
                 <td class="text-right">${day.transactionCount}</td>
                 <td class="text-right">${formatCurrency(day.grossSales)}</td>
                 <td class="text-right discount">${formatCurrency(day.totalDiscounts)}</td>
@@ -302,6 +372,25 @@ export default function ReportsPage() {
               </tr>
             `).join('')}
           </tbody>
+          <tfoot>
+            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '2' : '1'}" style="text-align: right; padding: 8px;">
+                TOTALS
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${dailyBreakdown.reduce((sum, day) => sum + day.transactionCount, 0)}
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.grossSales, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #dc2626;">
+                ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.totalDiscounts, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+                ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.netSales, 0))}
+              </td>
+            </tr>
+          </tfoot>
         </table>
         ` : ''}
         
@@ -560,6 +649,9 @@ export default function ReportsPage() {
                         <tr>
                           <th className="px-4 py-3">Receipt #</th>
                           <th className="px-4 py-3">Date/Time</th>
+                          {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                            <th className="px-4 py-3">Organization</th>
+                          )}
                           <th className="px-4 py-3">Cashier</th>
                           <th className="px-4 py-3 text-right">Items</th>
                           <th className="px-4 py-3 text-right">Gross</th>
@@ -575,6 +667,13 @@ export default function ReportsPage() {
                               {new Date(bill.createdAt).toLocaleDateString()}{' '}
                               {new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </td>
+                            {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                              <td className="px-4 py-3 text-sm">
+                                <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                  {bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-sm">{bill.cashierName}</td>
                             <td className="px-4 py-3 text-right">{bill.itemCount}</td>
                             <td className="px-4 py-3 text-right">{formatCurrency(bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0)}</td>
@@ -631,6 +730,71 @@ export default function ReportsPage() {
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                        <tr className="font-bold">
+                          <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? "4" : "3"} className="px-4 py-3 text-right">
+                            TOTALS
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {reports.reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {formatCurrency(reports.reduce((sum, bill) => {
+                              return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                            }, 0))}
+                          </td>
+                          <td className="px-4 py-3 text-right text-rose-600">
+                            {formatCurrency(reports.reduce((sum, bill) => {
+                              let itemDiscounts = 0
+                              if (bill.cart) {
+                                itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                  const lineTotal = item.price * item.qty
+                                  let itemDiscount = 0
+                                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                    const val = parseFloat(item.cartDiscount) || 0
+                                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                  } else if (item.discount?.enabled) {
+                                    if (item.discount.type === 'percentage') {
+                                      itemDiscount = lineTotal * (item.discount.value / 100)
+                                    } else {
+                                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                    }
+                                  }
+                                  return discSum + itemDiscount
+                                }, 0)
+                              }
+                              const globalDiscount = bill.discountAmount || 0
+                              return sum + itemDiscounts + globalDiscount
+                            }, 0))}
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-emerald-600">
+                            {formatCurrency(reports.reduce((sum, bill) => {
+                              const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                              let itemDiscounts = 0
+                              if (bill.cart) {
+                                itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                  const lineTotal = item.price * item.qty
+                                  let itemDiscount = 0
+                                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                    const val = parseFloat(item.cartDiscount) || 0
+                                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                  } else if (item.discount?.enabled) {
+                                    if (item.discount.type === 'percentage') {
+                                      itemDiscount = lineTotal * (item.discount.value / 100)
+                                    } else {
+                                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                    }
+                                  }
+                                  return discSum + itemDiscount
+                                }, 0)
+                              }
+                              const globalDiscount = bill.discountAmount || 0
+                              const netSales = trueGross - itemDiscounts - globalDiscount
+                              return sum + netSales
+                            }, 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 </div>
@@ -648,6 +812,9 @@ export default function ReportsPage() {
                     <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
                       <tr>
                         <th className="px-4 py-3">Date</th>
+                        {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                          <th className="px-4 py-3">Organization</th>
+                        )}
                         <th className="px-4 py-3 text-right">Transactions</th>
                         <th className="px-4 py-3 text-right">Gross Sales</th>
                         <th className="px-4 py-3 text-right">Discounts</th>
@@ -658,6 +825,13 @@ export default function ReportsPage() {
                       {dailyBreakdown.map((day, idx) => (
                         <tr key={idx} className="hover:bg-gray-50">
                           <td className="px-4 py-3">{new Date(day.date).toLocaleDateString()}</td>
+                          {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                            <td className="px-4 py-3">
+                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                {day.orgName || 'Unknown Organization'}
+                              </span>
+                            </td>
+                          )}
                           <td className="px-4 py-3 text-right">{day.transactionCount}</td>
                           <td className="px-4 py-3 text-right">{formatCurrency(day.grossSales)}</td>
                           <td className="px-4 py-3 text-right text-rose-600">{formatCurrency(day.totalDiscounts)}</td>
@@ -665,6 +839,25 @@ export default function ReportsPage() {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                      <tr className="font-bold">
+                        <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? "2" : "1"} className="px-4 py-3 text-right">
+                          TOTALS
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {dailyBreakdown.reduce((sum, day) => sum + day.transactionCount, 0)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.grossSales, 0))}
+                        </td>
+                        <td className="px-4 py-3 text-right text-rose-600">
+                          {formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.totalDiscounts, 0))}
+                        </td>
+                        <td className="px-4 py-3 text-right font-medium text-emerald-600">
+                          {formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.netSales, 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               </div>
