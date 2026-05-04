@@ -9,10 +9,14 @@ export function useBillingLogs() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const { userProfile, isSuperAdmin } = useAuth()
-  const { selectedOrgId } = useOrg()
+  const { selectedOrgId, getCurrentOrganization, getAdminOrganizations } = useOrg()
 
   // Get the orgId to use - prioritize selectedOrgId for all users including multi-org users
   const orgId = selectedOrgId || (isSuperAdmin ? null : userProfile?.orgId)
+  
+  // Check if user has multi-organization admin access
+  const adminOrganizations = getAdminOrganizations()
+  const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
 
   // Fetch recent billing logs for the organization
   useEffect(() => {
@@ -26,8 +30,11 @@ export function useBillingLogs() {
     const q = query(logsRef, orderBy('createdAt', 'desc'), limit(50))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      const currentOrg = getCurrentOrganization()
       const logsArray = snapshot.docs.map(doc => ({
         id: doc.id,
+        orgId: orgId,
+        orgName: currentOrg?.name || 'Unknown Organization',
         ...doc.data()
       }))
       setLogs(logsArray)
@@ -68,7 +75,7 @@ export function useBillingLogs() {
     return { id: docRef.id, ...logEntry }
   }
 
-  return { logs, loading, createBillingLog }
+  return { logs, loading, createBillingLog, hasMultiOrgAccess }
 }
 
 // Helper to get billing log for a specific receipt

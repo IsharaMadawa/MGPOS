@@ -141,10 +141,11 @@ describe('useReports', () => {
     await result.current.generateReport('today')
 
     await waitFor(() => {
-      // The hook adds orgId and sorts by date descending
+      // The hook adds orgId, orgName and sorts by date descending
       const expectedReports = mockBillingLogs.map(log => ({
         ...log,
-        orgId: 'org1'
+        orgId: 'org1',
+        orgName: 'Unknown Organization'
       })).reverse()
       expect(result.current.reports).toEqual(expectedReports)
     })

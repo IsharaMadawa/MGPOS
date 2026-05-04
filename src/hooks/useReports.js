@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, orderBy, startAt, endAt, addDoc } fr
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { useOrganizations } from './useOrganizations'
 
 // Date helper functions
 export function getDateRange(period, customStart = null, customEnd = null) {
@@ -56,6 +57,7 @@ export function useReports() {
   const [error, setError] = useState(null)
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId, getAdminOrganizations } = useOrg()
+  const { organizations } = useOrganizations()
 
   // Determine which orgId to use
   const orgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
@@ -83,6 +85,7 @@ export function useReports() {
       return snapshot.docs.map(doc => ({
         id: doc.id,
         orgId: organizationId,
+        orgName: organizations?.find(o => o.id === organizationId)?.name || 'Unknown Organization',
         ...doc.data()
       }))
     } catch (err) {
@@ -316,6 +319,70 @@ export function useReports() {
     return Array.from(dailyMap.values()).sort((a, b) => b.date.localeCompare(a.date))
   }
 
+  // Get daily breakdown by organization (for multi-org reports)
+  const getDailyBreakdownByOrg = (logs) => {
+    const dailyOrgMap = new Map()
+    
+    logs.forEach(log => {
+      const date = new Date(log.createdAt).toISOString().split('T')[0]
+      const orgId = log.orgId || 'unknown'
+      const orgName = log.orgName || 'Unknown Organization'
+      const key = `${date}-${orgId}`
+      
+      if (!dailyOrgMap.has(key)) {
+        dailyOrgMap.set(key, {
+          date,
+          orgId,
+          orgName,
+          transactionCount: 0,
+          grossSales: 0,
+          totalDiscounts: 0,
+          netSales: 0,
+        })
+      }
+      
+      // Calculate true gross amount from cart items
+      const trueGross = log.cart ? log.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+      
+      // Calculate item discounts
+      let itemDiscounts = 0
+      if (log.cart) {
+        itemDiscounts = log.cart.reduce((sum, item) => {
+          const lineTotal = item.price * item.qty
+          let itemDiscount = 0
+          if (item.cartDiscount != null && item.cartDiscount !== '') {
+            const val = parseFloat(item.cartDiscount) || 0
+            itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+          } else if (item.discount?.enabled) {
+            if (item.discount.type === 'percentage') {
+              itemDiscount = lineTotal * (item.discount.value / 100)
+            } else {
+              itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+            }
+          }
+          return sum + itemDiscount
+        }, 0)
+      }
+      
+      const globalDiscount = log.discountAmount || 0
+      const totalDiscounts = itemDiscounts + globalDiscount
+      const netSales = trueGross - totalDiscounts
+      
+      const data = dailyOrgMap.get(key)
+      data.transactionCount += 1
+      data.grossSales += trueGross
+      data.totalDiscounts += totalDiscounts
+      data.netSales += netSales
+    })
+
+    return Array.from(dailyOrgMap.values()).sort((a, b) => {
+      // Sort by date first, then by organization name
+      const dateCompare = b.date.localeCompare(a.date)
+      if (dateCompare !== 0) return dateCompare
+      return a.orgName.localeCompare(b.orgName)
+    })
+  }
+
   return {
     reports,
     loading,
@@ -324,6 +391,7 @@ export function useReports() {
     calculateSummary,
     getCashierBreakdown,
     getDailyBreakdown,
+    getDailyBreakdownByOrg,
     orgId,
   }
 }
