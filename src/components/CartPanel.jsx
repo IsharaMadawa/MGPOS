@@ -300,6 +300,10 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'}</span></div>
 ${receiptSnapshot.customer ? `<div class="row muted"><span>Customer:</span><span>${receiptSnapshot.customer.name}${receiptSnapshot.customer.phone ? ` (${receiptSnapshot.customer.phone})` : ''}</span></div>` : ''}
 ${receiptSnapshot.paymentMethod ? `<div class="row muted"><span>Payment:</span><span>${receiptSnapshot.paymentMethod === 'cash' ? 'Cash' : receiptSnapshot.paymentMethod === 'card' ? 'Card' : receiptSnapshot.paymentMethod === 'credit' ? 'Credit' : 'Split'}</span></div>` : ''}
+${receiptSnapshot.paymentMethod === 'split' && receiptSnapshot.paymentDetails ? `
+${receiptSnapshot.paymentDetails.cashAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Cash:</span><span>${fmt(receiptSnapshot.paymentDetails.cashAmount, sym)}</span></div>` : ''}
+${receiptSnapshot.paymentDetails.cardAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Card:</span><span>${fmt(receiptSnapshot.paymentDetails.cardAmount, sym)}</span></div>` : ''}
+` : ''}
 <div class="divider"></div>
 ${rCart.map(item => {
   const itemDisc = getItemDiscount(item, settings)
@@ -363,6 +367,32 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           {receiptSnapshot.cashierName && (
             <div className="mb-3 text-xs text-gray-500">
               <span className="font-medium">Cashier:</span> {receiptSnapshot.cashierName}
+            </div>
+          )}
+
+          {/* Payment Details */}
+          {receiptSnapshot.paymentMethod && (
+            <div className="mb-3 text-xs text-gray-500 space-y-1">
+              <div>
+                <span className="font-medium">Payment:</span>{' '}
+                {receiptSnapshot.paymentMethod === 'cash' ? 'Cash' : 
+                 receiptSnapshot.paymentMethod === 'card' ? 'Card' : 
+                 receiptSnapshot.paymentMethod === 'credit' ? 'Credit' : 'Split'}
+              </div>
+              {receiptSnapshot.paymentMethod === 'split' && receiptSnapshot.paymentDetails && (
+                <div className="ml-4 space-y-0.5">
+                  {receiptSnapshot.paymentDetails.cashAmount > 0 && (
+                    <div>
+                      <span className="font-medium">Cash:</span> {fmt(receiptSnapshot.paymentDetails.cashAmount, sym)}
+                    </div>
+                  )}
+                  {receiptSnapshot.paymentDetails.cardAmount > 0 && (
+                    <div>
+                      <span className="font-medium">Card:</span> {fmt(receiptSnapshot.paymentDetails.cardAmount, sym)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

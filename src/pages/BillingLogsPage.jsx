@@ -116,6 +116,8 @@ export default function BillingLogsPage() {
     unit: ''
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [selectedLog, setSelectedLog] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const logsPerPage = 50
 
@@ -166,6 +168,16 @@ export default function BillingLogsPage() {
     if (!isSameDay(log.createdAt)) return false
     
     return true
+  }
+
+  const handleViewDetails = (log) => {
+    setSelectedLog(log)
+    setShowDetailsModal(true)
+  }
+
+  const handleCloseDetails = () => {
+    setShowDetailsModal(false)
+    setSelectedLog(null)
   }
 
   const handleReprint = async (log) => {
@@ -226,6 +238,12 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${log.receiptNo}</span><span class="muted">${fmtDate(log.createdAt)} ${fmtTime(log.createdAt)}</span></div>
 <div class="row muted"><span>Cashier:</span><span>${log.cashierName || 'Unknown'}</span></div>
+${log.customer ? `<div class="row muted"><span>Customer:</span><span>${log.customer.name}${log.customer.phone ? ` (${log.customer.phone})` : ''}</span></div>` : ''}
+${log.paymentMethod ? `<div class="row muted"><span>Payment:</span><span>${log.paymentMethod === 'cash' ? 'Cash' : log.paymentMethod === 'card' ? 'Card' : log.paymentMethod === 'credit' ? 'Credit' : 'Split'}</span></div>` : ''}
+${log.paymentMethod === 'split' && log.paymentDetails ? `
+${log.paymentDetails.cashAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Cash:</span><span>${fmt(log.paymentDetails.cashAmount, sym)}</span></div>` : ''}
+${log.paymentDetails.cardAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Card:</span><span>${fmt(log.paymentDetails.cardAmount, sym)}</span></div>` : ''}
+` : ''}
 <div class="reprint-note">*** REPRINT ***</div>
 <div class="row center muted"><span>Reprinted: ${reprintDateTime}</span></div>
 <div class="divider"></div>
@@ -468,6 +486,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => handleViewDetails(log)}
+                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            title="View Bill Details"
+                          >
+                            View
+                          </button>
                           {canReprint(log) && (
                             <button
                               onClick={() => handleReprint(log)}
@@ -504,6 +529,171 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           )}
         </div>
       </div>
+
+      {/* Bill Details Modal */}
+      {showDetailsModal && selectedLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Bill Details</h2>
+                <button
+                  onClick={handleCloseDetails}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Receipt Header */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-gray-500 uppercase tracking-wide font-semibold">Receipt #{selectedLog.receiptNo}</p>
+                  <p className="text-sm text-gray-400">{fmtDate(selectedLog.createdAt)} {fmtTime(selectedLog.createdAt)}</p>
+                </div>
+                
+                {/* Cashier Info */}
+                {selectedLog.cashierName && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Cashier:</span> {selectedLog.cashierName}
+                  </div>
+                )}
+
+                {/* Customer Info */}
+                {selectedLog.customer && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Customer:</span> {selectedLog.customer.name}
+                    {selectedLog.customer.phone && ` (${selectedLog.customer.phone})`}
+                  </div>
+                )}
+
+                {/* Payment Details */}
+                {selectedLog.paymentMethod && (
+                  <div className="mb-3 text-xs text-gray-500 space-y-1">
+                    <div>
+                      <span className="font-medium">Payment:</span>{' '}
+                      {selectedLog.paymentMethod === 'cash' ? 'Cash' : 
+                       selectedLog.paymentMethod === 'card' ? 'Card' : 
+                       selectedLog.paymentMethod === 'credit' ? 'Credit' : 'Split'}
+                    </div>
+                    {selectedLog.paymentMethod === 'split' && selectedLog.paymentDetails && (
+                      <div className="ml-4 space-y-0.5">
+                        {selectedLog.paymentDetails.cashAmount > 0 && (
+                          <div>
+                            <span className="font-medium">Cash:</span> {fmt(selectedLog.paymentDetails.cashAmount, sym)}
+                          </div>
+                        )}
+                        {selectedLog.paymentDetails.cardAmount > 0 && (
+                          <div>
+                            <span className="font-medium">Card:</span> {fmt(selectedLog.paymentDetails.cardAmount, sym)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Cart Items */}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Items</h3>
+                <div className="space-y-2">
+                  {selectedLog.cart.map((item, index) => {
+                    const itemDisc = getItemDiscount(item, settings)
+                    const discInfo = getItemDiscountInfo(item, settings)
+                    const lineTotal = item.price * item.qty
+                    const discountedTotal = lineTotal - itemDisc
+                    const hasDiscount = itemDisc > 0
+                    
+                    return (
+                      <div key={index} className="flex justify-between text-sm py-1 gap-2">
+                        <span className="text-gray-700 flex-1 min-w-0">
+                          <span className="block truncate">{item.name} × {formatQty(item.qty, item.selectedUnit || item.unit)}</span>
+                          {hasDiscount && (
+                            <span className="text-xs text-rose-500">
+                              ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}
+                              {(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium whitespace-nowrap">{fmt(discountedTotal, sym)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="border-t border-gray-200 pt-4 space-y-1 text-sm">
+                {/* Calculate totals */}
+                {(() => {
+                  const rSub = selectedLog.cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
+                  const discountPct = (settings?.discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
+                  const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
+                  const taxEnabled = settings?.taxEnabled || false
+                  const taxRate = settings?.taxRate || 0
+                  const rTaxBase = rSub - rDisc
+                  const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
+                  const rTotal = rTaxBase + rTax
+
+                  return (
+                    <>
+                      <div className="flex justify-between text-gray-500">
+                        <span>Gross Amount</span>
+                        <span>{fmt(selectedLog.cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
+                      </div>
+                      {(rDisc > 0 || selectedLog.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) && (
+                        <div className="flex justify-between text-rose-600">
+                          <span>Discount {discountPct > 0 ? `(${discountPct}%)` : ''}</span>
+                          <span>− {fmt(rDisc + selectedLog.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-gray-600">
+                        <span>Net Amount</span>
+                        <span>{fmt(rSub, sym)}</span>
+                      </div>
+                      {taxEnabled && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>Tax ({taxRate}%)</span>
+                          <span>{fmt(rTax, sym)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base text-gray-900 pt-1 border-t border-gray-100 mt-1">
+                        <span>Total</span>
+                        <span>{fmt(rTotal, sym)}</span>
+                      </div>
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              {canReprint(selectedLog) && (
+                <button
+                  onClick={() => {
+                    handleReprint(selectedLog)
+                    handleCloseDetails()
+                  }}
+                  className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors"
+                >
+                  Reprint
+                </button>
+              )}
+              <button
+                onClick={handleCloseDetails}
+                className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

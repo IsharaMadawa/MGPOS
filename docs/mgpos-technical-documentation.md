@@ -16,8 +16,9 @@
 13. [Development Guidelines](#development-guidelines)
 14. [Security Considerations](#security-considerations)
 15. [Performance Optimization](#performance-optimization)
-16. [Troubleshooting for Developers](#troubleshooting-for-developers)
-17. [Future Development Roadmap](#future-development-roadmap)
+16. [Payment Method Reports](#payment-method-reports)
+17. [Troubleshooting for Developers](#troubleshooting-for-developers)
+18. [Future Development Roadmap](#future-development-roadmap)
 
 ---
 
@@ -1424,6 +1425,1260 @@ DELETE /api/users/:id
 - **Documentation**: Update relevant documentation
 - **Performance**: No performance regressions
 - **Security**: Follow security best practices
+
+---
+
+## Payment Method Reports
+
+### Architecture Overview
+
+The Payment Method Reports feature is built as an extension to the existing reporting system in the MGPOS application. It follows a modular architecture that separates concerns between data filtering, calculation logic, and UI presentation.
+
+### System Architecture
+
+#### Component Structure
+
+```
+src/
+├── pages/
+│   └── ReportsPage.jsx              # Main reporting interface
+├── hooks/
+│   └── useReports.js                # Core data fetching and processing
+├── test/
+│   ├── ReportsPagePaymentMethods.test.jsx  # UI component tests
+│   └── useReports.test.jsx          # Hook functionality tests
+```
+
+#### Data Flow
+
+1. **User Interaction** → ReportsPage.jsx
+2. **Report Type Selection** → Payment method filtering logic
+3. **Data Processing** → useReports hook + filtering functions
+4. **Summary Calculation** → Payment-specific summary functions
+5. **UI Rendering** → Dynamic report components
+6. **Export/Print** → Formatted output generation
+
+### Core Components
+
+#### 1. ReportsPage.jsx (Main Component)
+
+**Location**: `src/pages/ReportsPage.jsx`
+
+**Key Responsibilities**:
+- UI rendering for report type selection
+- Integration with payment method filtering logic
+- Print functionality for payment method reports
+- Multi-organization support
+
+**New State Variables**:
+```javascript
+const [reportType, setReportType] = useState('summary') // 'summary', 'detailed', 'cash', 'card'
+```
+
+**Key Functions Added**:
+
+##### `filterReportsByPaymentMethod(reports, method)`
+Filters billing logs based on payment method with split payment handling.
+
+**Parameters**:
+- `reports`: Array of billing log objects
+- `method`: Payment method filter ('cash', 'card')
+
+**Returns**: Filtered array of billing logs
+
+**Logic**:
+```javascript
+const filterReportsByPaymentMethod = (reports, method) => {
+  return reports.filter(bill => {
+    if (method === 'cash') {
+      return bill.paymentMethod === 'cash' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
+    } else if (method === 'card') {
+      return bill.paymentMethod === 'card' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+    }
+    return true
+  })
+}
+```
+
+##### `calculatePaymentMethodSummary(reports, method)`
+Calculates summary statistics for specific payment methods.
+
+**Parameters**:
+- `reports`: Array of billing log objects
+- `method`: Payment method for calculation
+
+**Returns**: Summary object with transaction metrics
+
+**Key Calculations**:
+- Transaction count
+- Gross sales (sum of all item prices × quantities)
+- Total discounts (item-level + global)
+- Net sales (gross - discounts)
+- Total amount (payment method specific)
+
+**Split Payment Handling**:
+```javascript
+if (method === 'cash' && bill.paymentMethod === 'split') {
+  totalAmount += bill.paymentDetails?.cashAmount || 0
+} else if (method === 'card' && bill.paymentMethod === 'split') {
+  totalAmount += bill.paymentDetails?.cardAmount || 0
+} else {
+  totalAmount += bill.total || 0
+}
+```
+
+#### 2. UI Components
+
+##### Report Type Buttons
+New buttons added to report type selection:
+- "Cash Sales" - Filters for cash transactions
+- "Card Sales" - Filters for card transactions
+
+##### Dynamic Summary Cards
+Summary cards update based on selected report type:
+```javascript
+{(() => {
+  if (reportType === 'cash' || reportType === 'card') {
+    const paymentSummary = calculatePaymentMethodSummary(reports, reportType)
+    return (
+      // Payment method specific summary cards
+    )
+  } else {
+    return (
+      // Standard summary cards
+    )
+  }
+})()}
+```
+
+##### Payment Method Summary Tables
+Dynamic table generation based on report type:
+- Column headers adjust for payment method context
+- Split payment details section for cash/card reports
+- Totals calculated with payment-specific logic
+
+### Print Functionality
+
+#### Enhanced Print Templates
+
+The print functionality was extended to support payment method reports:
+
+**Template Structure**:
+```javascript
+${(reportType === 'cash' || reportType === 'card') ? `
+  <div class="section-title">${reportType === 'cash' ? 'Cash Sales' : 'Card Sales'} Details</div>
+  <table>
+    <!-- Payment method specific table content -->
+  </table>
+  
+  ${filterReportsByPaymentMethod(reports, reportType).some(bill => bill.paymentMethod === 'split') ? `
+    <div class="section-title">Split Payment Details</div>
+    <table>
+      <!-- Split payment breakdown table -->
+    </table>
+  ` : ''}
+` : ''}
+
+${reportType === 'detailed' ? `
+  <div class="section-title">Bill Details</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Receipt #</th>
+        <th>Date/Time</th>
+        <th>Cashier</th>
+        <th>Payment Method</th>
+        <th class="text-right">Items</th>
+        <th class="text-right">Gross</th>
+        <th class="text-right">Discount</th>
+        <th class="text-right">Net</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Detailed transaction rows with payment method data -->
+    </tbody>
+  </table>
+` : ''}
+```
+
+**Dynamic Report Title**:
+```javascript
+<title>${reportType === 'cash' ? 'Cash Sales Report' : reportType === 'card' ? 'Card Sales Report' : 'Sales Report'}</title>
+```
+
+### Data Models
+
+#### Billing Log Structure
+
+The system works with the existing billing log data structure:
+
+```javascript
+{
+  id: string,
+  receiptNo: string,
+  createdAt: timestamp,
+  cashierName: string,
+  paymentMethod: 'cash' | 'card' | 'credit' | 'split',
+  total: number,
+  itemCount: number,
+  cart: Array<{
+    name: string,
+    price: number,
+    qty: number,
+    // ... other item properties
+  }>,
+  discountAmount: number,
+  // Split payment specific
+  paymentDetails?: {
+    cashAmount: number,
+    cardAmount: number,
+    creditAmount: number
+  },
+  // Customer information for credit sales
+  customer?: {
+    id: string,
+    name: string,
+    phone: string
+  }
+}
+```
+
+#### Summary Data Structure
+
+Payment method summary objects follow this structure:
+
+```javascript
+{
+  transactionCount: number,
+  grossSales: number,
+  totalDiscounts: number,
+  netSales: number,
+  totalAmount: number
+}
+```
+
+### Algorithm Implementation
+
+#### Split Payment Distribution Algorithm
+
+The core algorithm for handling split payments across different report types:
+
+1. **Cash Report Calculation**:
+   - Include all `paymentMethod: 'cash'` transactions
+   - Include cash portion from `paymentMethod: 'split'` transactions
+   - Exclude pure card and credit transactions
+
+2. **Card Report Calculation**:
+   - Include all `paymentMethod: 'card'` transactions
+   - Include card portion from `paymentMethod: 'split'` transactions
+   - Exclude pure cash and credit transactions
+
+#### Filtering Logic Pseudocode
+
+```javascript
+function filterByPaymentMethod(reports, method) {
+  return reports.filter(bill => {
+    switch(method) {
+      case 'cash':
+        return isCashTransaction(bill)
+      case 'card':
+        return isCardTransaction(bill)
+      default:
+        return true
+    }
+  })
+}
+
+function isCashTransaction(bill) {
+  return bill.paymentMethod === 'cash' || 
+         (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
+}
+
+function isCardTransaction(bill) {
+  return bill.paymentMethod === 'card' || 
+         (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+}
+```
+
+### Performance Optimizations
+
+#### Efficient Filtering
+
+1. **Single Pass Filtering**: Reports are filtered once per report type
+2. **Memoization**: Summary calculations cached for repeated access
+3. **Lazy Loading**: Detailed tables rendered only when needed
+
+#### Memory Management
+
+1. **Data Pagination**: Large datasets handled through pagination
+2. **Garbage Collection**: Proper cleanup of event listeners and subscriptions
+3. **State Management**: Efficient state updates to prevent unnecessary re-renders
+
+#### Database Query Optimization
+
+The existing `useReports` hook handles database optimization:
+- Indexed queries on timestamp fields
+- Organization-based filtering at database level
+- Efficient document fetching with limits
+
+### Error Handling
+
+#### Data Validation
+
+1. **Missing Payment Details**: Graceful handling of incomplete split payment data
+2. **Zero Amount Payments**: Proper filtering of zero-value split portions
+3. **Null Values**: Safe navigation through optional properties
+
+#### Error Boundaries
+
+1. **Component-Level**: Error boundaries around report components
+2. **Data Processing**: Try-catch blocks around calculation functions
+3. **User Feedback**: Clear error messages for data issues
+
+#### Fallback Behavior
+
+```javascript
+// Handle missing payment details
+if (bill.paymentMethod === 'split' && !bill.paymentDetails) {
+  console.warn('Split payment missing payment details:', bill.receiptNo)
+  return false // Exclude from filtering
+}
+
+// Handle zero amounts
+if (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount === 0) {
+  return false // Don't include in cash reports
+}
+```
+
+### Testing Strategy
+
+#### Unit Tests
+
+**Location**: `src/test/useReports.test.jsx`
+
+**Coverage**:
+- Payment method filtering logic
+- Split payment calculation accuracy
+- Edge cases (missing data, zero amounts)
+- Summary calculation precision
+
+**Test Categories**:
+1. **Filtering Tests**: Verify correct transaction inclusion/exclusion
+2. **Calculation Tests**: Validate summary calculations
+3. **Edge Case Tests**: Handle malformed data gracefully
+4. **Performance Tests**: Ensure acceptable performance with large datasets
+
+#### Integration Tests
+
+**Location**: `src/test/ReportsPagePaymentMethods.test.jsx`
+
+**Coverage**:
+- UI component rendering
+- User interaction flows
+- Print functionality
+- Multi-organization scenarios
+
+**Test Scenarios**:
+1. **Report Generation**: Verify all report types generate correctly
+2. **Split Payment Display**: Ensure proper split payment handling
+3. **Print Output**: Validate print template generation
+4. **User Interface**: Test button states and transitions
+
+#### Test Data Strategy
+
+**Mock Data Structure**:
+```javascript
+const mockPaymentMethodLogs = [
+  { paymentMethod: 'cash', total: 100.00 },
+  { paymentMethod: 'card', total: 75.50 },
+  { 
+    paymentMethod: 'split', 
+    total: 125.00,
+    paymentDetails: { cashAmount: 75.00, cardAmount: 50.00 }
+  },
+  { paymentMethod: 'credit', total: 45.00 }
+]
+```
+
+### Security Considerations
+
+#### Data Access Control
+
+1. **Role-Based Access**: Existing authentication system controls report access
+2. **Organization Filtering**: Users can only access their organization's data
+3. **Data Sanitization**: All user inputs sanitized before processing
+
+#### Sensitive Data Protection
+
+1. **Customer Information**: Limited customer data exposure in reports
+2. **Payment Details**: Secure handling of payment information
+3. **Audit Logging**: All report generation actions logged
+
+#### Input Validation
+
+```javascript
+// Validate payment method parameter
+const validMethods = ['cash', 'card']
+if (!validMethods.includes(method)) {
+  throw new Error('Invalid payment method')
+}
+
+// Validate payment details structure
+if (bill.paymentMethod === 'split') {
+  if (!bill.paymentDetails || typeof bill.paymentDetails !== 'object') {
+    console.warn('Invalid payment details for split payment:', bill.receiptNo)
+    return false
+  }
+}
+```
+
+### Browser Compatibility
+
+#### Supported Browsers
+
+1. **Chrome**: Full support (latest version)
+2. **Firefox**: Full support (latest version)
+3. **Safari**: Full support (latest version)
+4. **Edge**: Full support (latest version)
+
+#### Feature Compatibility
+
+1. **ES6+ Features**: Modern JavaScript features used
+2. **CSS Grid/Flexbox**: Modern layout techniques
+3. **Print API**: Standard browser print functionality
+4. **Local Storage**: Used for report preferences
+
+#### Polyfills
+
+No additional polyfills required beyond existing application dependencies.
+
+### Deployment Considerations
+
+#### Environment Variables
+
+No new environment variables required for this feature.
+
+#### Database Schema
+
+No database schema changes required - uses existing billing logs structure.
+
+#### Build Process
+
+The feature integrates with the existing build process:
+- React components compiled with existing webpack configuration
+- Test files included in existing test suite
+- Documentation included in build artifacts
+
+### Monitoring & Analytics
+
+#### Performance Metrics
+
+1. **Report Generation Time**: Track time to generate reports
+2. **Database Query Performance**: Monitor query execution times
+3. **Memory Usage**: Track memory consumption during report generation
+
+#### User Analytics
+
+1. **Report Type Usage**: Track which report types are most used
+2. **Print Frequency**: Monitor how often reports are printed
+3. **Error Rates**: Track report generation failures
+
+#### Logging Strategy
+
+```javascript
+// Report generation logging
+try {
+  await logUserAction(
+    'REPORT_GENERATE',
+    `Generated ${reportType} report for ${period}`,
+    userProfile,
+    currentOrgId,
+    {
+      reportType,
+      period,
+      transactionCount: reports.length,
+      summary: currentSummary
+    }
+  )
+} catch (logError) {
+  console.error('Failed to log report generation:', logError)
+}
+```
+
+### Future Extensibility
+
+#### Planned Enhancements
+
+1. **API Endpoints**: RESTful endpoints for report data access
+2. **WebSocket Support**: Real-time report updates
+3. **Advanced Filtering**: More sophisticated filtering options
+4. **Custom Reports**: User-defined report configurations
+
+#### Extension Points
+
+1. **Payment Method Support**: Easy addition of new payment methods
+2. **Report Templates**: Customizable report templates
+3. **Export Formats**: Additional export format support
+4. **Integration Hooks**: Points for third-party integrations
+
+#### Code Architecture for Extensibility
+
+```javascript
+// Extensible payment method filter
+const paymentMethodFilters = {
+  cash: (bill) => isCashTransaction(bill),
+  card: (bill) => isCardTransaction(bill),
+  // Future payment methods can be added here
+}
+
+// Extensible summary calculator
+const summaryCalculators = {
+  cash: (reports) => calculatePaymentMethodSummary(reports, 'cash'),
+  card: (reports) => calculatePaymentMethodSummary(reports, 'card')
+}
+```
+
+#### Conclusion
+
+The Payment Method Reports feature demonstrates a well-architected extension to the existing MGPOS reporting system. The implementation follows established patterns while introducing sophisticated payment method filtering and calculation logic. The modular design ensures maintainability, testability, and extensibility for future enhancements.
+
+The technical implementation prioritizes performance, security, and user experience while maintaining compatibility with existing systems. Comprehensive testing and documentation ensure the feature meets both business requirements and technical standards.
+
+### Payment Method Reports API Reference
+
+#### Core Functions
+
+##### `filterReportsByPaymentMethod(reports, method)`
+
+Filters billing logs based on payment method with intelligent split payment handling.
+
+**Signature**:
+```javascript
+filterReportsByPaymentMethod(reports: Array<BillingLog>, method: string): Array<BillingLog>
+```
+
+**Parameters**:
+- `reports` (Array<BillingLog>): Array of billing log objects to filter
+- `method` (string): Payment method filter. Valid values:
+  - `'cash'` - Cash transactions and cash portions of split payments
+  - `'card'` - Card transactions and card portions of split payments
+
+**Returns**: Array<BillingLog> - Filtered billing logs
+
+**Example Usage**:
+```javascript
+const reports = await useReports().reports
+const cashReports = filterReportsByPaymentMethod(reports, 'cash')
+const cardReports = filterReportsByPaymentMethod(reports, 'card')
+```
+
+**Filtering Logic**:
+- **Cash**: Includes `paymentMethod: 'cash'` and split payments with `cashAmount > 0`
+- **Card**: Includes `paymentMethod: 'card'` and split payments with `cardAmount > 0`
+
+**Error Handling**:
+- Returns empty array if `reports` is null/undefined
+- Returns empty array if `method` is invalid
+- Logs warnings for malformed payment details
+
+##### `calculatePaymentMethodSummary(reports, method)`
+
+Calculates comprehensive summary statistics for payment method reports.
+
+**Signature**:
+```javascript
+calculatePaymentMethodSummary(reports: Array<BillingLog>, method: string): PaymentSummary
+```
+
+**Parameters**:
+- `reports` (Array<BillingLog>): Array of billing log objects
+- `method` (string): Payment method for calculation ('cash', 'card')
+
+**Returns**: PaymentSummary object with the following structure:
+```javascript
+{
+  transactionCount: number,    // Number of filtered transactions
+  grossSales: number,         // Sum of all item prices × quantities
+  totalDiscounts: number,     // Sum of all discounts (item + global)
+  netSales: number,          // grossSales - totalDiscounts
+  totalAmount: number        // Payment method specific total
+}
+```
+
+**Example Usage**:
+```javascript
+const reports = await useReports().reports
+const cashSummary = calculatePaymentMethodSummary(reports, 'cash')
+
+console.log(`Cash Sales: $${cashSummary.totalAmount}`)
+console.log(`Transactions: ${cashSummary.transactionCount}`)
+console.log(`Net Sales: $${cashSummary.netSales}`)
+```
+
+**Calculation Rules**:
+- **Gross Sales**: Sum of `(item.price × item.qty)` for all items
+- **Total Discounts**: Sum of item-level discounts + global discounts
+- **Net Sales**: `grossSales - totalDiscounts`
+- **Total Amount**: Payment method specific (see split payment handling below)
+
+**Split Payment Handling**:
+```javascript
+// For cash reports: uses cash portion of split payments
+if (method === 'cash' && bill.paymentMethod === 'split') {
+  totalAmount += bill.paymentDetails?.cashAmount || 0
+}
+
+// For card reports: uses card portion of split payments  
+if (method === 'card' && bill.paymentMethod === 'split') {
+  totalAmount += bill.paymentDetails?.cardAmount || 0
+}
+```
+
+#### Helper Functions
+
+##### `isCashTransaction(bill)`
+
+Determines if a billing log should be included in cash reports.
+
+**Signature**:
+```javascript
+isCashTransaction(bill: BillingLog): boolean
+```
+
+**Parameters**:
+- `bill` (BillingLog): Billing log object to evaluate
+
+**Returns**: boolean - True if transaction is cash-related
+
+**Logic**:
+```javascript
+function isCashTransaction(bill) {
+  return bill.paymentMethod === 'cash' || 
+         (bill.paymentMethod === 'split' && hasCashAmount(bill))
+}
+```
+
+##### `isCardTransaction(bill)`
+
+Determines if a billing log should be included in card reports.
+
+**Signature**:
+```javascript
+isCardTransaction(bill: BillingLog): boolean
+```
+
+**Parameters**:
+- `bill` (BillingLog): Billing log object to evaluate
+
+**Returns**: boolean - True if transaction is card-related
+
+**Logic**:
+```javascript
+function isCardTransaction(bill) {
+  return bill.paymentMethod === 'card' || 
+         (bill.paymentMethod === 'split' && hasCardAmount(bill))
+}
+```
+
+#### Data Types
+
+##### BillingLog
+
+```typescript
+interface BillingLog {
+  id: string
+  receiptNo: string
+  createdAt: string | Date
+  cashierName: string
+  paymentMethod: 'cash' | 'card' | 'credit' | 'split'
+  total: number
+  itemCount: number
+  cart: Array<CartItem>
+  discountAmount: number
+  paymentDetails?: PaymentDetails
+  customer?: CustomerInfo
+  orgId?: string
+  orgName?: string
+}
+```
+
+##### PaymentDetails
+
+```typescript
+interface PaymentDetails {
+  cashAmount: number
+  cardAmount: number
+  creditAmount: number
+}
+```
+
+##### PaymentSummary
+
+```typescript
+interface PaymentSummary {
+  transactionCount: number
+  grossSales: number
+  totalDiscounts: number
+  netSales: number
+  totalAmount: number
+}
+```
+
+##### CartItem
+
+```typescript
+interface CartItem {
+  id: string
+  name: string
+  price: number
+  qty: number
+  discount?: {
+    enabled: boolean
+    type: 'percentage' | 'fixed'
+    value: number
+  }
+  cartDiscount?: string
+}
+```
+
+##### CustomerInfo
+
+```typescript
+interface CustomerInfo {
+  id: string
+  name: string
+  phone?: string
+  email?: string
+}
+```
+
+#### Usage Examples
+
+##### Basic Report Generation
+
+```javascript
+import { useReports } from '../hooks/useReports'
+
+function PaymentReportComponent() {
+  const { reports } = useReports()
+  
+  // Generate cash sales report
+  const cashReports = filterReportsByPaymentMethod(reports, 'cash')
+  const cashSummary = calculatePaymentMethodSummary(reports, 'cash')
+  
+  // Generate card sales report
+  const cardReports = filterReportsByPaymentMethod(reports, 'card')
+  const cardSummary = calculatePaymentMethodSummary(reports, 'card')
+  
+  return (
+    <div>
+      <h2>Cash Sales: ${cashSummary.totalAmount} ({cashSummary.transactionCount} transactions)</h2>
+      <h2>Card Sales: ${cardSummary.totalAmount} ({cardSummary.transactionCount} transactions)</h2>
+    </div>
+  )
+}
+```
+
+#### Error Handling
+
+##### Common Error Scenarios
+
+```javascript
+// Handle invalid payment method
+function safeFilterReports(reports, method) {
+  const validMethods = ['cash', 'card']
+  
+  if (!validMethods.includes(method)) {
+    console.error(`Invalid payment method: ${method}`)
+    return []
+  }
+  
+  if (!Array.isArray(reports)) {
+    console.error('Reports must be an array')
+    return []
+  }
+  
+  try {
+    return filterReportsByPaymentMethod(reports, method)
+  } catch (error) {
+    console.error('Error filtering reports:', error)
+    return []
+  }
+}
+```
+
+### Split Payment Handling Logic
+
+#### Overview
+
+Split payment handling is a critical component of the payment method reporting system. This section provides comprehensive details about how split payments are processed, filtered, calculated, and displayed across different report types.
+
+#### Business Context
+
+##### What is a Split Payment?
+
+A split payment occurs when a customer pays for a single transaction using multiple payment methods. In the MGPOS system, split payments typically involve:
+
+- **Cash + Card**: Customer pays part in cash and part with credit/debit card
+- **Cash + Card + Credit**: Customer uses all three payment methods (rare)
+- **Any combination**: Flexible support for various payment method combinations
+
+##### Business Requirements
+
+1. **Accurate Cash Flow Reporting**: Cash reports must reflect actual cash received
+2. **Card Reconciliation**: Card reports must match processor settlement amounts
+3. **Complete Revenue Tracking**: Combined reports must show full transaction values
+4. **Audit Transparency**: Split payment details must be traceable
+
+#### Data Structure
+
+##### Split Payment Data Model
+
+```javascript
+{
+  // Standard billing log fields
+  id: string,
+  receiptNo: string,
+  createdAt: timestamp,
+  cashierName: string,
+  paymentMethod: 'split', // Indicates split payment
+  total: number, // Total transaction amount
+  
+  // Split payment specific fields
+  paymentDetails: {
+    cashAmount: number,    // Amount paid in cash
+    cardAmount: number,    // Amount paid by card
+    creditAmount: number   // Amount paid on credit (if applicable)
+  },
+  
+  // Standard fields
+  itemCount: number,
+  cart: Array<CartItem>,
+  discountAmount: number,
+  customer?: CustomerInfo
+}
+```
+
+##### Data Validation Rules
+
+```javascript
+function validateSplitPayment(bill) {
+  // Must have paymentDetails for split payments
+  if (bill.paymentMethod === 'split' && !bill.paymentDetails) {
+    throw new Error('Split payment requires paymentDetails')
+  }
+  
+  // Amounts must be non-negative
+  const { cashAmount = 0, cardAmount = 0, creditAmount = 0 } = bill.paymentDetails
+  
+  if (cashAmount < 0 || cardAmount < 0 || creditAmount < 0) {
+    throw new Error('Payment amounts cannot be negative')
+  }
+  
+  // Sum must equal total (with small tolerance for floating point)
+  const sum = cashAmount + cardAmount + creditAmount
+  if (Math.abs(sum - bill.total) > 0.01) {
+    throw new Error(`Payment amounts (${sum}) must equal total (${bill.total})`)
+  }
+  
+  // At least two payment methods must have amounts > 0
+  const nonZeroAmounts = [cashAmount, cardAmount, creditAmount].filter(a => a > 0)
+  if (nonZeroAmounts.length < 2) {
+    throw new Error('Split payment must have at least two non-zero amounts')
+  }
+}
+```
+
+#### Filtering Logic
+
+##### Core Filtering Algorithm
+
+The filtering logic determines which reports include split payments and how they're counted:
+
+```javascript
+/**
+ * Filters billing logs by payment method with split payment handling
+ * @param {Array} reports - Array of billing log objects
+ * @param {string} method - Payment method filter ('cash', 'card')
+ * @returns {Array} Filtered array of billing logs
+ */
+function filterReportsByPaymentMethod(reports, method) {
+  return reports.filter(bill => {
+    switch (method) {
+      case 'cash':
+        return isCashTransaction(bill)
+      case 'card':
+        return isCardTransaction(bill)
+      default:
+        return true
+    }
+  })
+}
+```
+
+##### Payment Method Detection Functions
+
+```javascript
+function isCashTransaction(bill) {
+  return bill.paymentMethod === 'cash' || 
+         (bill.paymentMethod === 'split' && hasCashAmount(bill))
+}
+
+function isCardTransaction(bill) {
+  return bill.paymentMethod === 'card' || 
+         (bill.paymentMethod === 'split' && hasCardAmount(bill))
+}
+
+function hasCashAmount(bill) {
+  return bill.paymentDetails?.cashAmount > 0
+}
+
+function hasCardAmount(bill) {
+  return bill.paymentDetails?.cardAmount > 0
+}
+```
+
+#### Calculation Logic
+
+##### Summary Calculation Algorithm
+
+The summary calculation logic varies by report type to ensure accurate financial reporting:
+
+```javascript
+/**
+ * Calculates summary statistics for payment method reports
+ * @param {Array} reports - Array of billing log objects
+ * @param {string} method - Payment method ('cash', 'card')
+ * @returns {Object} Summary statistics
+ */
+function calculatePaymentMethodSummary(reports, method) {
+  const filteredReports = filterReportsByPaymentMethod(reports, method)
+  
+  let totalAmount = 0
+  let grossSales = 0
+  let totalDiscounts = 0
+  
+  filteredReports.forEach(bill => {
+    // Calculate gross sales from cart items
+    grossSales += calculateGrossSales(bill)
+    
+    // Calculate total discounts
+    totalDiscounts += calculateTotalDiscounts(bill)
+    
+    // Calculate payment method specific amount
+    totalAmount += calculatePaymentAmount(bill, method)
+  })
+  
+  return {
+    transactionCount: filteredReports.length,
+    grossSales,
+    totalDiscounts,
+    netSales: grossSales - totalDiscounts,
+    totalAmount
+  }
+}
+```
+
+##### Payment Amount Calculation
+
+The key difference between report types is how split payments are counted:
+
+```javascript
+/**
+ * Calculates the amount to include in reports based on payment method
+ * @param {Object} bill - Billing log object
+ * @param {string} method - Payment method filter
+ * @returns {number} Amount to include in summary
+ */
+function calculatePaymentAmount(bill, method) {
+  if (bill.paymentMethod === 'split') {
+    switch (method) {
+      case 'cash':
+        return bill.paymentDetails?.cashAmount || 0
+      case 'card':
+        return bill.paymentDetails?.cardAmount || 0
+      default:
+        return 0
+    }
+  } else {
+    // Non-split payments use total amount
+    return bill.total || 0
+  }
+}
+```
+
+#### Display Logic
+
+##### Report Type Display Rules
+
+Different report types handle split payment display differently:
+
+###### 1. Cash Sales Report
+- **Main Table**: Shows cash portion amount for split payments
+- **Split Payment Details**: Separate section showing full split breakdown
+- **Totals**: Calculated using cash portions only
+
+###### 2. Card Sales Report
+- **Main Table**: Shows card portion amount for split payments
+- **Split Payment Details**: Separate section showing full split breakdown
+- **Totals**: Calculated using card portions only
+
+##### UI Implementation
+
+###### Dynamic Column Headers
+
+```javascript
+// Column configuration varies by report type
+const getTableColumns = (reportType) => {
+  const baseColumns = ['Receipt #', 'Date/Time', 'Cashier', 'Payment Method', 'Items', 'Gross', 'Discount', 'Net']
+  
+  if (reportType === 'cash' || reportType === 'card') {
+    return [...baseColumns, 'Amount'] // Shows payment method specific amount
+  } else {
+    return [...baseColumns, 'Amount'] // Shows full amount
+  }
+}
+```
+
+###### Split Payment Details Section
+
+```javascript
+// Conditionally render split payment details
+{hasSplitPayments(filteredReports) && (
+  <div className="split-payment-details">
+    <h3>Split Payment Details</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Receipt #</th>
+          <th>Date</th>
+          <th>Cashier</th>
+          <th>Cash Amount</th>
+          <th>Card Amount</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredReports
+          .filter(bill => bill.paymentMethod === 'split')
+          .map(bill => (
+            <tr key={bill.id}>
+              <td>{bill.receiptNo}</td>
+              <td>{formatDate(bill.createdAt)}</td>
+              <td>{bill.cashierName}</td>
+              <td>{formatCurrency(bill.paymentDetails?.cashAmount || 0)}</td>
+              <td>{formatCurrency(bill.paymentDetails?.cardAmount || 0)}</td>
+              <td>{formatCurrency(bill.total)}</td>
+            </tr>
+          ))}
+      </tbody>
+    </table>
+  </div>
+)}
+```
+
+#### Print Template Logic
+
+##### Dynamic Print Content
+
+Print templates adapt based on report type and split payment presence:
+
+```javascript
+// Print template generation
+const generatePrintContent = (reportType, reports) => {
+  const filteredReports = filterReportsByPaymentMethod(reports, reportType)
+  const hasSplitPayments = filteredReports.some(bill => bill.paymentMethod === 'split')
+  
+  return `
+    ${generateMainTable(reportType, filteredReports)}
+    
+    ${hasSplitPayments ? 
+      generateSplitPaymentTable(filteredReports) : 
+      ''}
+  `
+}
+```
+
+##### Split Payment Table Template
+
+```javascript
+const generateSplitPaymentTable = (reports) => {
+  const splitPayments = reports.filter(bill => bill.paymentMethod === 'split')
+  
+  return `
+    <div class="section-title">Split Payment Details</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Receipt #</th>
+          <th>Date</th>
+          <th>Cashier</th>
+          <th class="text-right">Cash Amount</th>
+          <th class="text-right">Card Amount</th>
+          <th class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${splitPayments.map(bill => `
+          <tr>
+            <td>${bill.receiptNo}</td>
+            <td>${formatDate(bill.createdAt)}</td>
+            <td>${bill.cashierName}</td>
+            <td class="text-right">${formatCurrency(bill.paymentDetails?.cashAmount || 0)}</td>
+            <td class="text-right">${formatCurrency(bill.paymentDetails?.cardAmount || 0)}</td>
+            <td class="text-right">${formatCurrency(bill.total)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot>
+        <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+          <td colspan="3" style="text-align: right; padding: 8px;">TOTALS</td>
+          <td style="text-align: right; padding: 8px;">
+            ${formatCurrency(splitPayments.reduce((sum, bill) => sum + (bill.paymentDetails?.cashAmount || 0), 0))}
+          </td>
+          <td style="text-align: right; padding: 8px;">
+            ${formatCurrency(splitPayments.reduce((sum, bill) => sum + (bill.paymentDetails?.cardAmount || 0), 0))}
+          </td>
+          <td style="text-align: right; padding: 8px;">
+            ${formatCurrency(splitPayments.reduce((sum, bill) => sum + (bill.total || 0), 0))}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  `
+}
+```
+
+#### Error Handling
+
+##### Data Validation Errors
+
+```javascript
+// Handle missing payment details
+function validateSplitPaymentData(bill) {
+  if (bill.paymentMethod === 'split') {
+    if (!bill.paymentDetails) {
+      console.warn(`Split payment ${bill.receiptNo} missing payment details`)
+      return false
+    }
+    
+    if (typeof bill.paymentDetails !== 'object') {
+      console.warn(`Invalid payment details structure for ${bill.receiptNo}`)
+      return false
+    }
+    
+    // Validate individual amounts
+    const { cashAmount = 0, cardAmount = 0, creditAmount = 0 } = bill.paymentDetails
+    
+    if (cashAmount < 0 || cardAmount < 0 || creditAmount < 0) {
+      console.warn(`Negative payment amount detected for ${bill.receiptNo}`)
+      return false
+    }
+  }
+  
+  return true
+}
+```
+
+##### Calculation Safety
+
+```javascript
+// Safe calculation with fallbacks
+function safeCalculatePaymentAmount(bill, method) {
+  try {
+    if (bill.paymentMethod === 'split') {
+      const details = bill.paymentDetails || {}
+      
+      switch (method) {
+        case 'cash':
+          return Math.max(0, details.cashAmount || 0)
+        case 'card':
+          return Math.max(0, details.cardAmount || 0)
+        default:
+          return 0
+      }
+    } else {
+      return Math.max(0, bill.total || 0)
+    }
+  } catch (error) {
+    console.error(`Error calculating payment amount for ${bill.receiptNo}:`, error)
+    return 0
+  }
+}
+```
+
+#### Performance Considerations
+
+##### Efficient Filtering
+
+```javascript
+// Memoization for expensive filtering operations
+const memoizedFilter = (() => {
+  const cache = new Map()
+  
+  return (reports, method) => {
+    const key = `${reports.length}-${method}-${reports[0]?.id}`
+    
+    if (cache.has(key)) {
+      return cache.get(key)
+    }
+    
+    const result = filterReportsByPaymentMethod(reports, method)
+    cache.set(key, result)
+    
+    // Clear cache after 5 minutes
+    setTimeout(() => cache.delete(key), 300000)
+    
+    return result
+  }
+})()
+```
+
+##### Optimized Calculations
+
+```javascript
+// Single-pass calculation for better performance
+function calculateSummaryOptimized(reports, method) {
+  const filteredReports = []
+  let totalAmount = 0
+  let grossSales = 0
+  let totalDiscounts = 0
+  
+  // Single loop for filtering and calculation
+  for (const bill of reports) {
+    let includeInFilter = false
+    let paymentAmount = 0
+    
+    // Determine inclusion and amount in single pass
+    if (method === 'cash' && isCashTransaction(bill)) {
+      includeInFilter = true
+      paymentAmount = bill.paymentMethod === 'split' ? 
+        (bill.paymentDetails?.cashAmount || 0) : 
+        (bill.total || 0)
+    } else if (method === 'card' && isCardTransaction(bill)) {
+      includeInFilter = true
+      paymentAmount = bill.paymentMethod === 'split' ? 
+        (bill.paymentDetails?.cardAmount || 0) : 
+        (bill.total || 0)
+    }
+    
+    if (includeInFilter) {
+      filteredReports.push(bill)
+      totalAmount += paymentAmount
+      grossSales += calculateGrossSales(bill)
+      totalDiscounts += calculateTotalDiscounts(bill)
+    }
+  }
+  
+  return {
+    transactionCount: filteredReports.length,
+    grossSales,
+    totalDiscounts,
+    netSales: grossSales - totalDiscounts,
+    totalAmount
+  }
+}
+```
 
 ---
 

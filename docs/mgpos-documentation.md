@@ -13,8 +13,9 @@
 10. [Reports and Analytics](#reports-and-analytics)
 11. [User Management](#user-management)
 12. [Organization Management](#organization-management)
-13. [Troubleshooting](#troubleshooting)
-14. [Best Practices](#best-practices)
+13. [Payment Method Reports](#payment-method-reports)
+14. [Troubleshooting](#troubleshooting)
+15. [Best Practices](#best-practices)
 
 ---
 
@@ -686,6 +687,281 @@ Super administrators and organization administrators with access to multiple org
 - **System Administrator**: [Admin Contact]
 - **Technical Support**: [Support Email/Phone]
 - **Training Resources**: [Training Portal Link]
+
+---
+
+## Payment Method Reports
+
+### Overview
+
+The Payment Method Reports feature provides comprehensive financial analysis capabilities for businesses to track and analyze sales performance across different payment methods. This feature enables business owners, managers, and financial analysts to gain insights into cash flow, payment preferences, and revenue distribution.
+
+### Business Value
+
+#### Key Benefits
+
+1. **Financial Transparency**
+   - Clear separation of cash vs card sales for better cash flow management
+   - Detailed breakdown of split payment transactions
+   - Accurate tracking of payment method preferences
+
+2. **Operational Efficiency**
+   - Streamlined reporting process with intuitive interface
+   - Real-time data analysis for quick decision-making
+   - Export capabilities for external accounting systems
+
+3. **Strategic Planning**
+   - Payment method trend analysis for business planning
+   - Cash flow forecasting based on payment patterns
+   - Staff performance analysis by payment method handling
+
+4. **Compliance & Audit**
+   - Complete audit trail for all payment transactions
+   - Detailed reporting for financial compliance requirements
+   - Split payment transparency for accounting accuracy
+
+### Report Types
+
+#### 1. Cash Sales Report
+
+**Purpose**: Track all cash-based transactions including cash portions from split payments.
+
+**Business Use Cases**:
+- Daily cash reconciliation
+- Cash flow forecasting
+- Bank deposit planning
+- Cash handling staff performance analysis
+
+**Data Included**:
+- Pure cash transactions
+- Cash portions from split payments
+- Transaction timestamps and cashier details
+- Gross sales, discounts, and net sales figures
+
+**Key Metrics**:
+- Total cash amount collected
+- Number of cash transactions
+- Average cash transaction value
+- Cash vs split payment breakdown
+
+#### 2. Card Sales Report
+
+**Purpose**: Monitor all card-based transactions including card portions from split payments.
+
+**Business Use Cases**:
+- Payment processor fee analysis
+- Card payment trend tracking
+- Electronic payment reconciliation
+- Staff training for card handling
+
+**Data Included**:
+- Pure card transactions
+- Card portions from split payments
+- Transaction timestamps and cashier details
+- Complete sales and discount information
+
+**Key Metrics**:
+- Total card amount processed
+- Number of card transactions
+- Average card transaction value
+- Card vs split payment breakdown
+
+### Split Payment Handling
+
+#### Business Logic
+
+Split payments are intelligently distributed across reports to provide accurate financial insights:
+
+1. **Cash Report**: Includes cash portion of split payments
+2. **Card Report**: Includes card portion of split payments
+
+#### Example Scenario
+
+A customer pays $125 split as $75 cash and $50 card:
+
+- **Cash Sales Report**: Shows $75 contribution from this transaction
+- **Card Sales Report**: Shows $50 contribution from this transaction
+- **Split Payment Details**: Shows complete breakdown for transparency
+
+#### Accounting Benefits
+
+- **Accurate Cash Flow**: Cash reports reflect actual cash received
+- **Precise Card Reconciliation**: Card reports match processor statements
+- **Complete Revenue Tracking**: Individual reports show payment-specific totals
+- **Audit Compliance**: Split payment details provide full transparency
+
+### User Interface Features
+
+#### Report Generation
+
+1. **Period Selection**: Choose from predefined periods (Today, This Week, This Month, This Year) or custom date ranges
+2. **Organization Filtering**: Multi-organization support for consolidated or individual reporting
+3. **Real-time Processing**: Instant report generation with current data
+
+#### Report Display
+
+1. **Summary Cards**: Key metrics displayed prominently (Gross Sales, Discounts, Net Sales, Transactions)
+2. **Detailed Tables**: Complete transaction listings with filtering and sorting, including:
+   - Receipt numbers and timestamps
+   - Cashier information
+   - **Payment Method** column showing cash, card, credit, or split payments
+   - Item counts and financial details
+3. **Split Payment Details**: Separate section for split payment breakdowns
+4. **Print Functionality**: Professional printed reports with complete payment method information
+
+#### Export Capabilities
+
+1. **Print-Ready Format**: Optimized layouts for physical printing
+2. **Complete Data**: All transaction details included in exports
+3. **Professional Appearance**: Company branding and formatting maintained
+
+### Business Scenarios
+
+#### Scenario 1: Daily Cash Reconciliation
+
+**Situation**: Store manager needs to reconcile daily cash receipts.
+
+**Solution**: 
+1. Generate Cash Sales Report for "Today"
+2. Review total cash amount collected
+3. Cross-reference with cash drawer count
+4. Use split payment details to verify mixed payments
+
+**Outcome**: Accurate cash reconciliation with full audit trail
+
+#### Scenario 2: Payment Processor Reconciliation
+
+**Situation**: Finance department needs to reconcile card payments with processor statements.
+
+**Solution**:
+1. Generate Card Sales Report for the billing period
+2. Export total card amount processed
+3. Match against processor settlement amounts
+4. Investigate discrepancies using detailed transaction data
+
+**Outcome**: Precise card payment reconciliation and fee analysis
+
+#### Scenario 3: Monthly Financial Reporting
+
+**Situation**: Executive team needs comprehensive payment analysis for monthly review.
+
+**Solution**:
+1. Generate all available report types for "This Month"
+2. Analyze payment method trends and patterns
+3. Review split payment impact on cash flow
+4. Create presentation materials with key insights
+
+**Outcome**: Complete payment method analysis for strategic decision-making
+
+#### Scenario 4: Staff Performance Analysis
+
+**Situation**: Management needs to evaluate cashier performance by payment method.
+
+**Solution**:
+1. Generate detailed reports with cashier breakdowns
+2. Analyze payment method handling efficiency
+3. Identify training needs for specific payment types
+4. Monitor split payment handling accuracy
+
+**Outcome**: Data-driven staff performance evaluation and targeted training
+
+### Security & Access Control
+
+#### User Permissions
+
+1. **Admin Access**: Full access to all payment method reports
+2. **Manager Access**: Reports for assigned organizations only
+3. **Super Admin Access**: Multi-organization consolidated reporting
+
+#### Data Protection
+
+1. **Sensitive Information**: Customer details protected in reports
+2. **Audit Logging**: All report generation actions logged
+3. **Access Control**: Role-based access to reporting features
+
+### Integration Capabilities
+
+#### Accounting Systems
+
+1. **Export Formats**: Data structured for easy import
+2. **Period Mapping**: Aligns with standard accounting periods
+3. **Category Classification**: Payment method categorization for accounting
+
+#### External Systems
+
+1. **API Access**: Report data available via API (future enhancement)
+2. **Webhook Support**: Automated report generation (future enhancement)
+3. **Third-party Integration**: Compatible with popular accounting software
+
+### Performance Considerations
+
+#### Report Generation Speed
+
+1. **Optimized Queries**: Efficient database access for large datasets
+2. **Caching**: Frequently accessed data cached for performance
+3. **Background Processing**: Large reports processed asynchronously
+
+#### Scalability
+
+1. **Multi-organization**: Supports enterprise-level data volumes
+2. **Historical Data**: Access to complete transaction history
+3. **Concurrent Users**: Multiple users can generate reports simultaneously
+
+### Future Enhancements
+
+#### Planned Features
+
+1. **Automated Scheduling**: Scheduled report generation and delivery
+2. **Advanced Analytics**: Payment trend forecasting and insights
+3. **Mobile Access**: Mobile-optimized report viewing
+4. **Custom Reporting**: User-defined report configurations
+
+#### Business Intelligence
+
+1. **Trend Analysis**: Payment method preference trends over time
+2. **Predictive Analytics**: Cash flow forecasting based on patterns
+3. **Benchmarking**: Industry comparison capabilities
+4. **Alert System**: Anomalies and threshold notifications
+
+### Training & Support
+
+#### User Training
+
+1. **Report Generation**: Step-by-step guide for creating reports
+2. **Data Interpretation**: Understanding report metrics and insights
+3. **Troubleshooting**: Common issues and solutions
+4. **Best Practices**: Optimizing report usage for business value
+
+#### Support Resources
+
+1. **Documentation**: Comprehensive user guides and reference materials
+2. **Video Tutorials**: Visual walkthroughs of key features
+3. **Help Desk**: Technical support for report issues
+4. **Community Forum**: User community for best practice sharing
+
+### Compliance & Legal
+
+#### Financial Reporting Standards
+
+1. **GAAP Compliance**: Aligns with standard accounting practices
+2. **Audit Requirements**: Complete audit trail maintenance
+3. **Tax Reporting**: Supports tax preparation requirements
+4. **Regulatory Compliance**: Meets financial industry standards
+
+#### Data Retention
+
+1. **Historical Data**: Complete transaction history maintained
+2. **Archive Policies**: Configurable data retention periods
+3. **Backup Procedures**: Regular data backup and recovery
+4. **Data Integrity**: Ensures accuracy and consistency of reported data
+
+---
+
+#### Conclusion
+
+The Payment Method Reports feature provides businesses with powerful tools for financial analysis, cash flow management, and strategic decision-making. By offering comprehensive reporting across cash, card, and split payments, organizations can gain complete visibility into their payment ecosystem while maintaining accuracy, compliance, and operational efficiency.
+
+This documentation serves as a comprehensive guide for business users to understand, implement, and maximize the value of the payment method reporting functionality within their organization.
 
 ---
 

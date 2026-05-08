@@ -26,7 +26,7 @@ export default function ReportsPage() {
   const { currencySymbol } = useSettings()
 
   const [period, setPeriod] = useState('today')
-  const [reportType, setReportType] = useState('summary') // 'summary' or 'detailed'
+  const [reportType, setReportType] = useState('summary') // 'summary', 'detailed', 'cash', 'card'
   const [selectedOrgs, setSelectedOrgs] = useState([])
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -119,6 +119,66 @@ export default function ReportsPage() {
 
   const formatCurrency = (amount) => `${currencySymbol}${Number(amount || 0).toFixed(2)}`
 
+  // Helper functions to filter reports by payment method
+  const filterReportsByPaymentMethod = (reports, method) => {
+    return reports.filter(bill => {
+      if (method === 'cash') {
+        return bill.paymentMethod === 'cash' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
+      } else if (method === 'card') {
+        return bill.paymentMethod === 'card' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+      }
+      return true
+    })
+  }
+
+  const calculatePaymentMethodSummary = (reports, method) => {
+    const filteredReports = filterReportsByPaymentMethod(reports, method)
+    let totalAmount = 0
+    let grossSales = 0
+    let totalDiscounts = 0
+    
+    filteredReports.forEach(bill => {
+      grossSales += bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+      
+      let itemDiscounts = 0
+      if (bill.cart) {
+        itemDiscounts = bill.cart.reduce((sum, item) => {
+          const lineTotal = item.price * item.qty
+          let itemDiscount = 0
+          if (item.cartDiscount != null && item.cartDiscount !== '') {
+            const val = parseFloat(item.cartDiscount) || 0
+            itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+          } else if (item.discount?.enabled) {
+            if (item.discount.type === 'percentage') {
+              itemDiscount = lineTotal * (item.discount.value / 100)
+            } else {
+              itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+            }
+          }
+          return sum + itemDiscount
+        }, 0)
+      }
+      const globalDiscount = bill.discountAmount || 0
+      totalDiscounts += itemDiscounts + globalDiscount
+      
+      if (method === 'cash' && bill.paymentMethod === 'split') {
+        totalAmount += bill.paymentDetails?.cashAmount || 0
+      } else if (method === 'card' && bill.paymentMethod === 'split') {
+        totalAmount += bill.paymentDetails?.cardAmount || 0
+      } else {
+        totalAmount += bill.total || 0
+      }
+    })
+    
+    return {
+      transactionCount: filteredReports.length,
+      grossSales,
+      totalDiscounts,
+      netSales: grossSales - totalDiscounts,
+      totalAmount
+    }
+  }
+
   const handleOrgToggle = (orgId) => {
     setSelectedOrgs(prev => 
       prev.includes(orgId) 
@@ -128,7 +188,7 @@ export default function ReportsPage() {
   }
 
   const handlePrint = async () => {
-    if (!generated || !summary) return
+    if (!generated) return
     
     const reportOrgs = hasMultiOrgAccess && selectedOrgs.length > 0 
       ? selectedOrgs.map(id => organizations.find(o => o.id === id))
@@ -138,6 +198,12 @@ export default function ReportsPage() {
     const now = new Date()
     const reportDate = now.toLocaleDateString()
     const reportTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    
+    // Get appropriate summary based on report type
+    let currentSummary = summary
+    if (reportType === 'cash' || reportType === 'card' || reportType === 'cashcard') {
+      currentSummary = calculatePaymentMethodSummary(reports, reportType)
+    }
     
     const printWindow = window.open('', '_blank', 'width=800,height=600')
     if (!printWindow) {
@@ -149,7 +215,7 @@ export default function ReportsPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Sales Report</title>
+        <title>${reportType === 'cash' ? 'Cash Sales Report' : reportType === 'card' ? 'Card Sales Report' : 'Sales Report'}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
@@ -172,7 +238,7 @@ export default function ReportsPage() {
       </head>
       <body>
         <div class="header">
-          <h1>Sales Report</h1>
+          <h1>${reportType === 'cash' ? 'Cash Sales Report' : reportType === 'card' ? 'Card Sales Report' : 'Sales Report'}</h1>
           <div class="org-info"><strong>Organization(s):</strong> ${orgNames}</div>
           <div class="report-info"><strong>Period:</strong> ${period.charAt(0).toUpperCase() + period.slice(1)}${period === 'custom' && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}</div>
           <div class="report-info"><strong>Report Generated:</strong> ${reportDate} at ${reportTime}</div>
@@ -234,6 +300,7 @@ export default function ReportsPage() {
               <th>Date/Time</th>
               ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
               <th>Cashier</th>
+              <th>Payment Method</th>
               <th class="text-right">Items</th>
               <th class="text-right">Gross</th>
               <th class="text-right">Discount</th>
@@ -271,6 +338,7 @@ export default function ReportsPage() {
                   <td>${new Date(bill.createdAt).toLocaleDateString()} ${new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                   ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? `<td>${bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>` : ''}
                   <td>${bill.cashierName}</td>
+                  <td>${bill.paymentMethod || 'Unknown'}</td>
                   <td class="text-right">${bill.itemCount}</td>
                   <td class="text-right">${formatCurrency(trueGross)}</td>
                   <td class="text-right discount">${formatCurrency(totalDiscounts)}</td>
@@ -281,7 +349,7 @@ export default function ReportsPage() {
           </tbody>
           <tfoot>
             <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '4' : '3'}" style="text-align: right; padding: 8px;">
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style="text-align: right; padding: 8px;">
                 TOTALS
               </td>
               <td style="text-align: right; padding: 8px;">
@@ -394,6 +462,199 @@ export default function ReportsPage() {
         </table>
         ` : ''}
         
+        ${(reportType === 'cash' || reportType === 'card') ? `
+        <div class="section-title">${reportType === 'cash' ? 'Cash Sales' : 'Card Sales'} Details</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Date/Time</th>
+              ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
+              <th>Cashier</th>
+              <th>Payment Method</th>
+              <th class="text-right">Items</th>
+              <th class="text-right">Gross</th>
+              <th class="text-right">Discount</th>
+              <th class="text-right">Net</th>
+              <th class="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filterReportsByPaymentMethod(reports, reportType).map(bill => {
+              const trueGross = bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+              let itemDiscounts = 0
+              if (bill.cart) {
+                itemDiscounts = bill.cart.reduce((sum, item) => {
+                  const lineTotal = item.price * item.qty
+                  let itemDiscount = 0
+                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                    const val = parseFloat(item.cartDiscount) || 0
+                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                  } else if (item.discount?.enabled) {
+                    if (item.discount.type === 'percentage') {
+                      itemDiscount = lineTotal * (item.discount.value / 100)
+                    } else {
+                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                    }
+                  }
+                  return sum + itemDiscount
+                }, 0)
+              }
+              const globalDiscount = bill.discountAmount || 0
+              const totalDiscounts = itemDiscounts + globalDiscount
+              const netSales = trueGross - totalDiscounts
+              
+              let paymentAmount = bill.total || 0
+              if (reportType === 'cash' && bill.paymentMethod === 'split') {
+                paymentAmount = bill.paymentDetails?.cashAmount || 0
+              } else if (reportType === 'card' && bill.paymentMethod === 'split') {
+                paymentAmount = bill.paymentDetails?.cardAmount || 0
+              }
+              
+              return `
+                <tr>
+                  <td>${bill.receiptNo}</td>
+                  <td>${new Date(bill.createdAt).toLocaleDateString()} ${new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? `<td>${bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>` : ''}
+                  <td>${bill.cashierName}</td>
+                  <td>${bill.paymentMethod === 'cash' ? 'Cash' : bill.paymentMethod === 'card' ? 'Card' : bill.paymentMethod === 'credit' ? 'Credit' : bill.paymentMethod === 'split' ? 'Split' : 'Unknown'}</td>
+                  <td class="text-right">${bill.itemCount}</td>
+                  <td class="text-right">${formatCurrency(trueGross)}</td>
+                  <td class="text-right discount">${formatCurrency(totalDiscounts)}</td>
+                  <td class="text-right net">${formatCurrency(netSales)}</td>
+                  <td class="text-right font-bold">${formatCurrency(paymentAmount)}</td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style="text-align: right; padding: 8px;">
+                TOTALS
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                  return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                }, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #dc2626;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === 'percentage') {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  return sum + itemDiscounts + globalDiscount
+                }, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #059669;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                  const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === 'percentage') {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  const netSales = trueGross - itemDiscounts - globalDiscount
+                  return sum + netSales
+                }, 0))}
+              </td>
+              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                  if (reportType === 'cash' && bill.paymentMethod === 'split') {
+                    return sum + (bill.paymentDetails?.cashAmount || 0)
+                  } else if (reportType === 'card' && bill.paymentMethod === 'split') {
+                    return sum + (bill.paymentDetails?.cardAmount || 0)
+                  }
+                  return sum + (bill.total || 0)
+                }, 0))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+        
+        ${filterReportsByPaymentMethod(reports, reportType).some(bill => bill.paymentMethod === 'split') ? `
+        <div class="section-title">Split Payment Details</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Date</th>
+              <th>Cashier</th>
+              <th class="text-right">Cash Amount</th>
+              <th class="text-right">Card Amount</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filterReportsByPaymentMethod(reports, reportType)
+              .filter(bill => bill.paymentMethod === 'split')
+              .map(bill => `
+                <tr>
+                  <td>${bill.receiptNo}</td>
+                  <td>${new Date(bill.createdAt).toLocaleDateString()}</td>
+                  <td>${bill.cashierName}</td>
+                  <td class="text-right">${formatCurrency(bill.paymentDetails?.cashAmount || 0)}</td>
+                  <td class="text-right">${formatCurrency(bill.paymentDetails?.cardAmount || 0)}</td>
+                  <td class="text-right font-bold">${formatCurrency(bill.total || 0)}</td>
+                </tr>
+              `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+              <td colspan="3" style="text-align: right; padding: 8px;">TOTALS</td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                  .filter(bill => bill.paymentMethod === 'split')
+                  .reduce((sum, bill) => sum + (bill.paymentDetails?.cashAmount || 0), 0))}
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                  .filter(bill => bill.paymentMethod === 'split')
+                  .reduce((sum, bill) => sum + (bill.paymentDetails?.cardAmount || 0), 0))}
+              </td>
+              <td style="text-align: right; padding: 8px;">
+                ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                  .filter(bill => bill.paymentMethod === 'split')
+                  .reduce((sum, bill) => sum + (bill.total || 0), 0))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+        ` : ''}
+        ` : ''}
+        
         <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
           <p>End of Report</p>
         </div>
@@ -465,7 +726,7 @@ export default function ReportsPage() {
             {/* Report Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setReportType('summary')}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -486,7 +747,27 @@ export default function ReportsPage() {
                 >
                   Detailed
                 </button>
-              </div>
+                <button
+                  onClick={() => setReportType('cash')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    reportType === 'cash'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Cash Sales
+                </button>
+                <button
+                  onClick={() => setReportType('card')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    reportType === 'card'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Card Sales
+                </button>
+                              </div>
             </div>
           </div>
 
@@ -586,22 +867,52 @@ export default function ReportsPage() {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <p className="text-xs text-gray-500 uppercase">Gross Sales</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.grossSales)}</p>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <p className="text-xs text-gray-500 uppercase">Total Discounts</p>
-                <p className="text-2xl font-bold text-rose-600">{formatCurrency(summary.totalDiscounts)}</p>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <p className="text-xs text-gray-500 uppercase">Net Sales</p>
-                <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.netSales)}</p>
-              </div>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <p className="text-xs text-gray-500 uppercase">Transactions</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.transactionCount}</p>
-              </div>
+              {(() => {
+                if (reportType === 'cash' || reportType === 'card') {
+                  const paymentSummary = calculatePaymentMethodSummary(reports, reportType)
+                  return (
+                    <>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Gross Sales</p>
+                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(paymentSummary.grossSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Total Discounts</p>
+                        <p className="text-2xl font-bold text-rose-600">{formatCurrency(paymentSummary.totalDiscounts)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Net Sales</p>
+                        <p className="text-2xl font-bold text-emerald-600">{formatCurrency(paymentSummary.netSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Transactions</p>
+                        <p className="text-2xl font-bold text-gray-900">{paymentSummary.transactionCount}</p>
+                      </div>
+                    </>
+                  )
+                } else {
+                  return (
+                    <>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Gross Sales</p>
+                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.grossSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Total Discounts</p>
+                        <p className="text-2xl font-bold text-rose-600">{formatCurrency(summary.totalDiscounts)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Net Sales</p>
+                        <p className="text-2xl font-bold text-emerald-600">{formatCurrency(summary.netSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Transactions</p>
+                        <p className="text-2xl font-bold text-gray-900">{summary.transactionCount}</p>
+                      </div>
+                    </>
+                  )
+                }
+              })()}
             </div>
 
             {/* Detailed Report */}
@@ -696,6 +1007,234 @@ export default function ReportsPage() {
                     </table>
                   </div>
                 </div>
+
+                {/* Payment Method Specific Reports */}
+                {(reportType === 'cash' || reportType === 'card') && (
+                  <div className="space-y-6">
+                    {/* Payment Method Summary */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                      <div className="p-4 border-b border-gray-200">
+                        <h3 className="font-semibold text-gray-900">
+                          {reportType === 'cash' ? 'Cash Sales' : 'Card Sales'} Summary
+                        </h3>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+                            <tr>
+                              <th className="px-4 py-3">Receipt #</th>
+                              <th className="px-4 py-3">Date/Time</th>
+                              {hasMultiOrgAccess && selectedOrgs.length > 0 && <th className="px-4 py-3">Organization</th>}
+                              <th className="px-4 py-3">Cashier</th>
+                              <th className="px-4 py-3">Payment Method</th>
+                              <th className="px-4 py-3 text-right">Items</th>
+                              <th className="px-4 py-3 text-right">Gross</th>
+                              <th className="px-4 py-3 text-right">Discount</th>
+                              <th className="px-4 py-3 text-right">Net</th>
+                              <th className="px-4 py-3 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {filterReportsByPaymentMethod(reports, reportType).map((bill, idx) => {
+                              const trueGross = bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+                              let itemDiscounts = 0
+                              if (bill.cart) {
+                                itemDiscounts = bill.cart.reduce((sum, item) => {
+                                  const lineTotal = item.price * item.qty
+                                  let itemDiscount = 0
+                                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                    const val = parseFloat(item.cartDiscount) || 0
+                                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                  } else if (item.discount?.enabled) {
+                                    if (item.discount.type === 'percentage') {
+                                      itemDiscount = lineTotal * (item.discount.value / 100)
+                                    } else {
+                                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                    }
+                                  }
+                                  return sum + itemDiscount
+                                }, 0)
+                              }
+                              const globalDiscount = bill.discountAmount || 0
+                              const totalDiscounts = itemDiscounts + globalDiscount
+                              const netSales = trueGross - totalDiscounts
+                              
+                              let paymentAmount = bill.total || 0
+                              if (reportType === 'cash' && bill.paymentMethod === 'split') {
+                                paymentAmount = bill.paymentDetails?.cashAmount || 0
+                              } else if (reportType === 'card' && bill.paymentMethod === 'split') {
+                                paymentAmount = bill.paymentDetails?.cardAmount || 0
+                              }
+                              
+                              return (
+                                <tr key={idx} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3">{bill.receiptNo}</td>
+                                  <td className="px-4 py-3">
+                                    {new Date(bill.createdAt).toLocaleDateString()} {new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </td>
+                                  {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                                    <td className="px-4 py-3">{bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>
+                                  )}
+                                  <td className="px-4 py-3">{bill.cashierName}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      bill.paymentMethod === 'cash' ? 'bg-green-100 text-green-800' :
+                                      bill.paymentMethod === 'card' ? 'bg-blue-100 text-blue-800' :
+                                      bill.paymentMethod === 'credit' ? 'bg-purple-100 text-purple-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {bill.paymentMethod === 'cash' ? 'Cash' :
+                                       bill.paymentMethod === 'card' ? 'Card' :
+                                       bill.paymentMethod === 'credit' ? 'Credit' :
+                                       bill.paymentMethod === 'split' ? 'Split' : 'Unknown'}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">{bill.itemCount}</td>
+                                  <td className="px-4 py-3 text-right">{formatCurrency(trueGross)}</td>
+                                  <td className="px-4 py-3 text-right text-rose-600">{formatCurrency(totalDiscounts)}</td>
+                                  <td className="px-4 py-3 text-right font-medium">{formatCurrency(netSales)}</td>
+                                  <td className="px-4 py-3 text-right font-bold">{formatCurrency(paymentAmount)}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                          <tfoot>
+                            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+                              <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'} style="text-align: right; padding: 8px;">
+                                TOTALS
+                              </td>
+                              <td style="text-align: right; padding: 8px;">
+                                {filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+                              </td>
+                              <td style="text-align: right; padding: 8px;">
+                                {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                                  return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                                }, 0))}
+                              </td>
+                              <td style="text-align: right; padding: 8px; color: #dc2626;">
+                                {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                                  let itemDiscounts = 0
+                                  if (bill.cart) {
+                                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                      const lineTotal = item.price * item.qty
+                                      let itemDiscount = 0
+                                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                        const val = parseFloat(item.cartDiscount) || 0
+                                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                      } else if (item.discount?.enabled) {
+                                        if (item.discount.type === 'percentage') {
+                                          itemDiscount = lineTotal * (item.discount.value / 100)
+                                        } else {
+                                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                        }
+                                      }
+                                      return discSum + itemDiscount
+                                    }, 0)
+                                  }
+                                  const globalDiscount = bill.discountAmount || 0
+                                  return sum + itemDiscounts + globalDiscount
+                                }, 0))}
+                              </td>
+                              <td style="text-align: right; padding: 8px; color: #059669;">
+                                {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                                  const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                                  let itemDiscounts = 0
+                                  if (bill.cart) {
+                                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                      const lineTotal = item.price * item.qty
+                                      let itemDiscount = 0
+                                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                        const val = parseFloat(item.cartDiscount) || 0
+                                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                      } else if (item.discount?.enabled) {
+                                        if (item.discount.type === 'percentage') {
+                                          itemDiscount = lineTotal * (item.discount.value / 100)
+                                        } else {
+                                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                        }
+                                      }
+                                      return discSum + itemDiscount
+                                    }, 0)
+                                  }
+                                  const globalDiscount = bill.discountAmount || 0
+                                  const netSales = trueGross - itemDiscounts - globalDiscount
+                                  return sum + netSales
+                                }, 0))}
+                              </td>
+                              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+                                {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
+                                  if (reportType === 'cash' && bill.paymentMethod === 'split') {
+                                    return sum + (bill.paymentDetails?.cashAmount || 0)
+                                  } else if (reportType === 'card' && bill.paymentMethod === 'split') {
+                                    return sum + (bill.paymentDetails?.cardAmount || 0)
+                                  }
+                                  return sum + (bill.total || 0)
+                                }, 0))}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Split Payment Details (for cash and card reports) */}
+                    {filterReportsByPaymentMethod(reports, reportType).some(bill => bill.paymentMethod === 'split') && (
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div className="p-4 border-b border-gray-200">
+                          <h3 className="font-semibold text-gray-900">Split Payment Details</h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+                              <tr>
+                                <th className="px-4 py-3">Receipt #</th>
+                                <th className="px-4 py-3">Date</th>
+                                <th className="px-4 py-3">Cashier</th>
+                                <th className="px-4 py-3 text-right">Cash Amount</th>
+                                <th className="px-4 py-3 text-right">Card Amount</th>
+                                <th className="px-4 py-3 text-right">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {filterReportsByPaymentMethod(reports, reportType)
+                                .filter(bill => bill.paymentMethod === 'split')
+                                .map((bill, idx) => (
+                                  <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3">{bill.receiptNo}</td>
+                                    <td className="px-4 py-3">{new Date(bill.createdAt).toLocaleDateString()}</td>
+                                    <td className="px-4 py-3">{bill.cashierName}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(bill.paymentDetails?.cashAmount || 0)}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(bill.paymentDetails?.cardAmount || 0)}</td>
+                                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(bill.total || 0)}</td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                              <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+                                <td colSpan="3" style="text-align: right; padding: 8px;">TOTALS</td>
+                                <td style="text-align: right; padding: 8px;">
+                                  {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                                    .filter(bill => bill.paymentMethod === 'split')
+                                    .reduce((sum, bill) => sum + (bill.paymentDetails?.cashAmount || 0), 0))}
+                                </td>
+                                <td style="text-align: right; padding: 8px;">
+                                  {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                                    .filter(bill => bill.paymentMethod === 'split')
+                                    .reduce((sum, bill) => sum + (bill.paymentDetails?.cardAmount || 0), 0))}
+                                </td>
+                                <td style="text-align: right; padding: 8px;">
+                                  {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
+                                    .filter(bill => bill.paymentMethod === 'split')
+                                    .reduce((sum, bill) => sum + (bill.total || 0), 0))}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Credit Sales Summary (if any credit sales exist) */}
                 {reports.some(bill => bill.paymentMethod === 'credit') && (
