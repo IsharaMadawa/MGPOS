@@ -486,13 +486,13 @@ describe('ReportsPage Payment Method Reports', () => {
         fireEvent.click(screen.getByText('Print Report'))
       })
 
-      // Verify print content contains payment method data
+      // Verify print content contains payment method data (updated)
       expect(mockWindow.document.write).toHaveBeenCalled()
       const printContent = mockWindow.document.write.mock.calls[0][0]
-      expect(printContent).toContain('cash')
-      expect(printContent).toContain('card')
-      expect(printContent).toContain('digital')
-      expect(printContent).toContain('credit')
+      expect(printContent).toContain('Cash')
+      expect(printContent).toContain('Card')
+      expect(printContent).toContain('Digital')
+      expect(printContent).toContain('Credit')
     })
 
     it('should handle missing payment method in detailed report print', async () => {
@@ -832,7 +832,13 @@ describe('ReportsPage Payment Method Reports', () => {
     })
 
     it('should display Credit Sales button and handle click', () => {
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Check if Credit Sales button is present
       expect(screen.getByText('Credit Sales')).toBeInTheDocument()
@@ -845,7 +851,13 @@ describe('ReportsPage Payment Method Reports', () => {
     })
 
     it('should display Digital Sales button and handle click', () => {
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Check if Digital Sales button is present
       expect(screen.getByText('Digital Sales')).toBeInTheDocument()
@@ -876,7 +888,13 @@ describe('ReportsPage Payment Method Reports', () => {
         }
       ]
 
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Switch to credit sales report
       fireEvent.click(screen.getByText('Credit Sales'))
@@ -898,7 +916,13 @@ describe('ReportsPage Payment Method Reports', () => {
         { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
       ]
 
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Switch to credit sales report
       fireEvent.click(screen.getByText('Credit Sales'))
@@ -928,7 +952,13 @@ describe('ReportsPage Payment Method Reports', () => {
         }
       ]
 
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Switch to digital sales report
       fireEvent.click(screen.getByText('Digital Sales'))
@@ -949,7 +979,13 @@ describe('ReportsPage Payment Method Reports', () => {
         { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
       ]
 
-      render(<ReportsPage />)
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
       
       // Switch to digital sales report
       fireEvent.click(screen.getByText('Digital Sales'))

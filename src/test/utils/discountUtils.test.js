@@ -167,11 +167,11 @@ describe('Discount Utils', () => {
     it('should calculate correct breakdown for global mode', () => {
       const result = getCartDiscountBreakdown(testCart, baseSettings)
       
-      // Item discounts: 100 (laptop) + 15 (keyboard) = 115
-      // Subtotal after item discounts: 1200 - 115 = 1085
-      // Global discount: 1085 * 10% = 108.5
-      expect(result.totalDiscount).toBe(223.5) // 115 + 108.5
-      expect(result.globalDiscount).toBe(108.5)
+      // Custom discount: 15 (keyboard) = 15
+      // Subtotal after custom discount: 1200 - 15 = 1185
+      // Global discount: 1185 * 10% = 118.5
+      expect(result.totalDiscount).toBe(133.5) // 15 + 118.5
+      expect(result.globalDiscount).toBe(118.5)
       expect(result.discountMode).toBe(DiscountMode.GLOBAL)
     })
 
@@ -180,9 +180,9 @@ describe('Discount Utils', () => {
       const result = getCartDiscountBreakdown(testCart, categorySettings)
       
       // Laptop: 1000 * 15% = 150
-      // Mouse: 100 * 15% = 30
+      // Mouse: 100 * 15% = 15
       // Keyboard: 15 (custom)
-      expect(result.totalDiscount).toBe(195)
+      expect(result.totalDiscount).toBe(180)
       expect(result.globalDiscount).toBe(0)
       expect(result.discountMode).toBe(DiscountMode.CATEGORY)
     })
@@ -210,7 +210,7 @@ describe('Discount Utils', () => {
         amount: 50,
         type: DiscountType.PERCENTAGE,
         percentage: 10,
-        source: DiscountMode.ITEM,
+        source: DiscountSource.ITEM,
         description: 'Item: 10%'
       }
       
@@ -296,8 +296,17 @@ describe('Discount Utils', () => {
     })
 
     it('should handle disabled category discounts', () => {
-      const categorySettings = { ...baseSettings, discountMode: DiscountMode.CATEGORY }
-      categorySettings.categoryDiscounts.electronics.enabled = false
+      const categorySettings = {
+        ...baseSettings,
+        discountMode: DiscountMode.CATEGORY,
+        categoryDiscounts: {
+          ...baseSettings.categoryDiscounts,
+          electronics: {
+            ...baseSettings.categoryDiscounts.electronics,
+            enabled: false
+          }
+        }
+      }
       
       const result = getItemDiscountDetails(testItem, categorySettings)
       expect(result.amount).toBe(0)

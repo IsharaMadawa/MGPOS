@@ -16,13 +16,17 @@ export function getItemDiscountDetails(item, settings) {
   
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
-    const val = parseFloat(item.cartDiscount) || 0
-    result.amount = Math.min(Math.max(val, 0), lineTotal)
-    result.type = DiscountType.CURRENCY
-    result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-    result.source = DiscountSource.CUSTOM
-    result.description = `Custom: ${val.toFixed(2)} (${result.percentage.toFixed(1)}%)`
-    return result
+    const val = parseFloat(item.cartDiscount)
+    // Check if the parsed value is a valid number (not NaN)
+    if (!isNaN(val) && isFinite(val)) {
+      result.amount = Math.min(Math.max(val, 0), lineTotal)
+      result.type = DiscountType.CURRENCY
+      result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
+      result.source = DiscountSource.CUSTOM
+      result.description = `Custom: ${val.toFixed(2)} (${result.percentage.toFixed(1)}%)`
+      return result
+    }
+    // If invalid value, treat as no discount (return default result with null type/source)
   }
   
   // Item-level discount
