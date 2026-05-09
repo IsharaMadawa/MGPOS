@@ -345,9 +345,7 @@ Customer Management allows you to maintain a comprehensive database of your cust
 Each customer card shows:
 - **Name and Contact**: Basic contact information
 - **Credit Balance**: Current credit status with color coding and organization's currency symbol
-- **Purchase Statistics**: 
-  - Total number of purchases
-  - Total purchase amount with organization's currency symbol
+- **Creation Date**: When the customer was added to the system
 
 ### Currency Display
 - All monetary values (credit balances, purchase totals) display using your organization's configured currency symbol

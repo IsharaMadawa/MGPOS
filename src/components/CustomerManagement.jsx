@@ -165,9 +165,7 @@ export default function CustomerManagement() {
                       <p className="text-sm text-gray-500 mb-2">📍 {customer.address}</p>
                     )}
                     <div className="flex items-center gap-4 text-xs text-gray-400">
-                      <span>🛒 {customer.purchaseCount || 0} purchases</span>
-                      <span>💰 {currencySymbol}{(customer.totalPurchases || 0).toFixed(2)}</span>
-                      <span>📅 {new Date(customer.createdAt).toLocaleDateString()}</span>
+                      <span title="Customer created date">📅 {new Date(customer.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-4">

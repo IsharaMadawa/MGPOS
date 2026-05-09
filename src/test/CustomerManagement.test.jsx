@@ -319,19 +319,17 @@ describe('CustomerManagement', () => {
     expect(mockAddToast).not.toHaveBeenCalledWith('Customer created successfully', 'success')
   })
 
-  it('should display customer statistics', () => {
+  it('should display customer creation date', () => {
     const mockCustomers = [
-      { id: '1', name: 'John Doe', phone: '123-456-7890', purchaseCount: 5, totalPurchases: 500, createdAt: '2023-01-01' },
-      { id: '2', name: 'Jane Smith', phone: '098-765-4321', purchaseCount: 3, totalPurchases: 300, createdAt: '2023-01-02' }
+      { id: '1', name: 'John Doe', phone: '123-456-7890', createdAt: '2023-01-01' },
+      { id: '2', name: 'Jane Smith', phone: '098-765-4321', createdAt: '2023-01-02' }
     ]
     mockUseCustomers.customers = mockCustomers
-    // The currency symbol is mocked in useSettings hook above
 
     render(<CustomerManagement />, { wrapper })
 
-    expect(screen.getByText('🛒 5 purchases')).toBeInTheDocument()
-    expect(screen.getByText('💰 $500.00')).toBeInTheDocument()
-    expect(screen.getByText('🛒 3 purchases')).toBeInTheDocument()
-    expect(screen.getByText('💰 $300.00')).toBeInTheDocument()
+    // Check for date elements using more flexible matchers
+    expect(screen.getByText(/1.*1.*2023/)).toBeInTheDocument()
+    expect(screen.getByText(/1.*2.*2023/)).toBeInTheDocument()
   })
 })
