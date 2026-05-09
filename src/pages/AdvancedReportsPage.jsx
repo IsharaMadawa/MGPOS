@@ -261,8 +261,9 @@ export default function AdvancedReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Period Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Period</label>
+              <label htmlFor="period-select" className="block text-sm font-medium text-gray-700 mb-2">Period</label>
               <select
+                id="period-select"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
@@ -279,8 +280,9 @@ export default function AdvancedReportsPage() {
             {period === ReportPeriod.CUSTOM && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                  <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
                   <input
+                    id="start-date"
                     type="date"
                     value={customStart}
                     onChange={(e) => setCustomStart(e.target.value)}
@@ -288,8 +290,9 @@ export default function AdvancedReportsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                  <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
                   <input
+                    id="end-date"
                     type="date"
                     value={customEnd}
                     onChange={(e) => setCustomEnd(e.target.value)}
