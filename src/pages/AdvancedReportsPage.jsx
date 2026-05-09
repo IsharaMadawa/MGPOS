@@ -5,6 +5,7 @@ import { useOrg } from '../contexts/OrgContext'
 import { useOrganizations } from '../hooks/useOrganizations'
 import { useAdvancedReports } from '../hooks/useAdvancedReports'
 import { useSettings } from '../hooks/useSettings'
+import { useCategories } from '../hooks/useCategories'
 import { logUserAction } from '../utils/logger'
 import { useToast } from '../components/ToastContainer'
 import { ReportPeriod } from '../constants/enums'
@@ -104,6 +105,7 @@ export default function AdvancedReportsPage() {
   } = useAdvancedReports()
   const { addToast } = useToast()
   const { currencySymbol } = useSettings()
+  const { categories, loading: categoriesLoading } = useCategories()
 
   const [period, setPeriod] = useState(ReportPeriod.THIS_MONTH)
   const [customStart, setCustomStart] = useState('')
@@ -117,6 +119,15 @@ export default function AdvancedReportsPage() {
   const productChartRef = useRef(null)
   const categoryChartRef = useRef(null)
 
+  // Helper function to map category ID to name (fallback for any unmapped categories)
+  const getCategoryName = (categoryId) => {
+    if (!categoryId) return 'Uncategorized'
+    
+    // Check if it's already a name (not an ID)
+    const foundCategory = categories.find(cat => cat.id === categoryId || cat.name === categoryId)
+    return foundCategory ? foundCategory.name : categoryId
+  }
+
   // Check if user has multi-organization admin access
   const adminOrganizations = getAdminOrganizations()
   const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
@@ -124,6 +135,13 @@ export default function AdvancedReportsPage() {
   // For super admin, determine current org
   const currentOrgId = isSuperAdmin ? selectedOrgId : userProfile?.orgId
   const currentOrg = organizations.find(o => o.id === currentOrgId)
+
+  // Regenerate report when categories are loaded (if report was already generated)
+  useEffect(() => {
+    if (!categoriesLoading && categories.length > 0 && dashboardSummary?.topCategories?.length > 0) {
+      fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, categories)
+    }
+  }, [categoriesLoading, categories.length])
 
   if (authLoading) {
     return (
@@ -157,7 +175,13 @@ export default function AdvancedReportsPage() {
 
   const handleGenerateReport = async () => {
     try {
-      await fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs)
+      // Prevent report generation if categories are still loading
+      if (categoriesLoading) {
+        addToast('Please wait for categories to load before generating report', 'warning')
+        return
+      }
+      
+      await fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, categories)
       
       // Log report generation
       await logUserAction(
@@ -607,7 +631,7 @@ export default function AdvancedReportsPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {dashboardSummary.topCategories.slice(0, 5).map((category, index) => (
                       <tr key={category.category || index} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{category.category}</td>
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{getCategoryName(category.category)}</td>
                         <td className="px-4 py-2 text-sm text-right text-gray-500">{category.unitsSold}</td>
                         <td className="px-4 py-2 text-sm text-right text-gray-900">{formatChartCurrency(category.revenue, currencySymbol)}</td>
                         <td className="px-4 py-2 text-sm text-right">

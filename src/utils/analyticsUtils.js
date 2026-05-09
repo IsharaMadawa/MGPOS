@@ -3,9 +3,10 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 // Advanced analytics calculations for business insights
 
 export class AnalyticsCalculator {
-  constructor(data, currencySymbol = '$') {
+  constructor(data, currencySymbol = '$', categories = null) {
     this.data = data || []
     this.currencySymbol = currencySymbol
+    this.categories = categories
   }
 
   // Revenue Analytics
@@ -121,6 +122,16 @@ export class AnalyticsCalculator {
       .sort((a, b) => b.revenue - a.revenue)
   }
 
+  // Helper method to map category ID to name
+  mapCategoryToName(categoryId) {
+    if (!categoryId || !this.categories || !Array.isArray(this.categories)) {
+      return categoryId || 'Uncategorized'
+    }
+    
+    const foundCategory = this.categories.find(cat => cat.id === categoryId || cat.name === categoryId)
+    return foundCategory ? foundCategory.name : categoryId
+  }
+
   // Category Performance Analytics
   calculateCategoryPerformance() {
     const categoryMap = new Map()
@@ -129,7 +140,7 @@ export class AnalyticsCalculator {
       if (!transaction.cart || !Array.isArray(transaction.cart)) return
 
       transaction.cart.forEach(item => {
-        const category = item.category || 'Uncategorized'
+        const category = this.mapCategoryToName(item.category) || 'Uncategorized'
         if (!categoryMap.has(category)) {
           categoryMap.set(category, {
             category,
@@ -453,7 +464,7 @@ export class AnalyticsCalculator {
 
 // Utility functions for specific calculations
 export const calculateBusinessMetrics = (data, options = {}) => {
-  const analytics = new AnalyticsCalculator(data, options.currencySymbol)
+  const analytics = new AnalyticsCalculator(data, options.currencySymbol, options.categories)
   
   return {
     revenue: analytics.calculateRevenueMetrics(options.period),

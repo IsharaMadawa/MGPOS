@@ -29,7 +29,7 @@ export function useAdvancedReports() {
   const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
 
   // Fetch comprehensive data for advanced analytics
-  const fetchAdvancedData = useCallback(async (period, customStart, customEnd, selectedOrgs = null) => {
+  const fetchAdvancedData = useCallback(async (period, customStart, customEnd, selectedOrgs = null, categoriesData = null) => {
     setLoading(true)
     setError(null)
     
@@ -94,7 +94,8 @@ export function useAdvancedReports() {
       const analyticsData = calculateBusinessMetrics(combinedLogs, {
         period,
         currencySymbol: '$', // This should come from settings
-        days: period === 'month' ? 30 : period === 'week' ? 7 : 1
+        days: period === 'month' ? 30 : period === 'week' ? 7 : 1,
+        categories: categoriesData
       })
       
       setAnalytics(analyticsData)

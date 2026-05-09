@@ -3017,13 +3017,15 @@ src/
 ```javascript
 // Core analytics engine
 class AnalyticsCalculator {
+  constructor(data, currencySymbol, categories)  // Initialize with optional categories for mapping
   calculateRevenueMetrics(period)      // Revenue analysis
   calculateTransactionMetrics(period)  // Transaction analytics
   calculateProductPerformance()        // Product performance
-  calculateCategoryPerformance()        // Category analysis
+  calculateCategoryPerformance()        // Category analysis with ID-to-name mapping
   calculatePaymentMethodAnalytics()     // Payment analysis
   calculateComparativeAnalysis()         // Comparative analysis
   forecastRevenue(data)               // Revenue forecasting
+  mapCategoryToName(categoryId)       // Helper for category ID to name mapping
 }
 ```
 

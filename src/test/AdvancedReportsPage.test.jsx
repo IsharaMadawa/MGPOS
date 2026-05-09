@@ -32,6 +32,16 @@ vi.mock('../contexts/OrgContext', () => ({
 }))
 vi.mock('../hooks/useOrganizations')
 vi.mock('../hooks/useSettings')
+vi.mock('../hooks/useCategories', () => ({
+  useCategories: () => ({
+    categories: [
+      { id: 'cat1', name: 'Electronics' },
+      { id: 'cat2', name: 'Clothing' },
+      { id: 'cat3', name: 'Food & Beverages' }
+    ],
+    categoriesLoading: false
+  })
+}))
 vi.mock('../utils/logger', () => ({
   logUserAction: vi.fn(),
   logError: vi.fn(),
@@ -533,7 +543,12 @@ describe('AdvancedReportsPage', () => {
           expect.any(String), // period
           null, // customStart
           null, // customEnd
-          [] // selectedOrgs
+          [], // selectedOrgs
+          [ // categoriesData
+            { id: 'cat1', name: 'Electronics' },
+            { id: 'cat2', name: 'Clothing' },
+            { id: 'cat3', name: 'Food & Beverages' }
+          ]
         )
       })
     })
@@ -590,8 +605,15 @@ describe('AdvancedReportsPage', () => {
       fireEvent.change(startDateInput, { target: { value: '2024-01-01' } })
       fireEvent.change(endDateInput, { target: { value: '2024-01-31' } })
 
+      // Wait for state to update
+      await waitFor(() => {
+        expect(startDateInput).toHaveValue('2024-01-01')
+        expect(endDateInput).toHaveValue('2024-01-31')
+      })
+
       // Generate report
       const generateButton = screen.getByText('Generate Report')
+      
       fireEvent.click(generateButton)
 
       await waitFor(() => {
@@ -599,9 +621,14 @@ describe('AdvancedReportsPage', () => {
           'custom',
           expect.any(Date), // customStart
           expect.any(Date), // customEnd
-          [] // selectedOrgs
+          [], // selectedOrgs
+          [ // categoriesData
+            { id: 'cat1', name: 'Electronics' },
+            { id: 'cat2', name: 'Clothing' },
+            { id: 'cat3', name: 'Food & Beverages' }
+          ]
         )
-      })
+      }, { timeout: 5000 })
     })
 
     test('should log user action when report is generated', async () => {
@@ -761,6 +788,84 @@ describe('AdvancedReportsPage', () => {
       expect(screen.getByText('Advanced Reports')).toBeInTheDocument()
       // Component should render without errors in tablet view
       expect(screen.getByText('Generate Report')).toBeInTheDocument()
+    })
+  })
+
+  describe('Category Name Mapping', () => {
+    test('should display category names instead of IDs in top categories table', async () => {
+      // Mock dashboard summary with category IDs that should be mapped to names
+      const mockDashboardSummaryWithIds = {
+        revenue: { current: 10000, previous: 8000, change: 2000, percentageChange: 25, trend: 'up', forecast: 12000 },
+        transactions: {
+          count: { current: 50, previous: 40, change: 10, percentageChange: 25 },
+          averageValue: { current: 200, previous: 200, change: 0, percentageChange: 0 }
+        },
+        topProducts: [
+          { id: '1', name: 'Product 1', revenue: 5000, unitsSold: 50, profitMargin: 20 }
+        ],
+        topCategories: [
+          { category: 'cat1', revenue: 8000, unitsSold: 80, profitMargin: 25 }, // Should map to 'Electronics'
+          { category: 'cat2', revenue: 2000, unitsSold: 20, profitMargin: 10 }  // Should map to 'Clothing'
+        ]
+      }
+
+      useAdvancedReportsModule.useAdvancedReports.mockReturnValue({
+        ...mockAdvancedReports,
+        dashboardSummary: mockDashboardSummaryWithIds,
+        loading: false,
+        error: null
+      })
+
+      renderComponent()
+
+      // Wait for the component to render
+      await waitFor(() => {
+        expect(screen.getByText('Top Categories')).toBeInTheDocument()
+      })
+
+      // Verify that category names are displayed instead of IDs
+      expect(screen.getByText('Electronics')).toBeInTheDocument()
+      expect(screen.getByText('Clothing')).toBeInTheDocument()
+      
+      // Verify that category IDs are NOT displayed
+      expect(screen.queryByText('cat1')).not.toBeInTheDocument()
+      expect(screen.queryByText('cat2')).not.toBeInTheDocument()
+    })
+
+    test('should handle uncategorized categories gracefully', async () => {
+      // Mock dashboard summary with uncategorized category
+      const mockDashboardSummaryWithUncategorized = {
+        revenue: { current: 10000, previous: 8000, change: 2000, percentageChange: 25, trend: 'up', forecast: 12000 },
+        transactions: {
+          count: { current: 50, previous: 40, change: 10, percentageChange: 25 },
+          averageValue: { current: 200, previous: 200, change: 0, percentageChange: 0 }
+        },
+        topProducts: [],
+        topCategories: [
+          { category: 'unknown-category-id', revenue: 1000, unitsSold: 10, profitMargin: 15 }, // Should display as is
+          { category: null, revenue: 500, unitsSold: 5, profitMargin: 10 } // Should display as 'Uncategorized'
+        ]
+      }
+
+      useAdvancedReportsModule.useAdvancedReports.mockReturnValue({
+        ...mockAdvancedReports,
+        dashboardSummary: mockDashboardSummaryWithUncategorized,
+        loading: false,
+        error: null
+      })
+
+      renderComponent()
+
+      // Wait for the component to render
+      await waitFor(() => {
+        expect(screen.getByText('Top Categories')).toBeInTheDocument()
+      })
+
+      // Verify that unknown category ID is displayed as is
+      expect(screen.getByText('unknown-category-id')).toBeInTheDocument()
+      
+      // Verify that null category is handled (it should show 'Uncategorized' or the fallback)
+      expect(screen.getByText('Uncategorized')).toBeInTheDocument()
     })
   })
 })
