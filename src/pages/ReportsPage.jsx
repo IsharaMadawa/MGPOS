@@ -427,26 +427,26 @@ export default function ReportsPage() {
                   <td class="text-right">${bill.itemCount}</td>
                   <td class="text-right">${formatCurrency(trueGross)}</td>
                   <td class="text-right discount">${formatCurrency(totalDiscounts)}</td>
-                  <td class="text-left" style="font-size: 11px; max-width: 200px; word-wrap: break-word;">${allDiscountDetails || 'No discounts'}</td>
+                  <td class="text-left" style={{fontSize: '11px', maxWidth: '200px', wordWrap: 'break-word'}}>${allDiscountDetails || 'No discounts'}</td>
                   <td class="text-right net">${formatCurrency(netSales)}</td>
                 </tr>
               `
             }).join('')}
           </tbody>
           <tfoot>
-            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style="text-align: right; padding: 8px;">
+            <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style={{textAlign: 'right', padding: '8px'}}>
                 TOTALS
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${reports.reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(reports.reduce((sum, bill) => {
                   return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
                 }, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #dc2626;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
                 ${formatCurrency(reports.reduce((sum, bill) => {
                   let itemDiscounts = 0
                   if (bill.cart) {
@@ -470,7 +470,7 @@ export default function ReportsPage() {
                   return sum + itemDiscounts + globalDiscount
                 }, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
                 ${formatCurrency(reports.reduce((sum, bill) => {
                   const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
                   let itemDiscounts = 0
@@ -527,20 +527,20 @@ export default function ReportsPage() {
             `).join('')}
           </tbody>
           <tfoot>
-            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '2' : '1'}" style="text-align: right; padding: 8px;">
+            <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '2' : '1'}" style={{textAlign: 'right', padding: '8px'}}>
                 TOTALS
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${dailyBreakdown.reduce((sum, day) => sum + day.transactionCount, 0)}
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.grossSales, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #dc2626;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
                 ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.totalDiscounts, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
                 ${formatCurrency(dailyBreakdown.reduce((sum, day) => sum + day.netSales, 0))}
               </td>
             </tr>
@@ -616,19 +616,19 @@ export default function ReportsPage() {
             }).join('')}
           </tbody>
           <tfoot>
-            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style="text-align: right; padding: 8px;">
+            <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style={{textAlign: 'right', padding: '8px'}}>
                 TOTALS
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                   return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
                 }, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #dc2626;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                   let itemDiscounts = 0
                   if (bill.cart) {
@@ -652,7 +652,7 @@ export default function ReportsPage() {
                   return sum + itemDiscounts + globalDiscount
                 }, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #059669;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                   const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
                   let itemDiscounts = 0
@@ -678,7 +678,7 @@ export default function ReportsPage() {
                   return sum + netSales
                 }, 0))}
               </td>
-              <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                   if (reportType === ReportType.CASH && bill.paymentMethod === PaymentMethod.SPLIT) {
                     return sum + (bill.paymentDetails?.cashAmount || 0)
@@ -720,19 +720,19 @@ export default function ReportsPage() {
               `).join('')}
           </tbody>
           <tfoot>
-            <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
+            <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
               <td colspan="3" style="text-align: right; padding: 8px;">TOTALS</td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                   .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                   .reduce((sum, bill) => sum + (bill.paymentDetails?.cashAmount || 0), 0))}
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                   .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                   .reduce((sum, bill) => sum + (bill.paymentDetails?.cardAmount || 0), 0))}
               </td>
-              <td style="text-align: right; padding: 8px;">
+              <td style={{textAlign: 'right', padding: '8px'}}>
                 ${formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                   .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                   .reduce((sum, bill) => sum + (bill.total || 0), 0))}
@@ -743,7 +743,7 @@ export default function ReportsPage() {
         ` : ''}
         ` : ''}
         
-        <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
+        <div style={{marginTop: '40px', textAlign: 'center', fontSize: '12px', color: '#666'}}>
           <p>End of Report</p>
         </div>
       </body>
@@ -1164,19 +1164,19 @@ export default function ReportsPage() {
                         })()}
                       </tbody>
                       <tfoot>
-                        <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-                          <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? (reportType === ReportType.CREDIT ? '6' : '5') : (reportType === ReportType.CREDIT ? '5' : '4')} style="text-align: right; padding: 8px;">
+                        <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+                          <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? (reportType === ReportType.CREDIT ? '6' : '5') : (reportType === ReportType.CREDIT ? '5' : '4')} style={{textAlign: 'right', padding: '8px'}}>
                             TOTALS
                           </td>
-                          <td style="text-align: right; padding: 8px;">
+                          <td style={{textAlign: 'right', padding: '8px'}}>
                             {filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
                           </td>
-                          <td style="text-align: right; padding: 8px;">
+                          <td style={{textAlign: 'right', padding: '8px'}}>
                             {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                               return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
                             }, 0))}
                           </td>
-                          <td style="text-align: right; padding: 8px; color: #dc2626;">
+                          <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
                             {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                               let itemDiscounts = 0
                               if (bill.cart) {
@@ -1200,7 +1200,7 @@ export default function ReportsPage() {
                               return sum + itemDiscounts + globalDiscount
                             }, 0))}
                           </td>
-                          <td style="text-align: right; padding: 8px; color: #059669;">
+                          <td style={{textAlign: 'right', padding: '8px', color: '#059669'}}>
                             {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                               const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
                               let itemDiscounts = 0
@@ -1226,7 +1226,7 @@ export default function ReportsPage() {
                               return sum + netSales
                             }, 0))}
                           </td>
-                          <td style="text-align: right; padding: 8px; color: #059669; font-weight: bold;">
+                          <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
                             {formatCurrency(filterReportsByPaymentMethod(reports, reportType).reduce((sum, bill) => {
                               if (reportType === ReportType.CASH && bill.paymentMethod === PaymentMethod.SPLIT) {
                                 return sum + (bill.paymentDetails?.cashAmount || 0)
@@ -1275,19 +1275,19 @@ export default function ReportsPage() {
                             ))}
                         </tbody>
                         <tfoot>
-                          <tr style="background-color: #f5f5f5; font-weight: bold; border-top: 2px solid #333;">
-                            <td colSpan="3" style="text-align: right; padding: 8px;">TOTALS</td>
-                            <td style="text-align: right; padding: 8px;">
+                          <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+                            <td colSpan="3" style={{textAlign: 'right', padding: '8px'}}>TOTALS</td>
+                            <td style={{textAlign: 'right', padding: '8px'}}>
                               {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                                 .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                                 .reduce((sum, bill) => sum + (bill.paymentDetails?.cashAmount || 0), 0))}
                             </td>
-                            <td style="text-align: right; padding: 8px;">
+                            <td style={{textAlign: 'right', padding: '8px'}}>
                               {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                                 .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                                 .reduce((sum, bill) => sum + (bill.paymentDetails?.cardAmount || 0), 0))}
                             </td>
-                            <td style="text-align: right; padding: 8px;">
+                            <td style={{textAlign: 'right', padding: '8px'}}>
                               {formatCurrency(filterReportsByPaymentMethod(reports, reportType)
                                 .filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
                                 .reduce((sum, bill) => sum + (bill.total || 0), 0))}

@@ -297,6 +297,11 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
 <div class="divider"></div>
+${log.paymentDetails && (log.paymentDetails.amountGiven > 0 || log.paymentDetails.balanceReturned > 0) ? `
+${log.paymentDetails.amountGiven > 0 ? `<div class="row"><span>Amount Given</span><span>${fmt(log.paymentDetails.amountGiven, sym)}</span></div>` : ''}
+${log.paymentDetails.balanceReturned > 0 ? `<div class="row"><span>Balance Returned</span><span class="text-emerald-600">${fmt(log.paymentDetails.balanceReturned, sym)}</span></div>` : ''}
+<div class="divider"></div>
+` : ''}
 <p class="footer">${storeInfo.footer || 'Thank you for your purchase!'}</p>
 </body></html>`)
       win.document.close()
@@ -591,6 +596,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                       <span className="font-medium">Payment:</span>{' '}
                       {selectedLog.paymentMethod === 'cash' ? 'Cash' : 
                        selectedLog.paymentMethod === 'card' ? 'Card' : 
+                       selectedLog.paymentMethod === 'digital' ? 'Digital' :
                        selectedLog.paymentMethod === 'credit' ? 'Credit' : 'Split'}
                     </div>
                     {selectedLog.paymentMethod === 'split' && selectedLog.paymentDetails && (
@@ -603,6 +609,21 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                         {selectedLog.paymentDetails.cardAmount > 0 && (
                           <div>
                             <span className="font-medium">Card:</span> {fmt(selectedLog.paymentDetails.cardAmount, sym)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Amount Given and Balance Returned */}
+                    {selectedLog.paymentDetails && (selectedLog.paymentDetails.amountGiven > 0 || selectedLog.paymentDetails.balanceReturned > 0) && (
+                      <div className="ml-4 space-y-0.5">
+                        {selectedLog.paymentDetails.amountGiven > 0 && (
+                          <div>
+                            <span className="font-medium">Amount Given:</span> {fmt(selectedLog.paymentDetails.amountGiven, sym)}
+                          </div>
+                        )}
+                        {selectedLog.paymentDetails.balanceReturned > 0 && (
+                          <div className="text-emerald-600">
+                            <span className="font-medium">Balance Returned:</span> {fmt(selectedLog.paymentDetails.balanceReturned, sym)}
                           </div>
                         )}
                       </div>
@@ -695,6 +716,22 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                         <span>Total</span>
                         <span>{fmt(rTotal, sym)}</span>
                       </div>
+                      
+                      {/* Amount Given and Balance Returned */}
+                      {selectedLog.paymentDetails && (selectedLog.paymentDetails.amountGiven > 0 || selectedLog.paymentDetails.balanceReturned > 0) && (
+                        <>
+                          <div className="flex justify-between text-gray-600 pt-1">
+                            <span>Amount Given</span>
+                            <span>{fmt(selectedLog.paymentDetails.amountGiven, sym)}</span>
+                          </div>
+                          {selectedLog.paymentDetails.balanceReturned > 0 && (
+                            <div className="flex justify-between text-emerald-600">
+                              <span>Balance Returned</span>
+                              <span>{fmt(selectedLog.paymentDetails.balanceReturned, sym)}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </>
                   )
                 })()}

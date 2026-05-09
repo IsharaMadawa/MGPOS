@@ -122,6 +122,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const [paymentMethod, setPaymentMethod] = useState(PaymentMethod.CASH) // cash, card, credit
   const [cashAmount, setCashAmount] = useState('')
   const [cardAmount, setCardAmount] = useState('')
+  const [amountGiven, setAmountGiven] = useState('')
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
@@ -147,6 +148,10 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const cardPayment = parseFloat(cardAmount) || 0
   const totalPaid = cashPayment + cardPayment
   const remainingAmount = total - totalPaid
+  
+  // Amount given and balance calculations for cash payments
+  const amountGivenValue = parseFloat(amountGiven) || 0
+  const balanceReturned = paymentMethod === PaymentMethod.CASH && amountGivenValue > total ? amountGivenValue - total : 0
 
   // Check if credit purchases are enabled
   const creditEnabled = settings?.creditPurchaseEnabled || false
@@ -162,6 +167,11 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     
     if (paymentMethod === PaymentMethod.SPLIT) {
       if (totalPaid < total) return false
+    }
+    
+    if (paymentMethod === PaymentMethod.CASH) {
+      // For cash payments, amount given should be at least the total
+      if (amountGivenValue > 0 && amountGivenValue < total) return false
     }
     
     return true
@@ -191,11 +201,15 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       cashAmount: 0,
       cardAmount: 0,
       creditAmount: 0,
-      digitalAmount: 0
+      digitalAmount: 0,
+      amountGiven: 0,
+      balanceReturned: 0
     }
     
     if (paymentMethod === PaymentMethod.CASH) {
       paymentDetails.cashAmount = checkoutTotal
+      paymentDetails.amountGiven = amountGivenValue || checkoutTotal
+      paymentDetails.balanceReturned = paymentDetails.amountGiven > checkoutTotal ? paymentDetails.amountGiven - checkoutTotal : 0
     } else if (paymentMethod === PaymentMethod.CARD) {
       paymentDetails.cardAmount = checkoutTotal
     } else if (paymentMethod === PaymentMethod.DIGITAL) {
@@ -205,6 +219,8 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     } else if (paymentMethod === PaymentMethod.SPLIT) {
       paymentDetails.cashAmount = cashPayment
       paymentDetails.cardAmount = cardPayment
+      paymentDetails.amountGiven = cashPayment + cardPayment
+      paymentDetails.balanceReturned = paymentDetails.amountGiven > checkoutTotal ? paymentDetails.amountGiven - checkoutTotal : 0
     }
     
     // Create billing log with checkout-time settings and calculations
@@ -250,6 +266,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     setPaymentMethod(PaymentMethod.CASH)
     setCashAmount('')
     setCardAmount('')
+    setAmountGiven('')
   }
 
   const handleRemoveItem = (itemKey) => {
@@ -355,6 +372,11 @@ ${billingSettings?.taxEnabled ? `<div class="row muted"><span>Tax (${billingSett
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
 <div class="divider"></div>
+${receiptSnapshot.paymentDetails && (receiptSnapshot.paymentDetails.amountGiven > 0 || receiptSnapshot.paymentDetails.balanceReturned > 0) ? `
+${receiptSnapshot.paymentDetails.amountGiven > 0 ? `<div class="row"><span>Amount Given</span><span>${fmt(receiptSnapshot.paymentDetails.amountGiven, sym)}</span></div>` : ''}
+${receiptSnapshot.paymentDetails.balanceReturned > 0 ? `<div class="row"><span>Balance Returned</span><span class="text-emerald-600">${fmt(receiptSnapshot.paymentDetails.balanceReturned, sym)}</span></div>` : ''}
+<div class="divider"></div>
+` : ''}
 <p class="footer">${storeInfo.footer || 'Thank you for your purchase!'}</p>
 </body></html>`)
     win.document.close()
@@ -497,6 +519,22 @@ ${billingSettings?.taxEnabled ? `<div class="row muted"><span>Tax (${billingSett
               <span>Total</span>
               <span>{fmt(rTotal, sym)}</span>
             </div>
+            
+            {/* Amount Given and Balance Returned */}
+            {receiptSnapshot.paymentDetails && (receiptSnapshot.paymentDetails.amountGiven > 0 || receiptSnapshot.paymentDetails.balanceReturned > 0) && (
+              <>
+                <div className="flex justify-between text-gray-600 pt-1">
+                  <span>Amount Given</span>
+                  <span>{fmt(receiptSnapshot.paymentDetails.amountGiven, sym)}</span>
+                </div>
+                {receiptSnapshot.paymentDetails.balanceReturned > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Balance Returned</span>
+                    <span>{fmt(receiptSnapshot.paymentDetails.balanceReturned, sym)}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -762,6 +800,35 @@ ${billingSettings?.taxEnabled ? `<div class="row muted"><span>Tax (${billingSett
               </button>
             </div>
           </div>
+
+          {/* Cash Payment Amount */}
+          {paymentMethod === PaymentMethod.CASH && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount Given</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amountGiven}
+                  onChange={(e) => setAmountGiven(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder={fmt(total, sym)}
+                />
+              </div>
+              {amountGivenValue > 0 && (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div>Total Due: {fmt(total, sym)}</div>
+                  {amountGivenValue < total && (
+                    <div className="text-amber-600">Remaining: {fmt(total - amountGivenValue, sym)}</div>
+                  )}
+                  {amountGivenValue >= total && balanceReturned > 0 && (
+                    <div className="text-emerald-600">Balance Returned: {fmt(balanceReturned, sym)}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Split Payment Amounts */}
           {paymentMethod === PaymentMethod.SPLIT && (

@@ -152,15 +152,42 @@ For better customer relationship management:
    - **Digital**: Digital wallet or online payment methods
    - **Credit**: Credit purchase (requires customer selection and feature enablement)
    - **Split**: Partial cash and partial card payment
-3. For split payments:
+3. For cash payments:
+   - Enter the amount given by the customer (optional - defaults to total amount)
+   - System will automatically calculate and display:
+     - **Total Due**: The exact amount required
+     - **Remaining**: Amount still needed if underpayment
+     - **Balance Returned**: Change to be given back if overpayment (shown in green)
+4. For split payments:
    - Enter cash amount
    - Enter card amount
-   - System will show remaining balance or change
-4. For credit purchases:
+   - System will show total paid, remaining balance, or change
+5. For credit purchases:
    - Customer selection is mandatory
    - Credit balance will be automatically updated
-5. Click **"Complete Sale"** to finalize the transaction
-6. Print or email the receipt as needed
+6. Click **"Complete Sale"** to finalize the transaction
+7. Print or email the receipt as needed
+
+### Payment Amount Display Features
+
+#### Cash Payment Enhancements
+- **Amount Given Field**: Enter the exact amount received from customer
+- **Real-time Calculations**: See remaining balance or change instantly
+- **Visual Indicators**: 
+  - Amber text for remaining amount (underpayment)
+  - Green text for balance returned (overpayment)
+  - Automatic validation to prevent insufficient payments
+
+#### Receipt and Bill Information
+- **Amount Given**: Shows exactly how much money the customer provided
+- **Balance Returned**: Displays change calculated for the transaction
+- **Payment Breakdown**: Clear separation of payment method details
+- **Printed Receipts**: Includes amount given and balance returned on physical receipts
+
+#### Bill History and Reports
+- **Transaction Details**: View amount given and balance returned in bill history
+- **Reprint Functionality**: Reprinted bills include complete payment information
+- **Report Integration**: Payment amount data available in detailed reports
 
 ### Payment Method Features
 - **Digital Payments**: Support for digital wallets and online payment methods
