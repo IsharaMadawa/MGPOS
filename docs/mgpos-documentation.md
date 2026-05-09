@@ -584,6 +584,36 @@ Super administrators and organization administrators with access to multiple org
 - **Payment Methods**: Payment type distribution
 - **Discount Analysis**: Detailed discount breakdown and impact
 
+#### Customer Purchase History Reports
+- **Customer Transaction History**: View all transactions for a specific customer
+- **Customer Search**: Find customers by name or phone number
+- **Purchase Analysis**: Analyze customer purchasing patterns over time
+- **Multi-Period Analysis**: Generate reports for different time periods
+- **Detailed Transaction Breakdown**: See individual purchases with payment methods, discounts, and items
+
+**How to Generate Customer Purchase History Reports**:
+1. Go to Reports section from the main menu
+2. Select "Customer Purchase History" from the Report Type dropdown
+3. Enter customer name or phone number in the search field
+4. Select the time period (Today, This Week, This Month, This Year, or Custom)
+5. For custom periods, set specific start and end dates
+6. Click "Generate Report" to view the customer's purchase history
+
+**Report Features**:
+- **Flexible Search**: Search by customer name or phone number (partial matching supported)
+- **Summary Statistics**: Total transactions, gross sales, discounts, and net sales
+- **Detailed Transaction List**: Each transaction shows receipt number, date, cashier, payment method, and pricing details
+- **Multi-Organization Support**: Super admins can generate reports across multiple organizations
+- **Print Functionality**: Generate printable reports with customer information
+- **Real-time Filtering**: Reports update instantly as you change customer search or time periods
+
+**Use Cases**:
+- Provide customers with their complete purchase history
+- Analyze customer spending patterns and frequency
+- Track customer loyalty and purchasing behavior
+- Generate statements for credit account customers
+- Investigate customer-specific issues or inquiries
+
 #### Enhanced Discount Reporting
 The system now provides comprehensive discount information across all reports, showing exactly how discounts are applied to each transaction.
 

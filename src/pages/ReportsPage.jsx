@@ -32,6 +32,7 @@ export default function ReportsPage() {
   const [selectedOrgs, setSelectedOrgs] = useState([])
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
+  const [selectedCustomer, setSelectedCustomer] = useState('')
   const [generated, setGenerated] = useState(false)
 
   // For super admin, determine current org
@@ -106,7 +107,7 @@ export default function ReportsPage() {
       try {
         await logUserAction(
           'REPORT_GENERATE',
-          `Generated ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}`,
+          `Generated ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && selectedCustomer ? ` - Customer: ${selectedCustomer}` : ''}`,
           userProfile,
           currentOrgId,
           {
@@ -114,7 +115,8 @@ export default function ReportsPage() {
             reportType,
             orgIds: orgs,
             transactionCount: reports.length,
-            summary: calculateSummary(reports)
+            summary: calculateSummary(reports),
+            ...(reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && { customerSearch: selectedCustomer })
           }
         )
       } catch (logError) {
@@ -184,6 +186,88 @@ export default function ReportsPage() {
     } catch (error) {
       console.error('Error filtering reports by payment method:', error)
       return []
+    }
+  }
+
+  // Helper function to filter reports by customer
+  const filterReportsByCustomer = (reports, customerSearch) => {
+    if (!reports || !Array.isArray(reports) || !customerSearch) return []
+    
+    try {
+      const searchTerm = customerSearch.toLowerCase().trim()
+      return reports.filter(bill => {
+        if (!bill || !bill.customer) return false
+        
+        const customerName = bill.customer.name?.toLowerCase() || ''
+        const customerPhone = bill.customer.phone?.toLowerCase() || ''
+        
+        return customerName.includes(searchTerm) || customerPhone.includes(searchTerm)
+      })
+    } catch (error) {
+      console.error('Error filtering reports by customer:', error)
+      return []
+    }
+  }
+
+  const calculateCustomerPurchaseSummary = (reports, customerSearch) => {
+    try {
+      const filteredReports = filterReportsByCustomer(reports, customerSearch)
+      let grossSales = 0
+      let totalDiscounts = 0
+      
+      filteredReports.forEach(bill => {
+        if (!bill) return
+        
+        try {
+          grossSales += bill.cart ? bill.cart.reduce((sum, item) => {
+            if (!item || !item.price || !item.qty) return sum
+            return sum + (item.price * item.qty)
+          }, 0) : 0
+          
+          let itemDiscounts = 0
+          if (bill.cart && Array.isArray(bill.cart)) {
+            itemDiscounts = bill.cart.reduce((sum, item) => {
+              if (!item || !item.price || !item.qty) return sum
+              const lineTotal = item.price * item.qty
+              let itemDiscount = 0
+              try {
+                if (item.cartDiscount != null && item.cartDiscount !== '') {
+                  const val = parseFloat(item.cartDiscount) || 0
+                  itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                } else if (item.discount?.enabled) {
+                  if (item.discount.type === DiscountType.PERCENTAGE) {
+                    itemDiscount = lineTotal * (item.discount.value / 100)
+                  } else {
+                    itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                  }
+                }
+              } catch (discountError) {
+                console.warn('Error calculating item discount:', discountError)
+              }
+              return sum + itemDiscount
+            }, 0)
+          }
+          const globalDiscount = bill.discountAmount || 0
+          totalDiscounts += itemDiscounts + globalDiscount
+        } catch (billError) {
+          console.warn('Error processing bill in customer purchase summary:', billError)
+        }
+      })
+      
+      return {
+        transactionCount: filteredReports.length,
+        grossSales,
+        totalDiscounts,
+        netSales: grossSales - totalDiscounts
+      }
+    } catch (error) {
+      console.error('Error in calculateCustomerPurchaseSummary:', error)
+      return {
+        transactionCount: 0,
+        grossSales: 0,
+        totalDiscounts: 0,
+        netSales: 0
+      }
     }
   }
 
@@ -288,6 +372,8 @@ export default function ReportsPage() {
     let currentSummary = summary
     if (reportType === ReportType.CASH || reportType === ReportType.CARD || reportType === ReportType.DIGITAL || reportType === ReportType.CREDIT) {
       currentSummary = calculatePaymentMethodSummary(reports, reportType)
+    } else if (reportType === ReportType.CUSTOMER_PURCHASE_HISTORY) {
+      currentSummary = calculateCustomerPurchaseSummary(reports, selectedCustomer)
     }
     
     const printWindow = window.open('', '_blank', 'width=800,height=600')
@@ -300,7 +386,7 @@ export default function ReportsPage() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>${reportType === ReportType.CASH ? 'Cash Sales Report' : reportType === ReportType.CARD ? 'Card Sales Report' : reportType === ReportType.DIGITAL ? 'Digital Sales Report' : reportType === ReportType.CREDIT ? 'Credit Sales Report' : 'Sales Report'}</title>
+        <title>${reportType === ReportType.CASH ? 'Cash Sales Report' : reportType === ReportType.CARD ? 'Card Sales Report' : reportType === ReportType.DIGITAL ? 'Digital Sales Report' : reportType === ReportType.CREDIT ? 'Credit Sales Report' : reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? 'Customer Purchase History Report' : 'Sales Report'}</title>
         <style>
           body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
           .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
@@ -323,8 +409,9 @@ export default function ReportsPage() {
       </head>
       <body>
         <div class="header">
-          <h1>${reportType === ReportType.CASH ? 'Cash Sales Report' : reportType === ReportType.CARD ? 'Card Sales Report' : reportType === ReportType.DIGITAL ? 'Digital Sales Report' : reportType === ReportType.CREDIT ? 'Credit Sales Report' : 'Sales Report'}</h1>
+          <h1>${reportType === ReportType.CASH ? 'Cash Sales Report' : reportType === ReportType.CARD ? 'Card Sales Report' : reportType === ReportType.DIGITAL ? 'Digital Sales Report' : reportType === ReportType.CREDIT ? 'Credit Sales Report' : reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? 'Customer Purchase History Report' : 'Sales Report'}</h1>
           <div class="org-info"><strong>Organization(s):</strong> ${orgNames}</div>
+          ${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? `<div class="report-info"><strong>Customer:</strong> ${selectedCustomer}</div>` : ''}
           <div class="report-info"><strong>Period:</strong> ${period.charAt(0).toUpperCase() + period.slice(1)}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}</div>
           <div class="report-info"><strong>Report Generated:</strong> ${reportDate} at ${reportTime}</div>
           <div class="report-info"><strong>Generated By:</strong> ${userProfile?.displayName || 'Unknown User'}</div>
@@ -743,6 +830,135 @@ export default function ReportsPage() {
         ` : ''}
         ` : ''}
         
+        ${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? `
+        <div class="section-title">Customer Purchase History Details</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Receipt #</th>
+              <th>Date/Time</th>
+              ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
+              <th>Cashier</th>
+              <th>Payment Method</th>
+              <th class="text-right">Items</th>
+              <th class="text-right">Gross</th>
+              <th class="text-right">Discount</th>
+              <th class="text-right">Net</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filterReportsByCustomer(reports, selectedCustomer).map(bill => {
+              const trueGross = bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+              let itemDiscounts = 0
+              if (bill.cart) {
+                itemDiscounts = bill.cart.reduce((sum, item) => {
+                  const lineTotal = item.price * item.qty
+                  let itemDiscount = 0
+                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                    const val = parseFloat(item.cartDiscount) || 0
+                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                  } else if (item.discount?.enabled) {
+                    if (item.discount.type === DiscountType.PERCENTAGE) {
+                      itemDiscount = lineTotal * (item.discount.value / 100)
+                    } else {
+                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                    }
+                  }
+                  return sum + itemDiscount
+                }, 0)
+              }
+              const globalDiscount = bill.discountAmount || 0
+              const totalDiscounts = itemDiscounts + globalDiscount
+              const netSales = trueGross - totalDiscounts
+              
+              return `
+                <tr>
+                  <td>${bill.receiptNo}</td>
+                  <td>${new Date(bill.createdAt).toLocaleDateString()} ${new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? `<td>${bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>` : ''}
+                  <td>${bill.cashierName}</td>
+                  <td>${bill.paymentMethod === PaymentMethod.CASH ? 'Cash' : bill.paymentMethod === PaymentMethod.CARD ? 'Card' : bill.paymentMethod === PaymentMethod.DIGITAL ? 'Digital' : bill.paymentMethod === PaymentMethod.CREDIT ? 'Credit' : bill.paymentMethod === PaymentMethod.SPLIT ? 'Split' : 'Unknown'}</td>
+                  <td class="text-right">${bill.itemCount}</td>
+                  <td class="text-right">${formatCurrency(trueGross)}</td>
+                  <td class="text-right discount">${formatCurrency(totalDiscounts)}</td>
+                  <td class="text-right net">${formatCurrency(netSales)}</td>
+                  <td class="text-right font-bold">${formatCurrency(bill.total || 0)}</td>
+                </tr>
+              `
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+              <td colspan="${hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'}" style={{textAlign: 'right', padding: '8px'}}>
+                TOTALS
+              </td>
+              <td style={{textAlign: 'right', padding: '8px'}}>
+                ${filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+              </td>
+              <td style={{textAlign: 'right', padding: '8px'}}>
+                ${formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                  return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                }, 0))}
+              </td>
+              <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
+                ${formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === DiscountType.PERCENTAGE) {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  return sum + itemDiscounts + globalDiscount
+                }, 0))}
+              </td>
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669'}}>
+                ${formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                  const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                  let itemDiscounts = 0
+                  if (bill.cart) {
+                    itemDiscounts = bill.cart.reduce((discSum, item) => {
+                      const lineTotal = item.price * item.qty
+                      let itemDiscount = 0
+                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                        const val = parseFloat(item.cartDiscount) || 0
+                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                      } else if (item.discount?.enabled) {
+                        if (item.discount.type === DiscountType.PERCENTAGE) {
+                          itemDiscount = lineTotal * (item.discount.value / 100)
+                        } else {
+                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                        }
+                      }
+                      return discSum + itemDiscount
+                    }, 0)
+                  }
+                  const globalDiscount = bill.discountAmount || 0
+                  const netSales = trueGross - itemDiscounts - globalDiscount
+                  return sum + netSales
+                }, 0))}
+              </td>
+              <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
+                ${formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => sum + (bill.total || 0), 0))}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+        ` : ''}
+        
         <div style={{marginTop: '40px', textAlign: 'center', fontSize: '12px', color: '#666'}}>
           <p>End of Report</p>
         </div>
@@ -761,7 +977,7 @@ export default function ReportsPage() {
     try {
       await logUserAction(
         'REPORT_PRINT',
-        `Printed ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}`,
+        `Printed ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && selectedCustomer ? ` - Customer: ${selectedCustomer}` : ''}`,
         userProfile,
         currentOrgId,
         {
@@ -769,7 +985,8 @@ export default function ReportsPage() {
           reportType,
           orgIds: hasMultiOrgAccess && selectedOrgs.length > 0 ? selectedOrgs : [currentOrgId],
           transactionCount: reports.length,
-          summary
+          summary,
+          ...(reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && { customerSearch: selectedCustomer })
         }
       )
     } catch (logError) {
@@ -875,6 +1092,16 @@ export default function ReportsPage() {
                 >
                   Credit Sales
                 </button>
+                <button
+                  onClick={() => setReportType(ReportType.CUSTOMER_PURCHASE_HISTORY)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    reportType === ReportType.CUSTOMER_PURCHASE_HISTORY
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Customer Purchase History
+                </button>
                               </div>
             </div>
           </div>
@@ -900,6 +1127,22 @@ export default function ReportsPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Customer Selection for Customer Purchase History Report */}
+          {reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Customer Name or Phone
+              </label>
+              <input
+                type="text"
+                value={selectedCustomer}
+                onChange={e => setSelectedCustomer(e.target.value)}
+                placeholder="Enter customer name or phone number"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
             </div>
           )}
 
@@ -995,6 +1238,28 @@ export default function ReportsPage() {
                       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                         <p className="text-xs text-gray-500 uppercase">Transactions</p>
                         <p className="text-2xl font-bold text-gray-900">{paymentSummary.transactionCount}</p>
+                      </div>
+                    </>
+                  )
+                } else if (reportType === ReportType.CUSTOMER_PURCHASE_HISTORY) {
+                  const customerSummary = calculateCustomerPurchaseSummary(reports, selectedCustomer)
+                  return (
+                    <>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Gross Sales</p>
+                        <p className="text-2xl font-bold text-gray-900">{formatCurrency(customerSummary.grossSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Total Discounts</p>
+                        <p className="text-2xl font-bold text-rose-600">{formatCurrency(customerSummary.totalDiscounts)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Net Sales</p>
+                        <p className="text-2xl font-bold text-emerald-600">{formatCurrency(customerSummary.netSales)}</p>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                        <p className="text-xs text-gray-500 uppercase">Transactions</p>
+                        <p className="text-2xl font-bold text-gray-900">{customerSummary.transactionCount}</p>
                       </div>
                     </>
                   )
@@ -1298,6 +1563,201 @@ export default function ReportsPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Customer Purchase History Report */}
+            {reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && (
+              <div className="space-y-6">
+                {/* Customer Purchase History Summary */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900">
+                      Customer Purchase History for "{selectedCustomer}"
+                    </h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+                        <tr>
+                          <th className="px-4 py-3">Receipt #</th>
+                          <th className="px-4 py-3">Date/Time</th>
+                          {hasMultiOrgAccess && selectedOrgs.length > 0 && <th className="px-4 py-3">Organization</th>}
+                          <th className="px-4 py-3">Cashier</th>
+                          <th className="px-4 py-3">Payment Method</th>
+                          <th className="px-4 py-3 text-right">Items</th>
+                          <th className="px-4 py-3 text-right">Gross</th>
+                          <th className="px-4 py-3 text-right">Discount</th>
+                          <th className="px-4 py-3 text-right">Net</th>
+                          <th className="px-4 py-3 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {(() => {
+                          try {
+                            const customerReports = filterReportsByCustomer(reports, selectedCustomer)
+                            return customerReports.map((bill, idx) => {
+                              try {
+                                const trueGross = bill.cart ? bill.cart.reduce((sum, item) => {
+                                  if (!item || !item.price || !item.qty) return sum
+                                  return sum + (item.price * item.qty)
+                                }, 0) : 0
+                                
+                                let itemDiscounts = 0
+                                if (bill.cart && Array.isArray(bill.cart)) {
+                                  itemDiscounts = bill.cart.reduce((sum, item) => {
+                                    if (!item || !item.price || !item.qty) return sum
+                                    const lineTotal = item.price * item.qty
+                                    let itemDiscount = 0
+                                    try {
+                                      if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                        const val = parseFloat(item.cartDiscount) || 0
+                                        itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                      } else if (item.discount?.enabled) {
+                                        if (item.discount.type === DiscountType.PERCENTAGE) {
+                                          itemDiscount = lineTotal * (item.discount.value / 100)
+                                        } else {
+                                          itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                        }
+                                      }
+                                    } catch (discountError) {
+                                      console.warn('Error calculating item discount in customer report:', discountError)
+                                    }
+                                    return sum + itemDiscount
+                                  }, 0)
+                                }
+                                
+                                const globalDiscount = bill.discountAmount || 0
+                                const totalDiscounts = itemDiscounts + globalDiscount
+                                const netSales = trueGross - totalDiscounts
+                                
+                                return (
+                                  <tr key={idx} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3">{bill.receiptNo}</td>
+                                    <td className="px-4 py-3">
+                                      {new Date(bill.createdAt).toLocaleDateString()} {new Date(bill.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </td>
+                                    {hasMultiOrgAccess && selectedOrgs.length > 0 && (
+                                      <td className="px-4 py-3">{bill.orgName || organizations.find(o => o.id === bill.orgId)?.name || 'Unknown Organization'}</td>
+                                    )}
+                                    <td className="px-4 py-3">{bill.cashierName}</td>
+                                    <td className="px-4 py-3">
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                        bill.paymentMethod === PaymentMethod.CASH ? 'bg-green-100 text-green-800' :
+                                        bill.paymentMethod === PaymentMethod.CARD ? 'bg-blue-100 text-blue-800' :
+                                        bill.paymentMethod === PaymentMethod.DIGITAL ? 'bg-indigo-100 text-indigo-800' :
+                                        bill.paymentMethod === PaymentMethod.CREDIT ? 'bg-purple-100 text-purple-800' :
+                                        bill.paymentMethod === PaymentMethod.SPLIT ? 'bg-orange-100 text-orange-800' :
+                                        'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {bill.paymentMethod === PaymentMethod.CASH ? 'Cash' :
+                                         bill.paymentMethod === PaymentMethod.CARD ? 'Card' :
+                                         bill.paymentMethod === PaymentMethod.DIGITAL ? 'Digital' :
+                                         bill.paymentMethod === PaymentMethod.CREDIT ? 'Credit' :
+                                         bill.paymentMethod === PaymentMethod.SPLIT ? 'Split' : 'Unknown'}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-right">{bill.itemCount}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(trueGross)}</td>
+                                    <td className="px-4 py-3 text-right text-rose-600">{formatCurrency(totalDiscounts)}</td>
+                                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(netSales)}</td>
+                                    <td className="px-4 py-3 text-right font-bold">{formatCurrency(bill.total || 0)}</td>
+                                  </tr>
+                                )
+                              } catch (reportError) {
+                                console.error('Error rendering customer purchase report:', reportError)
+                                return (
+                                  <tr key={idx} className="hover:bg-gray-50">
+                                    <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? 9 : 8} className="px-4 py-3 text-center">
+                                      Error rendering report
+                                    </td>
+                                  </tr>
+                                )
+                              }
+                            })
+                          } catch (filterError) {
+                            console.error('Error filtering customer reports:', filterError)
+                            return (
+                              <tr className="hover:bg-gray-50">
+                                <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? 9 : 8} className="px-4 py-3 text-center">
+                                  Error filtering reports
+                                </td>
+                              </tr>
+                            )
+                          }
+                        })()}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+                          <td colSpan={hasMultiOrgAccess && selectedOrgs.length > 0 ? '5' : '4'} style={{textAlign: 'right', padding: '8px'}}>
+                            TOTALS
+                          </td>
+                          <td style={{textAlign: 'right', padding: '8px'}}>
+                            {filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => sum + (bill.itemCount || 0), 0)}
+                          </td>
+                          <td style={{textAlign: 'right', padding: '8px'}}>
+                            {formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                              return sum + (bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0)
+                            }, 0))}
+                          </td>
+                          <td style={{textAlign: 'right', padding: '8px', color: '#dc2626'}}>
+                            {formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                              let itemDiscounts = 0
+                              if (bill.cart) {
+                                itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                  const lineTotal = item.price * item.qty
+                                  let itemDiscount = 0
+                                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                    const val = parseFloat(item.cartDiscount) || 0
+                                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                  } else if (item.discount?.enabled) {
+                                    if (item.discount.type === DiscountType.PERCENTAGE) {
+                                      itemDiscount = lineTotal * (item.discount.value / 100)
+                                    } else {
+                                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                    }
+                                  }
+                                  return discSum + itemDiscount
+                                }, 0)
+                              }
+                              const globalDiscount = bill.discountAmount || 0
+                              return sum + itemDiscounts + globalDiscount
+                            }, 0))}
+                          </td>
+                          <td style={{textAlign: 'right', padding: '8px', color: '#059669'}}>
+                            {formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => {
+                              const trueGross = bill.cart ? bill.cart.reduce((itemSum, item) => itemSum + (item.price * item.qty), 0) : 0
+                              let itemDiscounts = 0
+                              if (bill.cart) {
+                                itemDiscounts = bill.cart.reduce((discSum, item) => {
+                                  const lineTotal = item.price * item.qty
+                                  let itemDiscount = 0
+                                  if (item.cartDiscount != null && item.cartDiscount !== '') {
+                                    const val = parseFloat(item.cartDiscount) || 0
+                                    itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+                                  } else if (item.discount?.enabled) {
+                                    if (item.discount.type === DiscountType.PERCENTAGE) {
+                                      itemDiscount = lineTotal * (item.discount.value / 100)
+                                    } else {
+                                      itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                                    }
+                                  }
+                                  return discSum + itemDiscount
+                                }, 0)
+                              }
+                              const globalDiscount = bill.discountAmount || 0
+                              const netSales = trueGross - itemDiscounts - globalDiscount
+                              return sum + netSales
+                            }, 0))}
+                          </td>
+                          <td style={{textAlign: 'right', padding: '8px', color: '#059669', fontWeight: 'bold'}}>
+                            {formatCurrency(filterReportsByCustomer(reports, selectedCustomer).reduce((sum, bill) => sum + (bill.total || 0), 0))}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
 
