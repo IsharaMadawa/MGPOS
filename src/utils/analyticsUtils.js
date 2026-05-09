@@ -3,10 +3,11 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 // Advanced analytics calculations for business insights
 
 export class AnalyticsCalculator {
-  constructor(data, currencySymbol = '$', categories = null) {
+  constructor(data, currencySymbol = '$', categories = null, masterCategories = null) {
     this.data = data || []
     this.currencySymbol = currencySymbol
     this.categories = categories
+    this.masterCategories = masterCategories
   }
 
   // Revenue Analytics
@@ -124,11 +125,27 @@ export class AnalyticsCalculator {
 
   // Helper method to map category ID to name
   mapCategoryToName(categoryId) {
-    if (!categoryId || !this.categories || !Array.isArray(this.categories)) {
-      return categoryId || 'Uncategorized'
+    if (!categoryId) return 'Uncategorized'
+    
+    // Check if it's already a name (not an ID) - prioritize name matching
+    let foundCategory = this.categories?.find(cat => cat.name === categoryId)
+    
+    // If not found by name, check by ID (for ID-based categories)
+    if (!foundCategory) {
+      foundCategory = this.categories?.find(cat => cat.id === categoryId)
     }
     
-    const foundCategory = this.categories.find(cat => cat.id === categoryId || cat.name === categoryId)
+    // If not found in categories, check master categories
+    if (!foundCategory && this.masterCategories) {
+      // First try to match by name
+      foundCategory = this.masterCategories.find(cat => cat.name === categoryId)
+      
+      // If not found by name, try to match by ID
+      if (!foundCategory) {
+        foundCategory = this.masterCategories.find(cat => cat.id === categoryId)
+      }
+    }
+    
     return foundCategory ? foundCategory.name : categoryId
   }
 
@@ -464,7 +481,7 @@ export class AnalyticsCalculator {
 
 // Utility functions for specific calculations
 export const calculateBusinessMetrics = (data, options = {}) => {
-  const analytics = new AnalyticsCalculator(data, options.currencySymbol, options.categories)
+  const analytics = new AnalyticsCalculator(data, options.currencySymbol, options.categories, options.masterCategories)
   
   return {
     revenue: analytics.calculateRevenueMetrics(options.period),

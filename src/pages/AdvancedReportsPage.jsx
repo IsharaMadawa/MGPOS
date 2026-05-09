@@ -104,8 +104,9 @@ export default function AdvancedReportsPage() {
     exportData 
   } = useAdvancedReports()
   const { addToast } = useToast()
-  const { currencySymbol } = useSettings()
+  const { currencySymbol, settings } = useSettings()
   const { categories, loading: categoriesLoading } = useCategories()
+  const masterCategories = settings.masterCategories
 
   const [period, setPeriod] = useState(ReportPeriod.THIS_MONTH)
   const [customStart, setCustomStart] = useState('')
@@ -121,10 +122,37 @@ export default function AdvancedReportsPage() {
 
   // Helper function to map category ID to name (fallback for any unmapped categories)
   const getCategoryName = (categoryId) => {
+    console.log('getCategoryName called with:', categoryId)
+    console.log('Available categories:', categories)
+    console.log('Available masterCategories:', masterCategories)
+    
     if (!categoryId) return 'Uncategorized'
     
-    // Check if it's already a name (not an ID)
-    const foundCategory = categories.find(cat => cat.id === categoryId || cat.name === categoryId)
+    // Prioritize masterCategories since that's where categories are actually stored
+    let foundCategory = null
+    
+    if (masterCategories) {
+      // First try to match by name
+      foundCategory = masterCategories.find(cat => cat.name === categoryId)
+      
+      // If not found by name, try to match by ID
+      if (!foundCategory) {
+        foundCategory = masterCategories.find(cat => cat.id === categoryId)
+      }
+    }
+    
+    // If not found in master categories, check Firestore categories
+    if (!foundCategory && categories.length > 0) {
+      // First try to match by name
+      foundCategory = categories.find(cat => cat.name === categoryId)
+      
+      // If not found by name, check by ID (for ID-based categories)
+      if (!foundCategory) {
+        foundCategory = categories.find(cat => cat.id === categoryId)
+      }
+    }
+    
+    console.log('Found category:', foundCategory)
     return foundCategory ? foundCategory.name : categoryId
   }
 
@@ -138,10 +166,13 @@ export default function AdvancedReportsPage() {
 
   // Regenerate report when categories are loaded (if report was already generated)
   useEffect(() => {
-    if (!categoriesLoading && categories.length > 0 && dashboardSummary?.topCategories?.length > 0) {
-      fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, categories)
+    console.log('useEffect triggered:', { categoriesLoading, categoriesLength: categories.length, masterCategoriesLength: masterCategories?.length, dashboardSummaryTopCategoriesLength: dashboardSummary?.topCategories?.length })
+    // Use masterCategories instead of Firestore categories since that's where categories are actually stored
+    if (!categoriesLoading && masterCategories && masterCategories.length > 0 && dashboardSummary?.topCategories?.length > 0) {
+      console.log('Regenerating report with masterCategories')
+      fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, [], masterCategories)
     }
-  }, [categoriesLoading, categories.length])
+  }, [categoriesLoading, masterCategories?.length])
 
   if (authLoading) {
     return (
@@ -175,13 +206,8 @@ export default function AdvancedReportsPage() {
 
   const handleGenerateReport = async () => {
     try {
-      // Prevent report generation if categories are still loading
-      if (categoriesLoading) {
-        addToast('Please wait for categories to load before generating report', 'warning')
-        return
-      }
-      
-      await fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, categories)
+      // Use masterCategories directly since that's where categories are actually stored
+      await fetchAdvancedData(period, customStart ? new Date(customStart) : null, customEnd ? new Date(customEnd) : null, selectedOrgs, [], masterCategories)
       
       // Log report generation
       await logUserAction(
@@ -248,7 +274,7 @@ export default function AdvancedReportsPage() {
   // Get chart data
   const revenueChartData = getChartData('revenue-trend', { period })
   const productChartData = getChartData('product-performance', { topN: 10 })
-  const categoryChartData = getChartData('category-distribution')
+  const categoryChartData = getChartData('category-distribution', { categories: [], masterCategories })
   const paymentChartData = getChartData('payment-methods')
   const hourlyChartData = getChartData('hourly-sales')
 

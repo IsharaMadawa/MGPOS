@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from './ToastContainer'
 import { logUserAction, LOG_TYPES } from '../utils/logger'
-import { useCategories } from '../hooks/useCategories'
 import { CURRENCIES } from '../hooks/useSettings'
 
 function MasterDataTab({ settings, updateSettings }) {

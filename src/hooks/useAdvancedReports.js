@@ -29,7 +29,7 @@ export function useAdvancedReports() {
   const hasMultiOrgAccess = isSuperAdmin || (adminOrganizations.length > 1)
 
   // Fetch comprehensive data for advanced analytics
-  const fetchAdvancedData = useCallback(async (period, customStart, customEnd, selectedOrgs = null, categoriesData = null) => {
+  const fetchAdvancedData = useCallback(async (period, customStart, customEnd, selectedOrgs = null, categoriesData = null, masterCategoriesData = null) => {
     setLoading(true)
     setError(null)
     
@@ -95,7 +95,8 @@ export function useAdvancedReports() {
         period,
         currencySymbol: '$', // This should come from settings
         days: period === 'month' ? 30 : period === 'week' ? 7 : 1,
-        categories: categoriesData
+        categories: categoriesData,
+        masterCategories: masterCategoriesData
       })
       
       setAnalytics(analyticsData)
@@ -151,7 +152,7 @@ export function useAdvancedReports() {
       case 'product-performance':
         return getProductPerformanceData(analytics?.products || [], options)
       case 'category-distribution':
-        return getCategoryDistributionData(analytics?.categories || [], options)
+        return getCategoryDistributionData(analytics?.categories || [], { ...options, categories: options.categories })
       case 'payment-methods':
         return getPaymentMethodsData(analytics?.paymentMethods || [], options)
       case 'hourly-sales':
@@ -318,9 +319,35 @@ export function useAdvancedReports() {
   }
 
   const getCategoryDistributionData = (categories, options) => {
+    // Helper function to map category ID to name (consistent with AdvancedReportsPage)
+    const mapCategoryToName = (categoryId) => {
+      if (!categoryId) return 'Uncategorized'
+      
+      // Check if it's already a name (not an ID) - prioritize name matching
+      let foundCategory = options.categories?.find(cat => cat.name === categoryId)
+      
+      // If not found by name, check by ID (for ID-based categories)
+      if (!foundCategory) {
+        foundCategory = options.categories?.find(cat => cat.id === categoryId)
+      }
+      
+      // If not found in Firestore categories, check master categories from settings
+      if (!foundCategory && options.masterCategories) {
+        // First try to match by name
+        foundCategory = options.masterCategories.find(cat => cat.name === categoryId)
+        
+        // If not found by name, try to match by ID
+        if (!foundCategory) {
+          foundCategory = options.masterCategories.find(cat => cat.id === categoryId)
+        }
+      }
+      
+      return foundCategory ? foundCategory.name : categoryId
+    }
+    
     return {
       data: categories.map(category => ({
-        name: category.category,
+        name: mapCategoryToName(category.category),
         value: category.revenue,
         percentage: category.percentage || 0
       })),
