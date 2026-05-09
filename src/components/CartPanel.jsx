@@ -3,7 +3,10 @@ import { CURRENCIES } from '../hooks/useSettings'
 import { useAuth } from '../contexts/AuthContext'
 import { useBillingLogs } from '../hooks/useBillingLogs'
 import { useToast } from '../components/ToastContainer'
+import { getItemDiscountDetails, getCartDiscountBreakdown } from '../utils/discountUtils'
+import { DiscountType, DiscountMode, PaymentMethod, DiscountSource, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
 import ProductModal from './ProductModal'
+import CustomerSearchModal from './CustomerSearchModal'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -23,7 +26,7 @@ function fmtTime(ts) {
 }
 
 function getItemDiscount(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
   
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
@@ -32,20 +35,20 @@ function getItemDiscount(item, settings) {
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       return lineTotal * (item.discount.value / 100)
     }
     return Math.min(item.discount.value * item.qty, lineTotal)
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         return lineTotal * (catDisc.value / 100)
       }
       return Math.min(catDisc.value * item.qty, lineTotal)
@@ -59,7 +62,7 @@ function getItemDiscount(item, settings) {
 
 // Get discount info for display (percentage and source)
 function getItemDiscountInfo(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DiscountMode.GLOBAL
   const result = { amount: 0, percentage: 0, source: null }
   
   // Cart-level override
@@ -69,38 +72,38 @@ function getItemDiscountInfo(item, settings) {
     const cappedVal = Math.min(Math.max(val, 0), lineTotal)
     result.amount = cappedVal
     result.percentage = lineTotal > 0 ? (cappedVal / lineTotal) * 100 : 0
-    result.source = 'custom'
+    result.source = DiscountSource.CUSTOM
     return result
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       result.amount = lineTotal * (item.discount.value / 100)
       result.percentage = item.discount.value
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     } else {
       result.amount = Math.min(item.discount.value * item.qty, lineTotal)
       result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     }
     return result
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         result.amount = lineTotal * (catDisc.value / 100)
         result.percentage = catDisc.value
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       } else {
         result.amount = Math.min(catDisc.value * item.qty, lineTotal)
         result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       }
       return result
     }
@@ -114,6 +117,12 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const [receiptSnapshot, setReceiptSnapshot] = useState({ no: '', time: null, cart: [], cashierName: '' })
   const [editingItem, setEditingItem] = useState(null)
   const [itemToRemove, setItemToRemove] = useState(null)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [showCustomerModal, setShowCustomerModal] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState(PaymentMethod.CASH) // cash, card, credit
+  const [cashAmount, setCashAmount] = useState('')
+  const [cardAmount, setCardAmount] = useState('')
+  const [amountGiven, setAmountGiven] = useState('')
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
@@ -122,33 +131,116 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
   const taxEnabled = settings?.taxEnabled || false
   const taxRate = settings?.taxRate || 0
-  const discountMode = settings?.discountMode || 'global'
+  const discountMode = settings?.discountMode || DiscountMode.GLOBAL
 
   const subtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
   const itemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item, settings), 0)
   
   // Global discount is applied at cart level (for global mode only)
-  const discountPct = (discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
+  const discountPct = (discountMode === DiscountMode.GLOBAL && settings?.globalDiscount) ? settings.globalDiscount : 0
   const discountAmount = discountPct > 0 ? subtotal * (discountPct / 100) : 0
   const taxBase = subtotal - discountAmount
   const taxAmount = taxEnabled ? taxBase * (taxRate / 100) : 0
   const total = taxBase + taxAmount
 
+  // Payment method calculations
+  const cashPayment = parseFloat(cashAmount) || 0
+  const cardPayment = parseFloat(cardAmount) || 0
+  const totalPaid = cashPayment + cardPayment
+  const remainingAmount = total - totalPaid
+  
+  // Amount given and balance calculations for cash payments
+  const amountGivenValue = parseFloat(amountGiven) || 0
+  const balanceReturned = paymentMethod === PaymentMethod.CASH && amountGivenValue > total ? amountGivenValue - total : 0
+
+  // Check if credit purchases are enabled
+  const creditEnabled = settings?.creditPurchaseEnabled || false
+
+  // Validate checkout requirements
+  const canCheckout = () => {
+    if (cart.length === 0) return false
+    
+    if (paymentMethod === PaymentMethod.CREDIT) {
+      if (!creditEnabled) return false
+      if (!selectedCustomer) return false
+    }
+    
+    if (paymentMethod === PaymentMethod.SPLIT) {
+      if (totalPaid < total) return false
+    }
+    
+    if (paymentMethod === PaymentMethod.CASH) {
+      // For cash payments, amount given should be at least the total
+      if (amountGivenValue > 0 && amountGivenValue < total) return false
+    }
+    
+    return true
+  }
+
   const handleCheckout = async () => {
-    if (cart.length === 0) return
+    if (!canCheckout()) return
     
     const receiptNo = Date.now().toString().slice(-6)
     const now = Date.now()
     
-    // Create billing log
+    // Capture billing settings snapshot at checkout time
+    const billingSettingsSnapshot = { ...settings }
+    
+    // Recalculate totals using checkout-time settings
+    const checkoutSubtotal = cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, billingSettingsSnapshot), 0)
+    const checkoutItemDiscountTotal = cart.reduce((s, item) => s + getItemDiscount(item, billingSettingsSnapshot), 0)
+    const checkoutDiscountPct = (billingSettingsSnapshot?.discountMode === DiscountMode.GLOBAL && billingSettingsSnapshot?.globalDiscount) ? billingSettingsSnapshot.globalDiscount : 0
+    const checkoutDiscountAmount = checkoutDiscountPct > 0 ? checkoutSubtotal * (checkoutDiscountPct / 100) : 0
+    const checkoutTaxBase = checkoutSubtotal - checkoutDiscountAmount
+    const checkoutTaxAmount = billingSettingsSnapshot?.taxEnabled ? checkoutTaxBase * (billingSettingsSnapshot?.taxRate / 100) : 0
+    const checkoutTotal = checkoutTaxBase + checkoutTaxAmount
+    
+    // Determine payment details
+    let paymentDetails = {
+      method: paymentMethod,
+      cashAmount: 0,
+      cardAmount: 0,
+      creditAmount: 0,
+      digitalAmount: 0,
+      amountGiven: 0,
+      balanceReturned: 0
+    }
+    
+    if (paymentMethod === PaymentMethod.CASH) {
+      paymentDetails.cashAmount = checkoutTotal
+      paymentDetails.amountGiven = amountGivenValue || checkoutTotal
+      paymentDetails.balanceReturned = paymentDetails.amountGiven > checkoutTotal ? paymentDetails.amountGiven - checkoutTotal : 0
+    } else if (paymentMethod === PaymentMethod.CARD) {
+      paymentDetails.cardAmount = checkoutTotal
+    } else if (paymentMethod === PaymentMethod.DIGITAL) {
+      paymentDetails.digitalAmount = checkoutTotal
+    } else if (paymentMethod === PaymentMethod.CREDIT) {
+      paymentDetails.creditAmount = checkoutTotal
+    } else if (paymentMethod === PaymentMethod.SPLIT) {
+      paymentDetails.cashAmount = cashPayment
+      paymentDetails.cardAmount = cardPayment
+      paymentDetails.amountGiven = cashPayment + cardPayment
+      paymentDetails.balanceReturned = paymentDetails.amountGiven > checkoutTotal ? paymentDetails.amountGiven - checkoutTotal : 0
+    }
+    
+    // Create billing log with checkout-time settings and calculations
     const saleData = {
       receiptNo,
       cart: cart.map(i => ({ ...i })),
-      subtotal,
-      discountAmount,
-      taxAmount,
-      total,
+      subtotal: checkoutSubtotal,
+      discountAmount: checkoutDiscountAmount,
+      taxAmount: checkoutTaxAmount,
+      total: checkoutTotal,
       itemCount: cart.length,
+      paymentMethod: paymentDetails.method,
+      paymentDetails,
+      customer: selectedCustomer ? {
+        id: selectedCustomer.id,
+        name: selectedCustomer.name,
+        phone: selectedCustomer.phone
+      } : null,
+      customerId: selectedCustomer?.id || null,
+      billingSettings: billingSettingsSnapshot // Store settings snapshot for reference
     }
     
     // Save to billing logs (async, don't wait)
@@ -159,6 +251,10 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       time: now,
       cart: cart.map(i => ({ ...i })),
       cashierName: userProfile?.displayName || 'Unknown',
+      paymentMethod: paymentDetails.method,
+      paymentDetails,
+      customer: selectedCustomer,
+      billingSettings: billingSettingsSnapshot // Include settings snapshot in receipt
     })
     setShowReceipt(true)
   }
@@ -166,6 +262,11 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
   const handleNewSale = () => {
     onClear()
     setShowReceipt(false)
+    setSelectedCustomer(null)
+    setPaymentMethod(PaymentMethod.CASH)
+    setCashAmount('')
+    setCardAmount('')
+    setAmountGiven('')
   }
 
   const handleRemoveItem = (itemKey) => {
@@ -187,13 +288,22 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
     setItemToRemove(null)
   }
 
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer)
+  }
+
+  const handleCustomerRemove = () => {
+    setSelectedCustomer(null)
+  }
+
   const handlePrint = () => {
-    const { no, time, cart: rCart } = receiptSnapshot
-    const storeInfo = settings?.storeInfo || {}
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
-    const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
+    const { no, time, cart: rCart, billingSettings } = receiptSnapshot
+    const storeInfo = billingSettings?.storeInfo || settings?.storeInfo || {}
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, billingSettings), 0)
+    const rDiscountPct = (billingSettings?.discountMode === DiscountMode.GLOBAL && billingSettings?.globalDiscount) ? billingSettings.globalDiscount : 0
+    const rDisc = rDiscountPct > 0 ? rSub * (rDiscountPct / 100) : 0
     const rTaxBase = rSub - rDisc
-    const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
+    const rTax = billingSettings?.taxEnabled ? rTaxBase * (billingSettings?.taxRate / 100) : 0
     const rTotal = rTaxBase + rTax
 
     const win = window.open('', '_blank', 'width=420,height=700')
@@ -225,26 +335,48 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${no}</span><span class="muted">${fmtDate(time)} ${fmtTime(time)}</span></div>
 <div class="row muted"><span>Cashier:</span><span>${receiptSnapshot.cashierName || 'Unknown'}</span></div>
+${receiptSnapshot.customer ? `<div class="row muted"><span>Customer:</span><span>${receiptSnapshot.customer.name}${receiptSnapshot.customer.phone ? ` (${receiptSnapshot.customer.phone})` : ''}</span></div>` : ''}
+${receiptSnapshot.paymentMethod ? `<div class="row muted"><span>Payment:</span><span>${receiptSnapshot.paymentMethod === PaymentMethod.CASH ? 'Cash' : receiptSnapshot.paymentMethod === PaymentMethod.CARD ? 'Card' : receiptSnapshot.paymentMethod === PaymentMethod.DIGITAL ? 'Digital' : receiptSnapshot.paymentMethod === PaymentMethod.CREDIT ? 'Credit' : 'Split'}</span></div>` : ''}
+${receiptSnapshot.paymentMethod === PaymentMethod.SPLIT && receiptSnapshot.paymentDetails ? `
+${receiptSnapshot.paymentDetails.cashAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Cash:</span><span>${fmt(receiptSnapshot.paymentDetails.cashAmount, sym)}</span></div>` : ''}
+${receiptSnapshot.paymentDetails.cardAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Card:</span><span>${fmt(receiptSnapshot.paymentDetails.cardAmount, sym)}</span></div>` : ''}
+` : ''}
 <div class="divider"></div>
 ${rCart.map(item => {
-  const itemDisc = getItemDiscount(item, settings)
-  const discInfo = getItemDiscountInfo(item, settings)
+  const itemDisc = getItemDiscount(item, billingSettings)
+  const discInfo = getItemDiscountInfo(item, billingSettings)
   const lineTotal = item.price * item.qty
   const discountedTotal = lineTotal - itemDisc
   const hasDiscount = itemDisc > 0
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === DiscountType.PERCENTAGE || (billingSettings?.discountMode === DiscountMode.CATEGORY && billingSettings?.categoryDiscounts?.[item.category]?.type === DiscountType.PERCENTAGE) || (billingSettings?.discountMode === DiscountMode.GLOBAL && billingSettings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
   <span class="row-amount">${fmt(discountedTotal, sym)}</span>
 </div>`
 }).join('')}
 <div class="divider"></div>
 <div class="row"><span>Gross Amount</span><span>${fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
-${(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) ? `<div class="row muted"><span>Discount ${discountPct > 0 ? `(${discountPct}%)` : ''}</span><span>−${fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span></div>` : ''}
+${(() => {
+  const discountBreakdown = getCartDiscountBreakdown(rCart, billingSettings)
+  const hasDiscounts = discountBreakdown.totalDiscount > 0
+  return hasDiscounts ? `
+    ${discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => 
+      `<div class="row muted"><span>${item.itemName} (${item.quantity}x)</span><span>−${fmt(item.discount.amount, sym)} - ${item.discount.description}</span></div>`
+    ).join('')}
+    ${discountBreakdown.globalDiscount > 0 ? `<div class="row muted"><span>Global Discount</span><span>−${fmt(discountBreakdown.globalDiscount, sym)} (${discountBreakdown.globalDiscountPercentage}%)</span></div>` : ''}
+    <div class="row muted"><strong>Total Discount</strong></div>
+    <div class="row muted"><span></span><span>−${fmt(discountBreakdown.totalDiscount, sym)}</span></div>
+  ` : ''
+})()}
 <div class="row"><span>Net Amount</span><span>${fmt(rSub, sym)}</span></div>
-${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
+${billingSettings?.taxEnabled ? `<div class="row muted"><span>Tax (${billingSettings?.taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
 <div class="divider"></div>
+${receiptSnapshot.paymentDetails && (receiptSnapshot.paymentDetails.amountGiven > 0 || receiptSnapshot.paymentDetails.balanceReturned > 0) ? `
+${receiptSnapshot.paymentDetails.amountGiven > 0 ? `<div class="row"><span>Amount Given</span><span>${fmt(receiptSnapshot.paymentDetails.amountGiven, sym)}</span></div>` : ''}
+${receiptSnapshot.paymentDetails.balanceReturned > 0 ? `<div class="row"><span>Balance Returned</span><span class="text-emerald-600">${fmt(receiptSnapshot.paymentDetails.balanceReturned, sym)}</span></div>` : ''}
+<div class="divider"></div>
+` : ''}
 <p class="footer">${storeInfo.footer || 'Thank you for your purchase!'}</p>
 </body></html>`)
     win.document.close()
@@ -253,11 +385,12 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
   // Receipt View
   if (showReceipt) {
-    const { no, time, cart: rCart } = receiptSnapshot
-    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
-    const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
+    const { no, time, cart: rCart, billingSettings } = receiptSnapshot
+    const rSub = rCart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, billingSettings), 0)
+    const rDiscountPct = (billingSettings?.discountMode === DiscountMode.GLOBAL && billingSettings?.globalDiscount) ? billingSettings.globalDiscount : 0
+    const rDisc = rDiscountPct > 0 ? rSub * (rDiscountPct / 100) : 0
     const rTaxBase = rSub - rDisc
-    const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
+    const rTax = billingSettings?.taxEnabled ? rTaxBase * (billingSettings?.taxRate / 100) : 0
     const rTotal = rTaxBase + rTax
 
     return (
@@ -291,9 +424,36 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             </div>
           )}
 
+          {/* Payment Details */}
+          {receiptSnapshot.paymentMethod && (
+            <div className="mb-3 text-xs text-gray-500 space-y-1">
+              <div>
+                <span className="font-medium">Payment:</span>{' '}
+                {receiptSnapshot.paymentMethod === PaymentMethod.CASH ? 'Cash' : 
+                 receiptSnapshot.paymentMethod === PaymentMethod.CARD ? 'Card' : 
+                 receiptSnapshot.paymentMethod === PaymentMethod.DIGITAL ? 'Digital' :
+                 receiptSnapshot.paymentMethod === PaymentMethod.CREDIT ? 'Credit' : 'Split'}
+              </div>
+              {receiptSnapshot.paymentMethod === PaymentMethod.SPLIT && receiptSnapshot.paymentDetails && (
+                <div className="ml-4 space-y-0.5">
+                  {receiptSnapshot.paymentDetails.cashAmount > 0 && (
+                    <div>
+                      <span className="font-medium">Cash:</span> {fmt(receiptSnapshot.paymentDetails.cashAmount, sym)}
+                    </div>
+                  )}
+                  {receiptSnapshot.paymentDetails.cardAmount > 0 && (
+                    <div>
+                      <span className="font-medium">Card:</span> {fmt(receiptSnapshot.paymentDetails.cardAmount, sym)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {rCart.map((item) => {
-            const itemDisc = getItemDiscount(item, settings)
-            const discInfo = getItemDiscountInfo(item, settings)
+            const itemDisc = getItemDiscount(item, billingSettings)
+            const discInfo = getItemDiscountInfo(item, billingSettings)
             const lineTotal = item.price * item.qty
             const discountedTotal = lineTotal - itemDisc
             const hasDiscount = itemDisc > 0
@@ -306,7 +466,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                   {hasDiscount && (
                     <span className="text-xs text-rose-500">
                       ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}
-                      {(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
+                      {(item.discount?.type === DiscountType.PERCENTAGE || (billingSettings?.discountMode === DiscountMode.CATEGORY && billingSettings?.categoryDiscounts?.[item.category]?.type === DiscountType.PERCENTAGE) || (billingSettings?.discountMode === DiscountMode.GLOBAL && billingSettings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
                     </span>
                   )}
                 </span>
@@ -321,27 +481,60 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
               <span>Gross Amount</span>
               <span>{fmt(rCart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
             </div>
-            {/* Total discount (item-level + global) */}
-            {(rDisc > 0 || rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) && (
-              <div className="flex justify-between text-rose-600">
-                <span>Discount {discountPct > 0 ? `(${discountPct}%)` : ''}</span>
-                <span>− {fmt(rDisc + rCart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span>
-              </div>
-            )}
+            {(() => {
+              const discountBreakdown = getCartDiscountBreakdown(rCart, billingSettings)
+              const hasDiscounts = discountBreakdown.totalDiscount > 0
+              return hasDiscounts ? (
+                <>
+                  {discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => (
+                    <div key={item.itemId} className="flex justify-between text-rose-600 text-xs">
+                      <span>{item.itemName} ({item.quantity}x)</span>
+                      <span>− {fmt(item.discount.amount, sym)} - {item.discount.description}</span>
+                    </div>
+                  ))}
+                  {discountBreakdown.globalDiscount > 0 && (
+                    <div className="flex justify-between text-rose-600">
+                      <span>Global Discount</span>
+                      <span>− {fmt(discountBreakdown.globalDiscount, sym)} ({discountBreakdown.globalDiscountPercentage}%)</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-rose-600 font-semibold">
+                    <span>Total Discount</span>
+                    <span>− {fmt(discountBreakdown.totalDiscount, sym)}</span>
+                  </div>
+                </>
+              ) : null
+            })()}
             <div className="flex justify-between text-gray-600">
               <span>Net Amount</span>
               <span>{fmt(rSub, sym)}</span>
             </div>
-            {taxEnabled && (
+            {billingSettings?.taxEnabled && (
               <div className="flex justify-between text-gray-600">
-                <span>Tax ({taxRate}%)</span>
+                <span>Tax ({billingSettings?.taxRate}%)</span>
                 <span>{fmt(rTax, sym)}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-base text-gray-900 pt-1 border-t border-gray-100 mt-1">
+            <div className="flex justify-between font-bold text-gray-900 pt-1 border-t border-gray-100">
               <span>Total</span>
               <span>{fmt(rTotal, sym)}</span>
             </div>
+            
+            {/* Amount Given and Balance Returned */}
+            {receiptSnapshot.paymentDetails && (receiptSnapshot.paymentDetails.amountGiven > 0 || receiptSnapshot.paymentDetails.balanceReturned > 0) && (
+              <>
+                <div className="flex justify-between text-gray-600 pt-1">
+                  <span>Amount Given</span>
+                  <span>{fmt(receiptSnapshot.paymentDetails.amountGiven, sym)}</span>
+                </div>
+                {receiptSnapshot.paymentDetails.balanceReturned > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Balance Returned</span>
+                    <span>{fmt(receiptSnapshot.paymentDetails.balanceReturned, sym)}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -459,10 +652,10 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                           <>
                             <div className="text-xs text-gray-400 line-through">{fmt(lineTotal, sym)}</div>
                             <div className="text-sm font-semibold text-gray-900">{fmt(discountedTotal, sym)}</div>
-                            {item.discount?.type === 'percentage' || (discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (discountMode === 'global' && settings?.globalDiscount > 0) ? (
+                            {item.discount?.type === DiscountType.PERCENTAGE || (discountMode === DiscountMode.CATEGORY && settings?.categoryDiscounts?.[item.category]?.type === DiscountType.PERCENTAGE) || (discountMode === DiscountMode.GLOBAL && settings?.globalDiscount > 0) ? (
                               discInfo.percentage > 0 && (
                                 <div className="text-[10px] text-rose-500">
-                                  (−{discInfo.percentage.toFixed(0)}% {discInfo.source === 'category' ? 'category' : discInfo.source === 'item' ? 'item' : ''})
+                                  (−{discInfo.percentage.toFixed(0)}% {discInfo.source === DiscountMode.CATEGORY ? DiscountMode.CATEGORY : discInfo.source === DiscountMode.ITEM ? DiscountMode.ITEM : ''})
                                 </div>
                               )
                             ) : null}
@@ -516,11 +709,183 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             <span>Total</span>
             <span className="text-lg">{fmt(total, sym)}</span>
           </div>
+
+          {/* Customer Selection */}
+          <div className="space-y-2">
+            {selectedCustomer ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-blue-900 truncate">{selectedCustomer.name}</p>
+                  {selectedCustomer.phone && (
+                    <p className="text-xs text-blue-600">{selectedCustomer.phone}</p>
+                  )}
+                </div>
+                <button
+                  onClick={handleCustomerRemove}
+                  className="text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowCustomerModal(true)}
+                className="w-full py-2 border border-gray-200 text-gray-600 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                Add Customer (Optional)
+              </button>
+            )}
+          </div>
+
+          {/* Payment Method Selection */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Payment Method</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setPaymentMethod(PaymentMethod.CASH)}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === PaymentMethod.CASH
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Cash
+              </button>
+              <button
+                onClick={() => setPaymentMethod(PaymentMethod.CARD)}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === PaymentMethod.CARD
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Card
+              </button>
+              <button
+                onClick={() => setPaymentMethod(PaymentMethod.DIGITAL)}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === PaymentMethod.DIGITAL
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Digital
+              </button>
+              {creditEnabled && (
+                <button
+                  onClick={() => setPaymentMethod(PaymentMethod.CREDIT)}
+                  className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                    paymentMethod === PaymentMethod.CREDIT
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Credit
+                </button>
+              )}
+              <button
+                onClick={() => setPaymentMethod(PaymentMethod.SPLIT)}
+                className={`py-2 px-3 rounded-xl font-medium transition-colors ${
+                  paymentMethod === PaymentMethod.SPLIT
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Split
+              </button>
+            </div>
+          </div>
+
+          {/* Cash Payment Amount */}
+          {paymentMethod === PaymentMethod.CASH && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount Given</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amountGiven}
+                  onChange={(e) => setAmountGiven(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder={fmt(total, sym)}
+                />
+              </div>
+              {amountGivenValue > 0 && (
+                <div className="text-sm text-gray-600 space-y-1">
+                  <div>Total Due: {fmt(total, sym)}</div>
+                  {amountGivenValue < total && (
+                    <div className="text-amber-600">Remaining: {fmt(total - amountGivenValue, sym)}</div>
+                  )}
+                  {amountGivenValue >= total && balanceReturned > 0 && (
+                    <div className="text-emerald-600">Balance Returned: {fmt(balanceReturned, sym)}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Split Payment Amounts */}
+          {paymentMethod === PaymentMethod.SPLIT && (
+            <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Cash Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="0.00"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Card Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={cardAmount}
+                  onChange={(e) => setCardAmount(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="0.00"
+                />
+              </div>
+              {totalPaid > 0 && (
+                <div className="text-sm text-gray-600">
+                  Total Paid: {fmt(totalPaid, sym)}
+                  {remainingAmount > 0 && <span className="text-amber-600"> (Remaining: {fmt(remainingAmount, sym)})</span>}
+                  {remainingAmount < 0 && <span className="text-green-600"> (Change: {fmt(Math.abs(remainingAmount), sym)})</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Validation Messages */}
+          {paymentMethod === PaymentMethod.CREDIT && !creditEnabled && (
+            <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-2">
+              Credit purchases are not enabled. Please contact your administrator.
+            </div>
+          )}
+          {paymentMethod === PaymentMethod.CREDIT && creditEnabled && !selectedCustomer && (
+            <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-2">
+              Customer selection is required for credit purchases.
+            </div>
+          )}
+
+          {/* Checkout Button */}
           <button
             onClick={handleCheckout}
-            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors mt-1"
+            disabled={!canCheckout()}
+            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Checkout
+            {paymentMethod === PaymentMethod.CREDIT ? 'Complete Credit Sale' : 'Checkout'}
           </button>
         </div>
       )}
@@ -577,6 +942,16 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Search Modal */}
+      {showCustomerModal && (
+        <CustomerSearchModal
+          isOpen={showCustomerModal}
+          onClose={() => setShowCustomerModal(false)}
+          onSelectCustomer={handleCustomerSelect}
+          requireSelection={paymentMethod === PaymentMethod.CREDIT}
+        />
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { DiscountType } from '../constants/enums.js'
 
 // Test product data handling logic
 describe('Product Data Logic', () => {
@@ -18,10 +19,10 @@ describe('Product Data Logic', () => {
 
     it('should handle discount structure', () => {
       const product = {
-        discount: { enabled: true, type: 'percentage', value: 10 },
+        discount: { enabled: true, type: DiscountType.PERCENTAGE, value: 10 },
       }
       expect(product.discount.enabled).toBe(true)
-      expect(product.discount.type).toBe('percentage')
+      expect(product.discount.type).toBe(DiscountType.PERCENTAGE)
       expect(product.discount.value).toBe(10)
     })
   })

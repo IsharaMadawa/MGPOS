@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import ProductModal from './ProductModal'
+import { DiscountType, DiscountMode, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
 
 const CATEGORY_ICONS = {
   Beverages: '🥤',
@@ -18,7 +19,7 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
   const [search, setSearch] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
   const sym = currencySymbol || '$'
-  const discountMode = settings?.discountMode || 'global'
+  const discountMode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
 
   const filtered = products.filter(p => {
     const matchesCategory = selectedCategory === 'All' || p.category === selectedCategory
@@ -44,11 +45,11 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
 
   // Get discount info for a product
   const getDiscountInfo = (product) => {
-    const mode = settings?.discountMode || 'global'
+    const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
     const basePrice = getPrimaryPrice(product)
     
-    if (mode === 'item' && product.discount?.enabled) {
-      const isPct = product.discount.type === 'percentage'
+    if (mode === DiscountMode.ITEM && product.discount?.enabled) {
+      const isPct = product.discount.type === DiscountType.PERCENTAGE
       const discountedPrice = isPct 
         ? basePrice * (1 - product.discount.value / 100)
         : Math.max(0, basePrice - product.discount.value)
@@ -60,10 +61,10 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
       }
     }
     
-    if (mode === 'category') {
+    if (mode === DiscountMode.CATEGORY) {
       const catDisc = settings?.categoryDiscounts?.[product.category]
       if (catDisc?.enabled) {
-        const isPct = catDisc.type === 'percentage'
+        const isPct = catDisc.type === DiscountType.PERCENTAGE
         const discountedPrice = isPct 
           ? basePrice * (1 - catDisc.value / 100)
           : Math.max(0, basePrice - catDisc.value)
@@ -76,7 +77,7 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
       }
     }
     
-    if (mode === 'global' && settings?.globalDiscount) {
+    if (mode === DiscountMode.GLOBAL && settings?.globalDiscount) {
       const discountedPrice = basePrice * (1 - settings.globalDiscount / 100)
       return {
         originalPrice: basePrice,
@@ -159,9 +160,9 @@ export default function ProductGrid({ products, categories, onAddToCart, currenc
                 </div>
                 <p className="text-xs font-semibold text-gray-800 truncate leading-tight">
                   {product.name}
-                  {settings?.discountMode === 'item' && product.discount?.enabled && (
+                  {settings?.discountMode === DiscountMode.ITEM && product.discount?.enabled && (
                     <span className="text-xs text-rose-600 ml-1">(
-                      {product.discount.type === 'percentage'
+                      {product.discount.type === DiscountType.PERCENTAGE
                         ? `-${product.discount.value}%`
                         : `-${sym}${Number(product.discount.value).toFixed(2)}`}
                     )</span>

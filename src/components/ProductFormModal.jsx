@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { DiscountType, DEFAULT_DISCOUNT_TYPE } from '../constants/enums'
 
 const EMPTY_FORM = {
   name: '',
   category: '',
   prices: [{ unit: '', price: '' }],
   stock: '',
-  discount: { enabled: false, type: 'percentage', value: 0 },
+  discount: { enabled: false, type: DEFAULT_DISCOUNT_TYPE, value: 0 },
 }
 
 export default function ProductFormModal({ product, categories, unitsOfMeasure, onSave, onClose, currencySymbol }) {
@@ -237,14 +238,14 @@ export default function ProductFormModal({ product, categories, unitsOfMeasure, 
                   onChange={e => setDiscount('type', e.target.value)}
                   className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="percentage">%</option>
-                  <option value="fixed">{sym}</option>
+                  <option value={DiscountType.PERCENTAGE}>%</option>
+                  <option value={DiscountType.FIXED}>{sym}</option>
                 </select>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
-                  max={form.discount.type === 'percentage' ? 100 : undefined}
+                  max={form.discount.type === DiscountType.PERCENTAGE ? 100 : undefined}
                   value={form.discount.value}
                   onChange={e => setDiscount('value', e.target.value)}
                   className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"

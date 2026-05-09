@@ -9,6 +9,7 @@ import { useToast } from '../components/ToastContainer'
 import { logUserAction, LOG_TYPES } from '../utils/logger'
 import { db } from '../firebase'
 import { collection, query, where, getDocs, doc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore'
+import { DiscountMode, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
 import ProductFormModal from '../components/ProductFormModal'
 import PasswordChangeModal from '../components/PasswordChangeModal'
 import UserOrganizationManager from '../components/UserOrganizationManager'
@@ -249,9 +250,9 @@ function BillingTab({ settings, updateSettings }) {
         <p className="text-xs text-gray-500 mb-3">Choose how discounts are applied to items</p>
         <div className="space-y-2">
           {[
-            { value: 'global', label: 'Global Discount', desc: 'Apply a single discount to all items' },
-            { value: 'category', label: 'Category Discount', desc: 'Set different discounts per category' },
-            { value: 'item', label: 'Item Discount', desc: 'Set discounts individually on each product' },
+            { value: DiscountMode.GLOBAL, label: 'Global Discount', desc: 'Apply a single discount to all items' },
+            { value: DiscountMode.CATEGORY, label: 'Category Discount', desc: 'Set different discounts per category' },
+            { value: DiscountMode.ITEM, label: 'Item Discount', desc: 'Set discounts individually on each product' },
           ].map(opt => (
             <label
               key={opt.value}
@@ -279,7 +280,7 @@ function BillingTab({ settings, updateSettings }) {
       </section>
 
       {/* Global Discount - shown when global mode selected */}
-      {settings.discountMode === 'global' && (
+      {settings.discountMode === DiscountMode.GLOBAL && (
         <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
           <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
@@ -298,7 +299,7 @@ function BillingTab({ settings, updateSettings }) {
 
       
       {/* Category Discounts info - shown when category mode selected */}
-      {settings.discountMode === 'category' && (
+      {settings.discountMode === DiscountMode.CATEGORY && (
         <section className="bg-white rounded-2xl p-5 border border-gray-100">
           <h3 className="font-semibold text-gray-900">Category Discounts</h3>
           <p className="text-xs text-gray-500 mt-1">Category-wise discounts are managed in the Master Data → Categories tab.</p>
@@ -306,7 +307,7 @@ function BillingTab({ settings, updateSettings }) {
       )}
 
       {/* Item Discounts info - shown when item mode selected */}
-      {settings.discountMode === 'item' && (
+      {settings.discountMode === DiscountMode.ITEM && (
         <section className="bg-white rounded-2xl p-5 border border-gray-100">
           <h3 className="font-semibold text-gray-900">Item Discounts</h3>
           <p className="text-xs text-gray-500 mt-1">Set discounts individually on each product in the Products tab.</p>
@@ -323,6 +324,20 @@ function BillingTab({ settings, updateSettings }) {
           <Toggle
             checked={settings.cartDiscountEnabled || false}
             onChange={e => updateSettings({ cartDiscountEnabled: e.target.checked })}
+          />
+        </div>
+      </section>
+
+      {/* Credit Purchase */}
+      <section className="bg-white rounded-2xl p-5 border border-gray-100 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Credit Purchase</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Enable credit purchases and customer account management</p>
+          </div>
+          <Toggle
+            checked={settings.creditPurchaseEnabled || false}
+            onChange={e => updateSettings({ creditPurchaseEnabled: e.target.checked })}
           />
         </div>
       </section>

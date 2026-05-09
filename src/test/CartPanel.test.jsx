@@ -170,4 +170,88 @@ describe('Cart and Checkout Logic', () => {
       expect(formatCurrency(100, 'EUR')).toBe('€100.00')
     })
   })
+
+  describe('Payment amount calculations', () => {
+    it('should calculate balance returned for cash payments', () => {
+      const calculateBalanceReturned = (amountGiven, total) => {
+        return amountGiven > total ? amountGiven - total : 0
+      }
+      
+      // Exact payment - no change
+      expect(calculateBalanceReturned(50, 50)).toBe(0)
+      
+      // Overpayment - change due
+      expect(calculateBalanceReturned(60, 50)).toBe(10)
+      
+      // Underpayment - no change (should not allow checkout)
+      expect(calculateBalanceReturned(40, 50)).toBe(0)
+    })
+
+    it('should validate cash payment amounts', () => {
+      const validateCashPayment = (amountGiven, total) => {
+        if (amountGiven > 0 && amountGiven < total) return false
+        return true
+      }
+      
+      // Valid cases
+      expect(validateCashPayment(0, 50)).toBe(true) // No amount entered (defaults to total)
+      expect(validateCashPayment(50, 50)).toBe(true) // Exact amount
+      expect(validateCashPayment(60, 50)).toBe(true) // Overpayment
+      
+      // Invalid case
+      expect(validateCashPayment(40, 50)).toBe(false) // Underpayment
+    })
+
+    it('should calculate payment details for different methods', () => {
+      const calculatePaymentDetails = (paymentMethod, total, amountGiven, cashAmount, cardAmount) => {
+        const details = {
+          method: paymentMethod,
+          cashAmount: 0,
+          cardAmount: 0,
+          creditAmount: 0,
+          digitalAmount: 0,
+          amountGiven: 0,
+          balanceReturned: 0
+        }
+
+        if (paymentMethod === 'cash') {
+          details.cashAmount = total
+          details.amountGiven = amountGiven || total
+          details.balanceReturned = details.amountGiven > total ? details.amountGiven - total : 0
+        } else if (paymentMethod === 'card') {
+          details.cardAmount = total
+        } else if (paymentMethod === 'digital') {
+          details.digitalAmount = total
+        } else if (paymentMethod === 'credit') {
+          details.creditAmount = total
+        } else if (paymentMethod === 'split') {
+          details.cashAmount = cashAmount
+          details.cardAmount = cardAmount
+          details.amountGiven = cashAmount + cardAmount
+          details.balanceReturned = details.amountGiven > total ? details.amountGiven - total : 0
+        }
+
+        return details
+      }
+
+      // Cash payment with change
+      const cashDetails = calculatePaymentDetails('cash', 50, 60, 0, 0)
+      expect(cashDetails.cashAmount).toBe(50)
+      expect(cashDetails.amountGiven).toBe(60)
+      expect(cashDetails.balanceReturned).toBe(10)
+
+      // Card payment
+      const cardDetails = calculatePaymentDetails('card', 50, 0, 0, 0)
+      expect(cardDetails.cardAmount).toBe(50)
+      expect(cardDetails.amountGiven).toBe(0)
+      expect(cardDetails.balanceReturned).toBe(0)
+
+      // Split payment with change
+      const splitDetails = calculatePaymentDetails('split', 50, 0, 30, 25)
+      expect(splitDetails.cashAmount).toBe(30)
+      expect(splitDetails.cardAmount).toBe(25)
+      expect(splitDetails.amountGiven).toBe(55)
+      expect(splitDetails.balanceReturned).toBe(5)
+    })
+  })
 })

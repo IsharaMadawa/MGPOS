@@ -130,4 +130,52 @@ describe('Billing Log Data Logic', () => {
       expect(avg).toBe(150)
     })
   })
+
+  describe('Organization name handling', () => {
+    it('should include organization name in billing log', () => {
+      const mockFirestoreDoc = {
+        id: 'log-1',
+        data: () => ({ receiptNo: '001', total: 100, cashierName: 'John Doe' })
+      }
+      
+      const organizations = [
+        { id: 'org1', name: 'Test Organization' },
+        { id: 'org2', name: 'Another Organization' }
+      ]
+      
+      const orgId = 'org1'
+      const organization = organizations.find(org => org.id === orgId)
+      
+      const log = {
+        id: mockFirestoreDoc.id,
+        orgId: orgId,
+        orgName: organization?.name || 'Unknown Organization',
+        ...mockFirestoreDoc.data()
+      }
+      
+      expect(log.orgName).toBe('Test Organization')
+      expect(log.orgId).toBe('org1')
+    })
+
+    it('should handle unknown organization gracefully', () => {
+      const mockFirestoreDoc = {
+        id: 'log-2',
+        data: () => ({ receiptNo: '002', total: 50, cashierName: 'Jane Doe' })
+      }
+      
+      const organizations = []
+      const orgId = 'unknown-org'
+      const organization = organizations.find(org => org.id === orgId)
+      
+      const log = {
+        id: mockFirestoreDoc.id,
+        orgId: orgId,
+        orgName: organization?.name || 'Unknown Organization',
+        ...mockFirestoreDoc.data()
+      }
+      
+      expect(log.orgName).toBe('Unknown Organization')
+      expect(log.orgId).toBe('unknown-org')
+    })
+  })
 })

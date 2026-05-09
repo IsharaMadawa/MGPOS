@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useToast } from '../components/ToastContainer'
 import { logUserAction } from '../utils/logger'
+import { getItemDiscountDetails, getCartDiscountBreakdown } from '../utils/discountUtils'
+import { DiscountType, DiscountMode, DiscountSource, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -24,7 +26,7 @@ function fmtTime(ts) {
 }
 
 function getItemDiscount(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
   
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
@@ -33,20 +35,20 @@ function getItemDiscount(item, settings) {
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       return lineTotal * (item.discount.value / 100)
     }
     return Math.min(item.discount.value * item.qty, lineTotal)
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         return lineTotal * (catDisc.value / 100)
       }
       return Math.min(catDisc.value * item.qty, lineTotal)
@@ -58,7 +60,7 @@ function getItemDiscount(item, settings) {
 
 // Get discount info for display (percentage and source)
 function getItemDiscountInfo(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
   const result = { amount: 0, percentage: 0, source: null }
   
   // Cart-level override
@@ -68,38 +70,38 @@ function getItemDiscountInfo(item, settings) {
     const cappedVal = Math.min(Math.max(val, 0), lineTotal)
     result.amount = cappedVal
     result.percentage = lineTotal > 0 ? (cappedVal / lineTotal) * 100 : 0
-    result.source = 'custom'
+    result.source = DiscountSource.CUSTOM
     return result
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       result.amount = lineTotal * (item.discount.value / 100)
       result.percentage = item.discount.value
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     } else {
       result.amount = Math.min(item.discount.value * item.qty, lineTotal)
       result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     }
     return result
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         result.amount = lineTotal * (catDisc.value / 100)
         result.percentage = catDisc.value
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       } else {
         result.amount = Math.min(catDisc.value * item.qty, lineTotal)
         result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       }
       return result
     }
@@ -112,10 +114,11 @@ export default function BillingLogsPage() {
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
-    receiptNo: '',
-    unit: ''
+    receiptNo: ''
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [selectedLog, setSelectedLog] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const logsPerPage = 50
 
@@ -146,8 +149,7 @@ export default function BillingLogsPage() {
     setFilters({
       startDate: '',
       endDate: '',
-      receiptNo: '',
-      unit: ''
+      receiptNo: ''
     })
     setCurrentPage(1)
   }
@@ -168,6 +170,37 @@ export default function BillingLogsPage() {
     return true
   }
 
+  const handleViewDetails = async (log) => {
+    setSelectedLog(log)
+    setShowDetailsModal(true)
+    
+    // Log bill details view
+    try {
+      await logUserAction(
+        'BILL_DETAILS_VIEW',
+        `Viewed bill details for receipt #${log.receiptNo}`,
+        userProfile,
+        log.orgId || currentOrgId,
+        {
+          receiptNo: log.receiptNo,
+          totalAmount: log.total,
+          itemCount: log.cart?.length || 0,
+          hasDiscounts: log.cart?.some(item => {
+            const discountBreakdown = getCartDiscountBreakdown(log.cart, log.billingSettings || settings)
+            return discountBreakdown.totalDiscount > 0
+          })
+        }
+      )
+    } catch (logError) {
+      console.error('Failed to log bill details view:', logError)
+    }
+  }
+
+  const handleCloseDetails = () => {
+    setShowDetailsModal(false)
+    setSelectedLog(null)
+  }
+
   const handleReprint = async (log) => {
     if (!canReprint(log)) {
       if (!settings?.reprintEnabled) {
@@ -184,7 +217,7 @@ export default function BillingLogsPage() {
 
       // Calculate bill details
       const rSub = log.cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
-      const discountPct = (settings?.discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
+      const discountPct = (settings?.discountMode === DEFAULT_DISCOUNT_MODE && settings?.globalDiscount) ? settings.globalDiscount : 0
       const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
       const taxEnabled = settings?.taxEnabled || false
       const taxRate = settings?.taxRate || 0
@@ -226,28 +259,49 @@ ${storeInfo.phone ? `<p class="center muted">Tel: ${storeInfo.phone}</p>` : ''}
 <div class="divider"></div>
 <div class="row"><span>Receipt #${log.receiptNo}</span><span class="muted">${fmtDate(log.createdAt)} ${fmtTime(log.createdAt)}</span></div>
 <div class="row muted"><span>Cashier:</span><span>${log.cashierName || 'Unknown'}</span></div>
+${log.customer ? `<div class="row muted"><span>Customer:</span><span>${log.customer.name}${log.customer.phone ? ` (${log.customer.phone})` : ''}</span></div>` : ''}
+${log.paymentMethod ? `<div class="row muted"><span>Payment:</span><span>${log.paymentMethod === 'cash' ? 'Cash' : log.paymentMethod === 'card' ? 'Card' : log.paymentMethod === 'credit' ? 'Credit' : 'Split'}</span></div>` : ''}
+${log.paymentMethod === 'split' && log.paymentDetails ? `
+${log.paymentDetails.cashAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Cash:</span><span>${fmt(log.paymentDetails.cashAmount, sym)}</span></div>` : ''}
+${log.paymentDetails.cardAmount > 0 ? `<div class="row muted"><span style="margin-left: 20px;">Card:</span><span>${fmt(log.paymentDetails.cardAmount, sym)}</span></div>` : ''}
+` : ''}
 <div class="reprint-note">*** REPRINT ***</div>
 <div class="row center muted"><span>Reprinted: ${reprintDateTime}</span></div>
 <div class="divider"></div>
 ${log.cart.map(item => {
-  const itemDisc = getItemDiscount(item, settings)
-  const discInfo = getItemDiscountInfo(item, settings)
+  const discountDetails = getItemDiscountDetails(item, log.billingSettings || settings)
   const lineTotal = item.price * item.qty
-  const discountedTotal = lineTotal - itemDisc
-  const hasDiscount = itemDisc > 0
+  const discountedTotal = lineTotal - discountDetails.amount
+  const hasDiscount = discountDetails.amount > 0
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${discountDetails.description ? ` - ${discountDetails.description}` : ''})</span>` : ''}</span>
   <span class="row-amount">${fmt(discountedTotal, sym)}</span>
 </div>`
 }).join('')}
 <div class="divider"></div>
 <div class="row"><span>Gross Amount</span><span>${fmt(log.cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
-${(rDisc > 0 || log.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) ? `<div class="row muted"><span>Discount ${discountPct > 0 ? `(${discountPct}%)` : ''}</span><span>−${fmt(rDisc + log.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span></div>` : ''}
+${(() => {
+  const discountBreakdown = getCartDiscountBreakdown(log.cart, log.billingSettings || settings)
+  const hasDiscounts = discountBreakdown.totalDiscount > 0
+  return hasDiscounts ? `
+    ${discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => 
+      `<div class="row muted"><span>${item.itemName} (${item.quantity}x)</span><span>−${fmt(item.discount.amount, sym)} - ${item.discount.description}</span></div>`
+    ).join('')}
+    ${discountBreakdown.globalDiscount > 0 ? `<div class="row muted"><span>Global Discount</span><span>−${fmt(discountBreakdown.globalDiscount, sym)} (${discountBreakdown.globalDiscountPercentage}%)</span></div>` : ''}
+    <div class="row muted"><strong>Total Discount</strong></div>
+    <div class="row muted"><span></span><span>−${fmt(discountBreakdown.totalDiscount, sym)}</span></div>
+  ` : ''
+})()}
 <div class="row"><span>Net Amount</span><span>${fmt(rSub, sym)}</span></div>
 ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
 <div class="divider"></div>
 <div class="row total-row"><span>TOTAL</span><span>${fmt(rTotal, sym)}</span></div>
 <div class="divider"></div>
+${log.paymentDetails && (log.paymentDetails.amountGiven > 0 || log.paymentDetails.balanceReturned > 0) ? `
+${log.paymentDetails.amountGiven > 0 ? `<div class="row"><span>Amount Given</span><span>${fmt(log.paymentDetails.amountGiven, sym)}</span></div>` : ''}
+${log.paymentDetails.balanceReturned > 0 ? `<div class="row"><span>Balance Returned</span><span class="text-emerald-600">${fmt(log.paymentDetails.balanceReturned, sym)}</span></div>` : ''}
+<div class="divider"></div>
+` : ''}
 <p class="footer">${storeInfo.footer || 'Thank you for your purchase!'}</p>
 </body></html>`)
       win.document.close()
@@ -274,15 +328,6 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
     
     if (filters.receiptNo) {
       matches = matches && log.receiptNo.toLowerCase().includes(filters.receiptNo.toLowerCase())
-    }
-    
-    if (filters.unit) {
-      const hasUnitInCart = log.cart?.some(item => 
-        item.selectedUnit === filters.unit || 
-        item.unit === filters.unit ||
-        (item.unit && item.unit.toLowerCase() === filters.unit.toLowerCase())
-      )
-      matches = matches && hasUnitInCart
     }
     
     return matches
@@ -333,7 +378,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
           {showFilters && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -363,22 +408,6 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                     placeholder="Enter receipt number"
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                  <select
-                    value={filters.unit}
-                    onChange={(e) => handleFilterChange('unit', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                  >
-                    <option value="">All Units</option>
-                    {settings?.unitsOfMeasure?.map(unit => (
-                      <option key={unit.id} value={unit.abbreviation}>
-                        {unit.name} ({unit.abbreviation})
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -468,6 +497,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => handleViewDetails(log)}
+                            className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            title="View Bill Details"
+                          >
+                            View
+                          </button>
                           {canReprint(log) && (
                             <button
                               onClick={() => handleReprint(log)}
@@ -504,6 +540,226 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
           )}
         </div>
       </div>
+
+      {/* Bill Details Modal */}
+      {showDetailsModal && selectedLog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Bill Details</h2>
+                <button
+                  onClick={handleCloseDetails}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {/* Receipt Header */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-gray-500 uppercase tracking-wide font-semibold">Receipt #{selectedLog.receiptNo}</p>
+                  <p className="text-sm text-gray-400">{fmtDate(selectedLog.createdAt)} {fmtTime(selectedLog.createdAt)}</p>
+                </div>
+                
+                {/* Organization Info */}
+                {hasMultiOrgAccess && selectedLog.orgName && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Organization:</span> {selectedLog.orgName}
+                  </div>
+                )}
+                
+                {/* Cashier Info */}
+                {selectedLog.cashierName && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Cashier:</span> {selectedLog.cashierName}
+                  </div>
+                )}
+
+                {/* Customer Info */}
+                {selectedLog.customer && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Customer:</span> {selectedLog.customer.name}
+                    {selectedLog.customer.phone && ` (${selectedLog.customer.phone})`}
+                  </div>
+                )}
+
+                {/* Payment Details */}
+                {selectedLog.paymentMethod && (
+                  <div className="mb-3 text-xs text-gray-500 space-y-1">
+                    <div>
+                      <span className="font-medium">Payment:</span>{' '}
+                      {selectedLog.paymentMethod === 'cash' ? 'Cash' : 
+                       selectedLog.paymentMethod === 'card' ? 'Card' : 
+                       selectedLog.paymentMethod === 'digital' ? 'Digital' :
+                       selectedLog.paymentMethod === 'credit' ? 'Credit' : 'Split'}
+                    </div>
+                    {selectedLog.paymentMethod === 'split' && selectedLog.paymentDetails && (
+                      <div className="ml-4 space-y-0.5">
+                        {selectedLog.paymentDetails.cashAmount > 0 && (
+                          <div>
+                            <span className="font-medium">Cash:</span> {fmt(selectedLog.paymentDetails.cashAmount, sym)}
+                          </div>
+                        )}
+                        {selectedLog.paymentDetails.cardAmount > 0 && (
+                          <div>
+                            <span className="font-medium">Card:</span> {fmt(selectedLog.paymentDetails.cardAmount, sym)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Amount Given and Balance Returned */}
+                    {selectedLog.paymentDetails && (selectedLog.paymentDetails.amountGiven > 0 || selectedLog.paymentDetails.balanceReturned > 0) && (
+                      <div className="ml-4 space-y-0.5">
+                        {selectedLog.paymentDetails.amountGiven > 0 && (
+                          <div>
+                            <span className="font-medium">Amount Given:</span> {fmt(selectedLog.paymentDetails.amountGiven, sym)}
+                          </div>
+                        )}
+                        {selectedLog.paymentDetails.balanceReturned > 0 && (
+                          <div className="text-emerald-600">
+                            <span className="font-medium">Balance Returned:</span> {fmt(selectedLog.paymentDetails.balanceReturned, sym)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Cart Items */}
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Items</h3>
+                <div className="space-y-2">
+                  {selectedLog.cart.map((item, index) => {
+                    const discountDetails = getItemDiscountDetails(item, selectedLog.billingSettings || settings)
+                    const lineTotal = item.price * item.qty
+                    const discountedTotal = lineTotal - discountDetails.amount
+                    const hasDiscount = discountDetails.amount > 0
+                    
+                    return (
+                      <div key={index} className="flex justify-between text-sm py-1 gap-2">
+                        <span className="text-gray-700 flex-1 min-w-0">
+                          <span className="block truncate">{item.name} × {formatQty(item.qty, item.selectedUnit || item.unit)}</span>
+                          {hasDiscount && (
+                            <span className="text-xs text-rose-500">
+                              ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}{discountDetails.description ? ` - ${discountDetails.description}` : ''})
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium whitespace-nowrap">{fmt(discountedTotal, sym)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="border-t border-gray-200 pt-4 space-y-1 text-sm">
+                {/* Calculate totals */}
+                {(() => {
+                  const rSub = selectedLog.cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
+                  const discountPct = (settings?.discountMode === DEFAULT_DISCOUNT_MODE && settings?.globalDiscount) ? settings.globalDiscount : 0
+                  const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
+                  const taxEnabled = settings?.taxEnabled || false
+                  const taxRate = settings?.taxRate || 0
+                  const rTaxBase = rSub - rDisc
+                  const rTax = taxEnabled ? rTaxBase * (taxRate / 100) : 0
+                  const rTotal = rTaxBase + rTax
+
+                  return (
+                    <>
+                      <div className="flex justify-between text-gray-500">
+                        <span>Gross Amount</span>
+                        <span>{fmt(selectedLog.cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
+                      </div>
+                      {(() => {
+                      const discountBreakdown = getCartDiscountBreakdown(selectedLog.cart, selectedLog.billingSettings || settings)
+                      const hasDiscounts = discountBreakdown.totalDiscount > 0
+                      return hasDiscounts ? (
+                        <>
+                          {discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => (
+                            <div key={item.itemId} className="flex justify-between text-rose-600 text-xs">
+                              <span>{item.itemName} ({item.quantity}x)</span>
+                              <span>− {fmt(item.discount.amount, sym)} - {item.discount.description}</span>
+                            </div>
+                          ))}
+                          {discountBreakdown.globalDiscount > 0 && (
+                            <div className="flex justify-between text-rose-600">
+                              <span>Global Discount</span>
+                              <span>− {fmt(discountBreakdown.globalDiscount, sym)} ({discountBreakdown.globalDiscountPercentage}%)</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-rose-600 font-semibold">
+                            <span>Total Discount</span>
+                            <span>− {fmt(discountBreakdown.totalDiscount, sym)}</span>
+                          </div>
+                        </>
+                      ) : null
+                    })()}
+                      <div className="flex justify-between text-gray-600">
+                        <span>Net Amount</span>
+                        <span>{fmt(rSub, sym)}</span>
+                      </div>
+                      {taxEnabled && (
+                        <div className="flex justify-between text-gray-600">
+                          <span>Tax ({taxRate}%)</span>
+                          <span>{fmt(rTax, sym)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base text-gray-900 pt-1 border-t border-gray-100 mt-1">
+                        <span>Total</span>
+                        <span>{fmt(rTotal, sym)}</span>
+                      </div>
+                      
+                      {/* Amount Given and Balance Returned */}
+                      {selectedLog.paymentDetails && (selectedLog.paymentDetails.amountGiven > 0 || selectedLog.paymentDetails.balanceReturned > 0) && (
+                        <>
+                          <div className="flex justify-between text-gray-600 pt-1">
+                            <span>Amount Given</span>
+                            <span>{fmt(selectedLog.paymentDetails.amountGiven, sym)}</span>
+                          </div>
+                          {selectedLog.paymentDetails.balanceReturned > 0 && (
+                            <div className="flex justify-between text-emerald-600">
+                              <span>Balance Returned</span>
+                              <span>{fmt(selectedLog.paymentDetails.balanceReturned, sym)}</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              {canReprint(selectedLog) && (
+                <button
+                  onClick={() => {
+                    handleReprint(selectedLog)
+                    handleCloseDetails()
+                  }}
+                  className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors"
+                >
+                  Reprint
+                </button>
+              )}
+              <button
+                onClick={handleCloseDetails}
+                className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -35,6 +35,11 @@ export const LOG_TYPES = {
   CATEGORY_UPDATE: 'category_update',
   CATEGORY_DELETE: 'category_delete',
   
+  // Customer operations
+  CUSTOMER_CREATE: 'customer_create',
+  CUSTOMER_UPDATE: 'customer_update',
+  CUSTOMER_DELETE: 'customer_delete',
+  
   // Billing/Sales operations
   SALE_CREATE: 'sale_create',
   SALE_UPDATE: 'sale_update',
@@ -279,6 +284,19 @@ export const logError = async (description, error, user, orgId, metadata = {}) =
  * @param {string} orgId - Organization ID
  * @param {Object} metadata - Additional metadata
  */
+
+// Bug fix documentation:
+// 2026-05-09: Fixed Digital Sales report layout issue where details were not visible
+// - Added ReportType.DIGITAL to payment method details condition in ReportsPage.jsx line 471
+// - This enables Digital Sales report to show transaction details and print functionality
+// 2026-05-09: Fixed payment method reports details grid visibility issue in report view
+// - Added missing Customer column header for Credit reports in ReportsPage.jsx line 1065
+// - Fixed footer row colspan to account for Customer column in Credit reports line 1148
+// - This resolves layout issues for cash, card, digital, and credit sales reports details grid
+// 2026-05-09: Fixed root cause of payment method reports details grid not showing in UI
+// - Moved payment method specific reports section outside detailed report condition in ReportsPage.jsx
+// - The section was nested inside {reportType === ReportType.DETAILED} condition preventing visibility
+// - Now payment method reports (cash, card, digital, credit) show details grid correctly in report view
 export const logWarning = async (description, user, orgId, metadata = {}) => {
   return createLog({
     type: LOG_TYPES.SYSTEM_WARNING,

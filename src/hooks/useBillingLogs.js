@@ -3,6 +3,7 @@ import { collection, addDoc, query, orderBy, limit, onSnapshot, where, deleteDoc
 import { db } from '../firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
+import { useOrganizations } from './useOrganizations'
 import { logCrudOperation, logUserAction } from '../utils/logger'
 
 export function useBillingLogs() {
@@ -10,6 +11,7 @@ export function useBillingLogs() {
   const [loading, setLoading] = useState(true)
   const { userProfile, isSuperAdmin } = useAuth()
   const { selectedOrgId, getCurrentOrganization, getAdminOrganizations } = useOrg()
+  const { organizations } = useOrganizations()
 
   // Get the orgId to use - prioritize selectedOrgId for all users including multi-org users
   const orgId = selectedOrgId || (isSuperAdmin ? null : userProfile?.orgId)
@@ -30,11 +32,12 @@ export function useBillingLogs() {
     const q = query(logsRef, orderBy('createdAt', 'desc'), limit(50))
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const currentOrg = getCurrentOrganization()
+      // Get organization name from the full organizations data
+      const organization = organizations.find(org => org.id === orgId)
       const logsArray = snapshot.docs.map(doc => ({
         id: doc.id,
         orgId: orgId,
-        orgName: currentOrg?.name || 'Unknown Organization',
+        orgName: organization?.name || 'Unknown Organization',
         ...doc.data()
       }))
       setLogs(logsArray)
@@ -45,7 +48,7 @@ export function useBillingLogs() {
     })
 
     return () => unsubscribe()
-  }, [orgId])
+  }, [orgId, organizations])
 
   const createBillingLog = async (saleData) => {
     if (!orgId) {

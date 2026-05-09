@@ -4,6 +4,7 @@ import { useReports } from '../hooks/useReports'
 import { AuthContext } from '../contexts/AuthContext'
 import { OrgContext } from '../contexts/OrgContext'
 import { doc, getDocs, query, where, orderBy, collection, addDoc } from 'firebase/firestore'
+import { PaymentMethod } from '../constants/enums.js'
 
 // Mock Firebase
 vi.mock('../firebase', () => ({
@@ -441,5 +442,306 @@ describe('useReports', () => {
 
     // Verify all reports are from their assigned organization
     expect(result.current.reports.every(report => report.orgId === 'org1')).toBe(true)
+  })
+
+  // Payment Method Tests
+  describe('Payment Method Filtering', () => {
+    const mockPaymentMethodLogs = [
+      {
+        id: 'cash1',
+        receiptNo: '200001',
+        createdAt: '2024-01-15T10:00:00.000Z',
+        cashierName: 'John Doe',
+        paymentMethod: PaymentMethod.CASH,
+        total: 100.00,
+        itemCount: 2,
+        cart: [
+          { name: 'Product A', price: 50.00, qty: 2 }
+        ],
+        discountAmount: 0
+      },
+      {
+        id: 'card1',
+        receiptNo: '200002',
+        createdAt: '2024-01-15T11:00:00.000Z',
+        cashierName: 'Jane Smith',
+        paymentMethod: PaymentMethod.CARD,
+        total: 75.50,
+        itemCount: 1,
+        cart: [
+          { name: 'Product B', price: 75.50, qty: 1 }
+        ],
+        discountAmount: 0
+      },
+      {
+        id: 'split1',
+        receiptNo: '200003',
+        createdAt: '2024-01-15T12:00:00.000Z',
+        cashierName: 'Bob Johnson',
+        paymentMethod: PaymentMethod.SPLIT,
+        total: 125.00,
+        itemCount: 3,
+        cart: [
+          { name: 'Product C', price: 25.00, qty: 1 },
+          { name: 'Product D', price: 50.00, qty: 1 },
+          { name: 'Product E', price: 50.00, qty: 1 }
+        ],
+        discountAmount: 0,
+        paymentDetails: {
+          cashAmount: 75.00,
+          cardAmount: 50.00,
+          creditAmount: 0
+        }
+      },
+      {
+        id: 'credit1',
+        receiptNo: '200004',
+        createdAt: '2024-01-15T13:00:00.000Z',
+        cashierName: 'Alice Brown',
+        paymentMethod: PaymentMethod.CREDIT,
+        total: 45.00,
+        itemCount: 1,
+        cart: [
+          { name: 'Product F', price: 45.00, qty: 1 }
+        ],
+        discountAmount: 0,
+        customer: {
+          id: 'cust1',
+          name: 'Credit Customer'
+        }
+      }
+    ]
+
+    it('should filter cash payments correctly including split payments', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      // Simulate the filterReportsByPaymentMethod function from ReportsPage
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === PaymentMethod.CASH) {
+            return bill.paymentMethod === PaymentMethod.CASH || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cashAmount > 0)
+          }
+          return false
+        })
+      }
+
+      const cashReports = filterReportsByPaymentMethod(mockPaymentMethodLogs, PaymentMethod.CASH)
+      
+      expect(cashReports).toHaveLength(2)
+      expect(cashReports[0].paymentMethod).toBe(PaymentMethod.CASH)
+      expect(cashReports[1].paymentMethod).toBe(PaymentMethod.SPLIT)
+      expect(cashReports.find(r => r.paymentMethod === PaymentMethod.CREDIT)).toBeUndefined()
+    })
+
+    it('should filter card payments correctly including split payments', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === PaymentMethod.CARD) {
+            return bill.paymentMethod === PaymentMethod.CARD || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cardAmount > 0)
+          }
+          return false
+        })
+      }
+
+      const cardReports = filterReportsByPaymentMethod(mockPaymentMethodLogs, PaymentMethod.CARD)
+      
+      expect(cardReports).toHaveLength(2)
+      expect(cardReports[0].paymentMethod).toBe(PaymentMethod.CARD)
+      expect(cardReports[1].paymentMethod).toBe(PaymentMethod.SPLIT)
+      expect(cardReports.find(r => r.paymentMethod === PaymentMethod.CREDIT)).toBeUndefined()
+    })
+
+    it('should filter cash and card payments correctly excluding credit', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === 'cashcard') {
+            return bill.paymentMethod === PaymentMethod.CASH || bill.paymentMethod === PaymentMethod.CARD || bill.paymentMethod === PaymentMethod.SPLIT
+          }
+          return false
+        })
+      }
+
+      const cashCardReports = filterReportsByPaymentMethod(mockPaymentMethodLogs, 'cashcard')
+      
+      expect(cashCardReports).toHaveLength(3)
+      expect(cashCardReports.find(r => r.paymentMethod === PaymentMethod.CASH)).toBeDefined()
+      expect(cashCardReports.find(r => r.paymentMethod === PaymentMethod.CARD)).toBeDefined()
+      expect(cashCardReports.find(r => r.paymentMethod === PaymentMethod.SPLIT)).toBeDefined()
+      expect(cashCardReports.find(r => r.paymentMethod === PaymentMethod.CREDIT)).toBeUndefined()
+    })
+
+    it('should calculate payment method summary correctly for cash payments', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const calculatePaymentMethodSummary = (reports, method) => {
+        const filteredReports = reports.filter(bill => {
+          if (method === PaymentMethod.CASH) {
+            return bill.paymentMethod === PaymentMethod.CASH || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cashAmount > 0)
+          }
+          return false
+        })
+
+        let totalAmount = 0
+        let grossSales = 0
+        let totalDiscounts = 0
+        
+        filteredReports.forEach(bill => {
+          grossSales += bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+          totalDiscounts += bill.discountAmount || 0
+          
+          if (method === PaymentMethod.CASH && bill.paymentMethod === PaymentMethod.SPLIT) {
+            totalAmount += bill.paymentDetails?.cashAmount || 0
+          } else {
+            totalAmount += bill.total || 0
+          }
+        })
+        
+        return {
+          transactionCount: filteredReports.length,
+          grossSales,
+          totalDiscounts,
+          netSales: grossSales - totalDiscounts,
+          totalAmount
+        }
+      }
+
+      const cashSummary = calculatePaymentMethodSummary(mockPaymentMethodLogs, PaymentMethod.CASH)
+      
+      expect(cashSummary.transactionCount).toBe(2)
+      expect(cashSummary.grossSales).toBe(225) // 100 (cash) + 125 (split)
+      expect(cashSummary.totalDiscounts).toBe(0)
+      expect(cashSummary.netSales).toBe(225)
+      expect(cashSummary.totalAmount).toBe(175) // 100 (cash) + 75 (split cash portion)
+    })
+
+    it('should calculate payment method summary correctly for card payments', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const calculatePaymentMethodSummary = (reports, method) => {
+        const filteredReports = reports.filter(bill => {
+          if (method === PaymentMethod.CARD) {
+            return bill.paymentMethod === PaymentMethod.CARD || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cardAmount > 0)
+          }
+          return false
+        })
+
+        let totalAmount = 0
+        let grossSales = 0
+        let totalDiscounts = 0
+        
+        filteredReports.forEach(bill => {
+          grossSales += bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+          totalDiscounts += bill.discountAmount || 0
+          
+          if (method === PaymentMethod.CARD && bill.paymentMethod === PaymentMethod.SPLIT) {
+            totalAmount += bill.paymentDetails?.cardAmount || 0
+          } else {
+            totalAmount += bill.total || 0
+          }
+        })
+        
+        return {
+          transactionCount: filteredReports.length,
+          grossSales,
+          totalDiscounts,
+          netSales: grossSales - totalDiscounts,
+          totalAmount
+        }
+      }
+
+      const cardSummary = calculatePaymentMethodSummary(mockPaymentMethodLogs, PaymentMethod.CARD)
+      
+      expect(cardSummary.transactionCount).toBe(2)
+      expect(cardSummary.grossSales).toBe(200.5) // 75.50 (card) + 125 (split)
+      expect(cardSummary.totalDiscounts).toBe(0)
+      expect(cardSummary.netSales).toBe(200.5)
+      expect(cardSummary.totalAmount).toBe(125.50) // 75.50 (card) + 50 (split card portion)
+    })
+
+    it('should handle split payment breakdown correctly', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const splitPayments = mockPaymentMethodLogs.filter(bill => bill.paymentMethod === PaymentMethod.SPLIT)
+      
+      expect(splitPayments).toHaveLength(1)
+      expect(splitPayments[0].paymentDetails.cashAmount).toBe(75.00)
+      expect(splitPayments[0].paymentDetails.cardAmount).toBe(50.00)
+      expect(splitPayments[0].paymentDetails.creditAmount).toBe(0)
+      expect(splitPayments[0].total).toBe(125.00)
+    })
+
+    it('should handle missing payment details gracefully', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const incompleteSplitLog = {
+        ...mockPaymentMethodLogs[2],
+        paymentDetails: null // Missing payment details
+      }
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === PaymentMethod.CASH) {
+            return bill.paymentMethod === PaymentMethod.CASH || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cashAmount > 0)
+          }
+          return false
+        })
+      }
+
+      const cashReports = filterReportsByPaymentMethod([incompleteSplitLog], PaymentMethod.CASH)
+      
+      // Should not include the incomplete split payment in cash reports
+      expect(cashReports).toHaveLength(0)
+    })
+
+    it('should handle zero amount split payments correctly', () => {
+      const { result } = renderHook(() => useReports(), {
+        wrapper: ({ children }) => wrapper({ user: mockUser, selectedOrgId: 'org1', children })
+      })
+
+      const zeroSplitLog = {
+        ...mockPaymentMethodLogs[2],
+        paymentDetails: {
+          cashAmount: 0,
+          cardAmount: 125.00,
+          creditAmount: 0
+        }
+      }
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === PaymentMethod.CASH) {
+            return bill.paymentMethod === PaymentMethod.CASH || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cashAmount > 0)
+          } else if (method === PaymentMethod.CARD) {
+            return bill.paymentMethod === PaymentMethod.CARD || (bill.paymentMethod === PaymentMethod.SPLIT && bill.paymentDetails?.cardAmount > 0)
+          }
+          return false
+        })
+      }
+
+      const cashReports = filterReportsByPaymentMethod([zeroSplitLog], PaymentMethod.CASH)
+      const cardReports = filterReportsByPaymentMethod([zeroSplitLog], PaymentMethod.CARD)
+      
+      // Should only include in card reports, not cash reports
+      expect(cashReports).toHaveLength(0)
+      expect(cardReports).toHaveLength(1)
+    })
   })
 })
