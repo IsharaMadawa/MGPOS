@@ -572,6 +572,7 @@ Discount Details Column in Detailed Reports:
 
 ---
 
+## Advanced Reporting and Analytics
 ## User Management
 
 ### Creating New Users

@@ -8,6 +8,7 @@ import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
 import SuperAdminPage from './pages/SuperAdminPage'
 import ReportsPage from './pages/ReportsPage'
+import AdvancedReportsPage from './pages/AdvancedReportsPage'
 import LogsPage from './pages/LogsPage'
 import BillingLogsPage from './pages/BillingLogsPage'
 import CustomersPage from './pages/CustomersPage'
@@ -98,6 +99,7 @@ function AppContent() {
           <Route path="/" element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
           <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
           <Route path="/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
+          <Route path="/advanced-reports" element={<AdminRoute><AdvancedReportsPage /></AdminRoute>} />
           <Route path="/customers" element={<AdminRoute><CustomersPage /></AdminRoute>} />
           <Route path="/logs" element={<AdminRoute><LogsPage /></AdminRoute>} />
           <Route path="/billing-logs" element={<AdminRoute><BillingLogsPage /></AdminRoute>} />

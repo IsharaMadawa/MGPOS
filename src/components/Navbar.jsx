@@ -145,9 +145,24 @@ export default function Navbar() {
             }`}
           >
             <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2V-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <span className="hidden lg:inline ml-1">Reports</span>
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            to="/advanced-reports"
+            className={`px-1.5 sm:px-2 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center ${
+              location.pathname === '/advanced-reports'
+                ? 'bg-emerald-800 text-white'
+                : 'text-emerald-100 hover:bg-emerald-600'
+            }`}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002 2zm2 0a2 2 0 002 2v-6a2 2 0 00-2-2h-2a2 2 0 00-2 2v6a2 2 0 002 2h2zm4 0a2 2 0 002 2v-6a2 2 0 00-2-2h-2a2 2 0 00-2 2v6a2 2 0 002 2H19z" />
+            </svg>
+            <span className="hidden lg:inline ml-1">Dashboard</span>
           </Link>
         )}
         {isAdmin && (

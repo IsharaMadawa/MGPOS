@@ -2958,4 +2958,212 @@ The bill details modal provides comprehensive transaction information including:
 
 ---
 
-*This technical documentation is maintained alongside the codebase and updated regularly to reflect architectural changes and new features.*
+## Advanced Reporting System
+
+### Overview
+The Advanced Reporting system provides comprehensive business analytics and visualizations for Organization Admins and Super Admins. It features interactive dashboards, export capabilities, comparative analysis, and product performance analytics.
+
+### Architecture
+
+#### Components Structure
+```
+src/
+├── pages/
+│   └── AdvancedReportsPage.jsx          # Main advanced reports interface
+├── hooks/
+│   └── useAdvancedReports.js           # Advanced reporting data management
+├── utils/
+│   ├── chartUtils.js                  # Chart utility functions
+│   ├── analyticsUtils.js              # Business analytics calculations
+│   └── exportUtils.js                 # PDF/Excel export functionality
+└── test/
+    ├── AdvancedReportsPage.test.jsx   # Advanced reports component tests
+    ├── chartUtils.test.js             # Chart utilities tests
+    └── analyticsUtils.test.js          # Analytics utilities tests
+```
+
+#### Key Features
+
+**Visual Dashboards**
+- Interactive charts using Recharts library
+- Revenue trend analysis with line charts
+- Product performance with bar charts
+- Category distribution with pie charts
+- Payment method analysis with donut charts
+- Hourly sales patterns with area charts
+- Responsive design for mobile, tablet, and desktop
+
+**Export Functionality**
+- PDF export using jsPDF with custom layouts
+- Excel export using SheetJS with multiple worksheets
+- Chart image export capabilities
+- Branded report generation with organization details
+
+**Comparative Analysis**
+- Period-over-period comparison (day/week/month/year)
+- Percentage change calculations
+- Trend indicators (up/down/neutral)
+- Forecasting capabilities using linear regression
+
+**Product Performance Analytics**
+- Top products by revenue and profit margin
+- Category-wise performance breakdown
+- Customer analytics and purchasing patterns
+- Payment method distribution analysis
+
+### Data Processing
+
+#### AnalyticsCalculator Class
+```javascript
+// Core analytics engine
+class AnalyticsCalculator {
+  calculateRevenueMetrics(period)      // Revenue analysis
+  calculateTransactionMetrics(period)  // Transaction analytics
+  calculateProductPerformance()        // Product performance
+  calculateCategoryPerformance()        // Category analysis
+  calculatePaymentMethodAnalytics()     // Payment analysis
+  calculateComparativeAnalysis()         // Comparative analysis
+  forecastRevenue(data)               // Revenue forecasting
+}
+```
+
+#### Chart Data Preparation
+```javascript
+// Data transformation for charts
+prepareLineChartData(data, xKey, yKey, name)
+prepareBarChartData(data, xKey, yKey)
+preparePieChartData(data, nameKey, valueKey)
+aggregateByPeriod(data, dateKey, valueKey, period)
+```
+
+### Export System
+
+#### PDF Export Features
+- Custom PDFExporter class with layout management
+- Automatic table formatting and pagination
+- Chart integration for visual reports
+- Multi-worksheet support for different report types
+
+#### Excel Export Features
+- ExcelExporter class with worksheet management
+- Auto-sizing columns based on content
+- Summary sheets with calculated metrics
+- Detailed transaction sheets with full data
+
+### Performance Optimizations
+
+#### Data Processing
+- Efficient aggregation algorithms for large datasets
+- Memoized calculations using React useMemo
+- Lazy loading of chart components
+- Optimized Firebase queries with proper indexing
+
+#### UI Performance
+- Responsive chart configurations
+- Virtual scrolling for large data tables
+- Progressive image loading for exports
+- Debounced user interactions
+
+### Security Considerations
+
+#### Access Control
+- Admin-only access enforcement through route protection
+- Organization-based data isolation
+- Multi-organization support with proper validation
+
+#### Data Privacy
+- No sensitive data exposure in client-side logs
+- Secure export file generation
+- Organization-specific data boundaries
+
+### Testing Strategy
+
+#### Unit Test Coverage
+- Component testing with React Testing Library
+- Utility function testing with Jest
+- Mock implementations for all external dependencies
+- Responsive design testing with viewport simulation
+
+#### Test Categories
+- Access control and authentication
+- Data processing and analytics calculations
+- Chart data preparation and rendering
+- Export functionality and file generation
+- Error handling and edge cases
+
+### Integration Points
+
+#### Existing System Integration
+- Extends current useReports hook functionality
+- Leverages existing AuthContext for permissions
+- Integrates with current organization management
+- Maintains consistency with existing UI patterns
+
+#### Firebase Integration
+- Uses existing Firestore structure and collections
+- Compatible with current billing_logs schema
+- Supports multi-organization data queries
+- Real-time data synchronization
+
+### Dependencies Added
+
+#### New Packages
+```json
+{
+  "recharts": "^2.12.7",           // Chart library
+  "jspdf": "^2.5.1",              // PDF generation
+  "xlsx": "^0.18.5",               // Excel export
+  "file-saver": "^2.0.5",          // File download
+  "date-fns": "^3.6.0"             // Date utilities
+}
+```
+
+### Usage Examples
+
+#### Basic Dashboard Usage
+```javascript
+import { useAdvancedReports } from '../hooks/useAdvancedReports'
+
+function Dashboard() {
+  const { analytics, fetchAdvancedData, getChartData } = useAdvancedReports()
+  
+  useEffect(() => {
+    fetchAdvancedData('month', null, null, [orgId])
+  }, [])
+  
+  const chartData = getChartData('revenue-trend', { period: 'month' })
+  
+  return <LineChart data={chartData.data} />
+}
+```
+
+#### Export Usage
+```javascript
+const { exportData } = useAdvancedReports()
+
+// Export as PDF
+await exportData('pdf', 'sales-report')
+
+// Export as Excel
+await exportData('excel', 'product-performance')
+```
+
+### Future Enhancements
+
+#### Planned Features
+- Real-time dashboard updates
+- Scheduled report generation and email delivery
+- Advanced filtering and custom date ranges
+- Drill-down capabilities for detailed analysis
+- Integration with external BI tools
+- Custom report builder interface
+
+#### Performance Improvements
+- Server-side aggregation for large datasets
+- Caching layer for frequently accessed data
+- Progressive web app features for offline access
+- Advanced chart interactions and animations
+
+---
+
+*This technical documentation is maintained alongside with codebase and updated regularly to reflect architectural changes and new features.*
