@@ -240,6 +240,35 @@ mgpos/
 }
 ```
 
+#### Customer Management Validation
+
+The customer management system includes client-side validation to ensure data integrity:
+
+##### Form Validation Rules
+- **Customer Name**: Required field, must not be empty
+- **Phone**: Optional field, accepts any format
+- **Email**: Optional field, accepts any format (server-side validation recommended)
+- **Address**: Optional field, free text input
+
+##### Validation Implementation
+```javascript
+// Customer form validation in CustomerFormModal
+const handleSubmit = (e) => {
+  e.preventDefault()
+  if (!formData.name.trim()) {
+    addToast('Customer name is required', 'error')
+    return
+  }
+  onSave(formData)
+}
+```
+
+##### Error Handling
+- Validation errors display as toast notifications
+- Successful operations show success toast messages
+- Network/server errors are caught and displayed appropriately
+- Form submission is prevented when validation fails
+
 #### Sales Collection
 ```javascript
 {
@@ -253,16 +282,105 @@ mgpos/
   taxAmount: number,     // Tax amount
   total: number,         // Total amount
   itemCount: number,     // Number of items
-  paymentMethod: string, // Payment method: 'cash', 'card', 'credit', 'split'
+  paymentMethod: string, // Payment method: 'cash', 'card', 'digital', 'credit', 'split'
   paymentDetails: object, // Payment method details
   customer: object,       // Customer information (if applicable)
   customerId: string,     // Customer ID (if applicable)
   cashierId: string,     // Cashier ID
   cashierName: string,   // Cashier name
+  billingSettings: object, // Billing settings snapshot at checkout time
   createdAt: timestamp,  // Sale timestamp
   updatedAt: timestamp   // Last update timestamp
 }
 ```
+
+#### Discount Application Logic
+
+The discount system ensures that discounts are always applied based on the billing settings at the time of checkout, not current settings that may have changed after the sale.
+
+**Checkout-Time Settings Snapshot**
+- When a sale is processed, a snapshot of current billing settings is captured
+- All discount calculations use this snapshot for consistency
+- The snapshot is stored with the sale record for audit purposes
+
+**Discount Modes**
+1. **Global Mode**: Single discount percentage applied to entire cart
+2. **Item Mode**: Individual item discounts override global settings
+3. **Category Mode**: Category-specific discounts applied to qualifying items
+
+**Discount Priority Order**
+1. Cart-level override (user-entered currency discount)
+2. Item-level discount (when enabled)
+3. Category-level discount (when enabled)
+4. Global discount (when enabled)
+
+**Implementation Details**
+```javascript
+// CartPanel.jsx - Checkout function
+const handleCheckout = async () => {
+  // Capture billing settings snapshot at checkout time
+  const billingSettingsSnapshot = { ...settings }
+  
+  // Recalculate totals using checkout-time settings
+  const checkoutSubtotal = cart.reduce((s, item) => 
+    s + item.price * item.qty - getItemDiscount(item, billingSettingsSnapshot), 0)
+  // ... rest of calculation using billingSettingsSnapshot
+  
+  // Store snapshot with sale data
+  const saleData = {
+    // ... other fields
+    billingSettings: billingSettingsSnapshot
+  }
+}
+```
+
+#### Enhanced Discount Reporting
+
+The system now provides detailed discount information in all reports and receipts, showing the exact type and amount/percentage of discounts applied to each item.
+
+**Discount Utility Functions**
+```javascript
+// src/utils/discountUtils.js
+
+// Get detailed discount information for a single item
+getItemDiscountDetails(item, settings)
+// Returns: { amount, type, percentage, source, description }
+
+// Get comprehensive discount breakdown for entire cart
+getCartDiscountBreakdown(cart, settings)
+// Returns: { totalDiscount, itemDiscounts[], globalDiscount, discountMode }
+
+// Format discount information for display
+formatDiscountForReport(discountDetails)
+// Returns: Human-readable discount description
+```
+
+**Discount Information Display**
+- **Billing Reports**: Shows item-wise discount details with type and percentage
+- **Sales Reports**: Includes "Discount Details" column in detailed reports
+- **Receipt Printing**: Displays comprehensive discount breakdown
+- **Bill Details Modal**: Shows individual item discount information
+
+**Discount Types Supported**
+1. **Custom**: User-entered currency discount (e.g., "Custom: $15.00 (7.5%)")
+2. **Item**: Individual item percentage or fixed discount (e.g., "Item: 10%")
+3. **Category**: Category-specific discounts (e.g., "Category (electronics): 15%")
+4. **Global**: Cart-wide percentage discount (e.g., "Global: 10%")
+
+**Report Integration**
+```javascript
+// Example: Detailed report with discount information
+const discountBreakdown = getCartDiscountBreakdown(bill.cart, bill.billingSettings)
+const discountDetailsText = discountBreakdown.itemDiscounts
+  .filter(item => item.discount.amount > 0)
+  .map(item => `${item.itemName}(${item.discount.description})`)
+  .join(', ')
+```
+
+**Logging and Audit Trail**
+- Bill details view logging includes discount presence flag
+- Report generation logs capture discount summary information
+- All discount calculations use billing settings snapshot for consistency
 
 #### Settings Collection
 ```javascript
@@ -1032,15 +1150,6 @@ export default defineConfig({
     globals: true
   }
 })
-```
-
----
-
-## Development Guidelines
-
-### Code Style
-- **ESLint Configuration**: Consistent code formatting
-- **Prettier Integration**: Automatic code formatting
 - **TypeScript**: Gradual migration to TypeScript
 - **Component Naming**: PascalCase for components
 - **File Naming**: camelCase for utilities, PascalCase for components
@@ -1482,7 +1591,7 @@ Filters billing logs based on payment method with split payment handling.
 
 **Parameters**:
 - `reports`: Array of billing log objects
-- `method`: Payment method filter ('cash', 'card')
+- `method`: Payment method filter ('cash', 'card', 'digital', 'credit')
 
 **Returns**: Filtered array of billing logs
 
@@ -1494,6 +1603,10 @@ const filterReportsByPaymentMethod = (reports, method) => {
       return bill.paymentMethod === 'cash' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
     } else if (method === 'card') {
       return bill.paymentMethod === 'card' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+    } else if (method === 'digital') {
+      return bill.paymentMethod === 'digital'
+    } else if (method === 'credit') {
+      return bill.paymentMethod === 'credit'
     }
     return true
   })
@@ -1533,12 +1646,14 @@ if (method === 'cash' && bill.paymentMethod === 'split') {
 New buttons added to report type selection:
 - "Cash Sales" - Filters for cash transactions
 - "Card Sales" - Filters for card transactions
+- "Digital Sales" - Filters for digital transactions
+- "Credit Sales" - Filters for credit transactions
 
 ##### Dynamic Summary Cards
 Summary cards update based on selected report type:
 ```javascript
 {(() => {
-  if (reportType === 'cash' || reportType === 'card') {
+  if (reportType === 'cash' || reportType === 'card' || reportType === 'digital' || reportType === 'credit') {
     const paymentSummary = calculatePaymentMethodSummary(reports, reportType)
     return (
       // Payment method specific summary cards
@@ -1565,8 +1680,8 @@ The print functionality was extended to support payment method reports:
 
 **Template Structure**:
 ```javascript
-${(reportType === 'cash' || reportType === 'card') ? `
-  <div class="section-title">${reportType === 'cash' ? 'Cash Sales' : 'Card Sales'} Details</div>
+${(reportType === 'cash' || reportType === 'card' || reportType === 'digital' || reportType === 'credit') ? `
+  <div class="section-title">${reportType === 'cash' ? 'Cash Sales' : reportType === 'card' ? 'Card Sales' : reportType === 'digital' ? 'Digital Sales' : 'Credit Sales'} Details</div>
   <table>
     <!-- Payment method specific table content -->
   </table>
@@ -1603,7 +1718,7 @@ ${reportType === 'detailed' ? `
 
 **Dynamic Report Title**:
 ```javascript
-<title>${reportType === 'cash' ? 'Cash Sales Report' : reportType === 'card' ? 'Card Sales Report' : 'Sales Report'}</title>
+<title>${reportType === 'cash' ? 'Cash Sales Report' : reportType === 'card' ? 'Card Sales Report' : reportType === 'digital' ? 'Digital Sales Report' : reportType === 'credit' ? 'Credit Sales Report' : 'Sales Report'}</title>
 ```
 
 ### Data Models
@@ -1618,7 +1733,7 @@ The system works with the existing billing log data structure:
   receiptNo: string,
   createdAt: timestamp,
   cashierName: string,
-  paymentMethod: 'cash' | 'card' | 'credit' | 'split',
+  paymentMethod: 'cash' | 'card' | 'digital' | 'credit' | 'split',
   total: number,
   itemCount: number,
   cart: Array<{
@@ -1632,6 +1747,7 @@ The system works with the existing billing log data structure:
   paymentDetails?: {
     cashAmount: number,
     cardAmount: number,
+    digitalAmount: number,
     creditAmount: number
   },
   // Customer information for credit sales
@@ -2679,6 +2795,166 @@ function calculateSummaryOptimized(reports, method) {
   }
 }
 ```
+
+---
+
+## Billing Logs System
+
+### Overview
+The Billing Logs system provides comprehensive viewing, filtering, and reprinting capabilities for sales transactions within the MGPOS application. It supports real-time data synchronization and multi-organization access control.
+
+### Core Components
+
+#### BillingLogsPage Component
+Located at `src/pages/BillingLogsPage.jsx`, this component provides the main interface for viewing and managing billing logs.
+
+**Key Features**:
+- Real-time billing log display with pagination
+- Advanced filtering capabilities (date range, receipt number)
+- Bill details modal with comprehensive transaction information
+- Reprint functionality for same-day bills (when enabled)
+- Multi-organization support with organization context display
+
+#### useBillingLogs Hook
+Located at `src/hooks/useBillingLogs.js`, this custom hook manages data fetching and state for billing logs.
+
+**Key Functions**:
+- Real-time subscription to billing logs collection
+- Organization-based data isolation
+- Multi-organization access detection
+- Billing log creation for new sales
+
+### Filtering System
+
+The Billing Logs page includes a comprehensive filtering system with the following options:
+
+#### Available Filters
+1. **Start Date**: Filter bills from a specific start date
+2. **End Date**: Filter bills up to a specific end date  
+3. **Receipt Number**: Search by receipt number (partial matching)
+
+#### Filter Implementation
+```javascript
+const filteredLogs = logs.filter(log => {
+  let matches = true
+  
+  if (filters.startDate) {
+    const logDate = new Date(log.createdAt).toDateString()
+    const filterDate = new Date(filters.startDate).toDateString()
+    matches = matches && logDate >= filterDate
+  }
+  
+  if (filters.endDate) {
+    const logDate = new Date(log.createdAt).toDateString()
+    const filterDate = new Date(filters.endDate).toDateString()
+    matches = matches && logDate <= filterDate
+  }
+  
+  if (filters.receiptNo) {
+    matches = matches && log.receiptNo.toLowerCase().includes(filters.receiptNo.toLowerCase())
+  }
+  
+  return matches
+})
+```
+
+### Reprint Functionality
+
+#### Reprint Conditions
+- **Settings Requirement**: Reprint must be enabled in organization settings (`reprintEnabled: true`)
+- **Time Restriction**: Only bills created on the current day can be reprinted
+- **User Permission**: Users with appropriate access can reprint bills
+
+#### Reprint Features
+- Opens print preview in new window
+- Includes "REPRINT" watermark on receipt
+- Captures reprint time and logs the action
+- Maintains original receipt formatting and data
+
+### Bill Details Modal
+
+The bill details modal provides comprehensive transaction information including:
+
+#### Header Information
+- Receipt number and timestamp
+- Cashier information
+- Customer details (if applicable)
+- Payment method and split payment details
+
+#### Item Details
+- Product names and quantities with units
+- Individual item pricing
+- Discount information with type and percentage
+- Line totals and discounted totals
+
+#### Summary Calculations
+- Gross amount (before discounts)
+- Item-wise discount breakdown
+- Net amount (after discounts)
+- Tax calculations (if enabled)
+- Final total amount
+
+### Recent Updates
+
+#### Unit Filter Removal (Latest Update)
+- **Change**: Removed unit-based filtering from Billing Logs page
+- **Reason**: Unit filtering was deemed unnecessary for billing operations
+- **Impact**: Simplified filtering interface and improved performance
+- **Files Modified**:
+  - `src/pages/BillingLogsPage.jsx`: Removed unit filter state, UI, and filtering logic
+  - `src/test/BillingLogsPage.test.jsx`: Updated unit tests to reflect changes
+
+#### Filter Grid Adjustment
+- Changed from 4-column to 3-column grid layout for filters
+- Improved responsive design and user experience
+- Maintained all essential filtering capabilities
+
+### Database Schema
+
+#### BillingLogs Collection Structure
+```javascript
+{
+  id: string,              // Document ID
+  orgId: string,           // Organization ID
+  receiptNo: string,       // Receipt number
+  cashierId: string,       // Cashier user ID
+  cashierName: string,     // Cashier display name
+  cart: array,             // Array of cart items
+  subtotal: number,        // Subtotal amount
+  total: number,           // Total amount
+  itemCount: number,       // Number of items
+  paymentMethod: string,   // Payment method: 'cash', 'card', 'credit', 'split'
+  paymentDetails: object,   // Split payment details
+  customer: object,        // Customer information (if applicable)
+  billingSettings: object, // Settings snapshot at time of sale
+  createdAt: timestamp,    // Sale timestamp
+  updatedAt: timestamp     // Last update timestamp
+}
+```
+
+### Performance Optimizations
+
+#### Pagination Implementation
+- Loads 50 logs per page to improve initial load performance
+- "Load More" functionality for progressive data loading
+- Maintains filter state across pagination
+
+#### Real-time Updates
+- Uses Firestore onSnapshot for real-time data synchronization
+- Efficient re-rendering with React optimization patterns
+- Organization-based subscription management
+
+### Security Considerations
+
+#### Access Control
+- Organization-based data isolation
+- User role verification for reprint functionality
+- Multi-organization access validation
+
+#### Data Integrity
+- Settings snapshot preservation for consistent discount calculations
+- Audit trail through logging system
+- Immutable transaction records
 
 ---
 

@@ -396,8 +396,51 @@ describe('Cart Calculation Business Logic', () => {
     })
   })
 
-  describe('Complex cart scenarios', () => {
-    it('should handle mixed discount types correctly', () => {
+  describe('Checkout-time discount application', () => {
+  it('should use billing settings snapshot at checkout time', () => {
+    const cart = [baseItem]
+    const checkoutSettings = { ...baseSettings, globalDiscount: 15 }
+    const currentSettings = { ...baseSettings, globalDiscount: 5 }
+    
+    // Calculate using checkout settings (should use 15% discount)
+    const checkoutResult = calculateCartTotals(cart, checkoutSettings)
+    
+    // Calculate using current settings (should use 5% discount)
+    const currentResult = calculateCartTotals(cart, currentSettings)
+    
+    // Verify checkout settings are used
+    expect(checkoutResult.globalDiscountAmount).toBe(3) // 20 * 0.15
+    expect(checkoutResult.total).toBe(17)
+    
+    // Verify current settings would give different result
+    expect(currentResult.globalDiscountAmount).toBe(1) // 20 * 0.05
+    expect(currentResult.total).toBe(19)
+    
+    // Verify the difference
+    expect(checkoutResult.total).not.toBe(currentResult.total)
+  })
+  
+  it('should preserve billing settings snapshot integrity', () => {
+    const cart = [baseItem]
+    const originalSettings = {
+      ...baseSettings,
+      discountMode: 'global',
+      globalDiscount: 10,
+      taxEnabled: true,
+      taxRate: 8
+    }
+    
+    const result = calculateCartTotals(cart, originalSettings)
+    
+    // Verify all settings are properly applied
+    expect(result.globalDiscountAmount).toBe(2) // 20 * 0.10
+    expect(result.taxAmount).toBe(1.44) // (20 - 2) * 0.08
+    expect(result.total).toBe(19.44) // 18 + 1.44
+  })
+})
+
+describe('Complex cart scenarios', () => {
+  it('should handle mixed discount types correctly', () => {
       const cart = [
         {
           ...baseItem,

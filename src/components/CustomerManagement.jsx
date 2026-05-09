@@ -212,6 +212,7 @@ export default function CustomerManagement() {
           onSave={handleSaveCustomer}
           onClose={() => setEditingCustomer(null)}
           loading={loading}
+          addToast={addToast}
         />
       )}
 
@@ -282,7 +283,7 @@ export default function CustomerManagement() {
 }
 
 // Customer Form Modal Component
-function CustomerFormModal({ customer, onSave, onClose, loading }) {
+function CustomerFormModal({ customer, onSave, onClose, loading, addToast }) {
   const [formData, setFormData] = useState({
     name: customer.name || '',
     phone: customer.phone || '',
@@ -293,6 +294,7 @@ function CustomerFormModal({ customer, onSave, onClose, loading }) {
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!formData.name.trim()) {
+      addToast('Customer name is required', 'error')
       return
     }
     onSave(formData)
@@ -310,7 +312,6 @@ function CustomerFormModal({ customer, onSave, onClose, loading }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
             <input
               type="text"
-              required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"

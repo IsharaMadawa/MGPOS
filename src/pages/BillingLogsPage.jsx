@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { useOrg } from '../contexts/OrgContext'
 import { useToast } from '../components/ToastContainer'
 import { logUserAction } from '../utils/logger'
+import { getItemDiscountDetails, getCartDiscountBreakdown } from '../utils/discountUtils'
+import { DiscountType, DiscountMode, DiscountSource, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
 
 function fmt(amount, sym) {
   return `${sym}${Number(amount).toFixed(2)}`
@@ -24,7 +26,7 @@ function fmtTime(ts) {
 }
 
 function getItemDiscount(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
   
   // Cart-level override (user-entered currency discount) takes precedence
   if (item.cartDiscount != null && item.cartDiscount !== '') {
@@ -33,20 +35,20 @@ function getItemDiscount(item, settings) {
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       return lineTotal * (item.discount.value / 100)
     }
     return Math.min(item.discount.value * item.qty, lineTotal)
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         return lineTotal * (catDisc.value / 100)
       }
       return Math.min(catDisc.value * item.qty, lineTotal)
@@ -58,7 +60,7 @@ function getItemDiscount(item, settings) {
 
 // Get discount info for display (percentage and source)
 function getItemDiscountInfo(item, settings) {
-  const mode = settings?.discountMode || 'global'
+  const mode = settings?.discountMode || DEFAULT_DISCOUNT_MODE
   const result = { amount: 0, percentage: 0, source: null }
   
   // Cart-level override
@@ -68,38 +70,38 @@ function getItemDiscountInfo(item, settings) {
     const cappedVal = Math.min(Math.max(val, 0), lineTotal)
     result.amount = cappedVal
     result.percentage = lineTotal > 0 ? (cappedVal / lineTotal) * 100 : 0
-    result.source = 'custom'
+    result.source = DiscountSource.CUSTOM
     return result
   }
   
   // Item-level discount
-  if (mode === 'item' && item.discount?.enabled) {
+  if (mode === DiscountMode.ITEM && item.discount?.enabled) {
     const lineTotal = item.price * item.qty
-    if (item.discount.type === 'percentage') {
+    if (item.discount.type === DiscountType.PERCENTAGE) {
       result.amount = lineTotal * (item.discount.value / 100)
       result.percentage = item.discount.value
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     } else {
       result.amount = Math.min(item.discount.value * item.qty, lineTotal)
       result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-      result.source = 'item'
+      result.source = DiscountSource.ITEM
     }
     return result
   }
   
   // Category-level discount
-  if (mode === 'category') {
+  if (mode === DiscountMode.CATEGORY) {
     const catDisc = settings?.categoryDiscounts?.[item.category]
     if (catDisc?.enabled) {
       const lineTotal = item.price * item.qty
-      if (catDisc.type === 'percentage') {
+      if (catDisc.type === DiscountType.PERCENTAGE) {
         result.amount = lineTotal * (catDisc.value / 100)
         result.percentage = catDisc.value
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       } else {
         result.amount = Math.min(catDisc.value * item.qty, lineTotal)
         result.percentage = lineTotal > 0 ? (result.amount / lineTotal) * 100 : 0
-        result.source = 'category'
+        result.source = DiscountSource.CATEGORY
       }
       return result
     }
@@ -112,8 +114,7 @@ export default function BillingLogsPage() {
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
-    receiptNo: '',
-    unit: ''
+    receiptNo: ''
   })
   const [showFilters, setShowFilters] = useState(false)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
@@ -148,8 +149,7 @@ export default function BillingLogsPage() {
     setFilters({
       startDate: '',
       endDate: '',
-      receiptNo: '',
-      unit: ''
+      receiptNo: ''
     })
     setCurrentPage(1)
   }
@@ -170,9 +170,30 @@ export default function BillingLogsPage() {
     return true
   }
 
-  const handleViewDetails = (log) => {
+  const handleViewDetails = async (log) => {
     setSelectedLog(log)
     setShowDetailsModal(true)
+    
+    // Log bill details view
+    try {
+      await logUserAction(
+        'BILL_DETAILS_VIEW',
+        `Viewed bill details for receipt #${log.receiptNo}`,
+        userProfile,
+        log.orgId || currentOrgId,
+        {
+          receiptNo: log.receiptNo,
+          totalAmount: log.total,
+          itemCount: log.cart?.length || 0,
+          hasDiscounts: log.cart?.some(item => {
+            const discountBreakdown = getCartDiscountBreakdown(log.cart, log.billingSettings || settings)
+            return discountBreakdown.totalDiscount > 0
+          })
+        }
+      )
+    } catch (logError) {
+      console.error('Failed to log bill details view:', logError)
+    }
   }
 
   const handleCloseDetails = () => {
@@ -196,7 +217,7 @@ export default function BillingLogsPage() {
 
       // Calculate bill details
       const rSub = log.cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
-      const discountPct = (settings?.discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
+      const discountPct = (settings?.discountMode === DEFAULT_DISCOUNT_MODE && settings?.globalDiscount) ? settings.globalDiscount : 0
       const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
       const taxEnabled = settings?.taxEnabled || false
       const taxRate = settings?.taxRate || 0
@@ -248,19 +269,29 @@ ${log.paymentDetails.cardAmount > 0 ? `<div class="row muted"><span style="margi
 <div class="row center muted"><span>Reprinted: ${reprintDateTime}</span></div>
 <div class="divider"></div>
 ${log.cart.map(item => {
-  const itemDisc = getItemDiscount(item, settings)
-  const discInfo = getItemDiscountInfo(item, settings)
+  const discountDetails = getItemDiscountDetails(item, log.billingSettings || settings)
   const lineTotal = item.price * item.qty
-  const discountedTotal = lineTotal - itemDisc
-  const hasDiscount = itemDisc > 0
+  const discountedTotal = lineTotal - discountDetails.amount
+  const hasDiscount = discountDetails.amount > 0
   return `<div class="row">
-  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})</span>` : ''}</span>
+  <span class="row-name">${item.name} &times; ${formatQty(item.qty, item.selectedUnit || item.unit)}${hasDiscount ? ` <span class="muted">(${fmt(lineTotal, sym)} → ${fmt(discountedTotal, sym)}${discountDetails.description ? ` - ${discountDetails.description}` : ''})</span>` : ''}</span>
   <span class="row-amount">${fmt(discountedTotal, sym)}</span>
 </div>`
 }).join('')}
 <div class="divider"></div>
 <div class="row"><span>Gross Amount</span><span>${fmt(log.cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span></div>
-${(rDisc > 0 || log.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) ? `<div class="row muted"><span>Discount ${discountPct > 0 ? `(${discountPct}%)` : ''}</span><span>−${fmt(rDisc + log.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span></div>` : ''}
+${(() => {
+  const discountBreakdown = getCartDiscountBreakdown(log.cart, log.billingSettings || settings)
+  const hasDiscounts = discountBreakdown.totalDiscount > 0
+  return hasDiscounts ? `
+    ${discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => 
+      `<div class="row muted"><span>${item.itemName} (${item.quantity}x)</span><span>−${fmt(item.discount.amount, sym)} - ${item.discount.description}</span></div>`
+    ).join('')}
+    ${discountBreakdown.globalDiscount > 0 ? `<div class="row muted"><span>Global Discount</span><span>−${fmt(discountBreakdown.globalDiscount, sym)} (${discountBreakdown.globalDiscountPercentage}%)</span></div>` : ''}
+    <div class="row muted"><strong>Total Discount</strong></div>
+    <div class="row muted"><span></span><span>−${fmt(discountBreakdown.totalDiscount, sym)}</span></div>
+  ` : ''
+})()}
 <div class="row"><span>Net Amount</span><span>${fmt(rSub, sym)}</span></div>
 ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt(rTax, sym)}</span></div>` : ''}
 <div class="divider"></div>
@@ -292,15 +323,6 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
     
     if (filters.receiptNo) {
       matches = matches && log.receiptNo.toLowerCase().includes(filters.receiptNo.toLowerCase())
-    }
-    
-    if (filters.unit) {
-      const hasUnitInCart = log.cart?.some(item => 
-        item.selectedUnit === filters.unit || 
-        item.unit === filters.unit ||
-        (item.unit && item.unit.toLowerCase() === filters.unit.toLowerCase())
-      )
-      matches = matches && hasUnitInCart
     }
     
     return matches
@@ -351,7 +373,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
 
           {showFilters && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                   <input
@@ -381,22 +403,6 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                     placeholder="Enter receipt number"
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
-                  <select
-                    value={filters.unit}
-                    onChange={(e) => handleFilterChange('unit', e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500"
-                  >
-                    <option value="">All Units</option>
-                    {settings?.unitsOfMeasure?.map(unit => (
-                      <option key={unit.id} value={unit.abbreviation}>
-                        {unit.name} ({unit.abbreviation})
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -556,6 +562,13 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                   <p className="text-sm text-gray-400">{fmtDate(selectedLog.createdAt)} {fmtTime(selectedLog.createdAt)}</p>
                 </div>
                 
+                {/* Organization Info */}
+                {hasMultiOrgAccess && selectedLog.orgName && (
+                  <div className="mb-3 text-xs text-gray-500">
+                    <span className="font-medium">Organization:</span> {selectedLog.orgName}
+                  </div>
+                )}
+                
                 {/* Cashier Info */}
                 {selectedLog.cashierName && (
                   <div className="mb-3 text-xs text-gray-500">
@@ -603,11 +616,10 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Items</h3>
                 <div className="space-y-2">
                   {selectedLog.cart.map((item, index) => {
-                    const itemDisc = getItemDiscount(item, settings)
-                    const discInfo = getItemDiscountInfo(item, settings)
+                    const discountDetails = getItemDiscountDetails(item, selectedLog.billingSettings || settings)
                     const lineTotal = item.price * item.qty
-                    const discountedTotal = lineTotal - itemDisc
-                    const hasDiscount = itemDisc > 0
+                    const discountedTotal = lineTotal - discountDetails.amount
+                    const hasDiscount = discountDetails.amount > 0
                     
                     return (
                       <div key={index} className="flex justify-between text-sm py-1 gap-2">
@@ -615,8 +627,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                           <span className="block truncate">{item.name} × {formatQty(item.qty, item.selectedUnit || item.unit)}</span>
                           {hasDiscount && (
                             <span className="text-xs text-rose-500">
-                              ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}
-                              {(item.discount?.type === 'percentage' || (settings?.discountMode === 'category' && settings?.categoryDiscounts?.[item.category]?.type === 'percentage') || (settings?.discountMode === 'global' && settings?.globalDiscount > 0)) && discInfo.percentage > 0 ? ` −${discInfo.percentage.toFixed(0)}%` : ''})
+                              ({fmt(lineTotal, sym)} → {fmt(discountedTotal, sym)}{discountDetails.description ? ` - ${discountDetails.description}` : ''})
                             </span>
                           )}
                         </span>
@@ -632,7 +643,7 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                 {/* Calculate totals */}
                 {(() => {
                   const rSub = selectedLog.cart.reduce((s, item) => s + item.price * item.qty - getItemDiscount(item, settings), 0)
-                  const discountPct = (settings?.discountMode === 'global' && settings?.globalDiscount) ? settings.globalDiscount : 0
+                  const discountPct = (settings?.discountMode === DEFAULT_DISCOUNT_MODE && settings?.globalDiscount) ? settings.globalDiscount : 0
                   const rDisc = discountPct > 0 ? rSub * (discountPct / 100) : 0
                   const taxEnabled = settings?.taxEnabled || false
                   const taxRate = settings?.taxRate || 0
@@ -646,12 +657,30 @@ ${taxEnabled ? `<div class="row muted"><span>Tax (${taxRate}%)</span><span>${fmt
                         <span>Gross Amount</span>
                         <span>{fmt(selectedLog.cart.reduce((s, item) => s + item.price * item.qty, 0), sym)}</span>
                       </div>
-                      {(rDisc > 0 || selectedLog.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0) > 0) && (
-                        <div className="flex justify-between text-rose-600">
-                          <span>Discount {discountPct > 0 ? `(${discountPct}%)` : ''}</span>
-                          <span>− {fmt(rDisc + selectedLog.cart.reduce((s, item) => s + getItemDiscount(item, settings), 0), sym)}</span>
-                        </div>
-                      )}
+                      {(() => {
+                      const discountBreakdown = getCartDiscountBreakdown(selectedLog.cart, selectedLog.billingSettings || settings)
+                      const hasDiscounts = discountBreakdown.totalDiscount > 0
+                      return hasDiscounts ? (
+                        <>
+                          {discountBreakdown.itemDiscounts.filter(item => item.discount.amount > 0).map(item => (
+                            <div key={item.itemId} className="flex justify-between text-rose-600 text-xs">
+                              <span>{item.itemName} ({item.quantity}x)</span>
+                              <span>− {fmt(item.discount.amount, sym)} - {item.discount.description}</span>
+                            </div>
+                          ))}
+                          {discountBreakdown.globalDiscount > 0 && (
+                            <div className="flex justify-between text-rose-600">
+                              <span>Global Discount</span>
+                              <span>− {fmt(discountBreakdown.globalDiscount, sym)} ({discountBreakdown.globalDiscountPercentage}%)</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-rose-600 font-semibold">
+                            <span>Total Discount</span>
+                            <span>− {fmt(discountBreakdown.totalDiscount, sym)}</span>
+                          </div>
+                        </>
+                      ) : null
+                    })()}
                       <div className="flex justify-between text-gray-600">
                         <span>Net Amount</span>
                         <span>{fmt(rSub, sym)}</span>

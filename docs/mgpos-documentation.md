@@ -149,6 +149,7 @@ For better customer relationship management:
 2. Select payment method:
    - **Cash**: Traditional cash payment
    - **Card**: Credit/debit card payment
+   - **Digital**: Digital wallet or online payment methods
    - **Credit**: Credit purchase (requires customer selection and feature enablement)
    - **Split**: Partial cash and partial card payment
 3. For split payments:
@@ -162,6 +163,7 @@ For better customer relationship management:
 6. Print or email the receipt as needed
 
 ### Payment Method Features
+- **Digital Payments**: Support for digital wallets and online payment methods
 - **Credit Purchases**: Available when enabled in organization settings
 - **Customer Linking**: Credit purchases require customer selection
 - **Split Payments**: Support for partial cash and card combinations
@@ -499,13 +501,47 @@ Super administrators and organization administrators with access to multiple org
 - **Profit Analysis**: Cost vs. selling price analysis
 - **Tax Reports**: Tax collection and remittance
 - **Payment Methods**: Payment type distribution
+- **Discount Analysis**: Detailed discount breakdown and impact
 
-### Report Features
-- **Date Range Selection**: Flexible time periods
-- **Export Options**: Download as PDF, Excel, or CSV
-- **Print Functionality**: Direct printing capability
-- **Scheduled Reports**: Automated report generation
-- **Real-time Data**: Live report updates
+#### Enhanced Discount Reporting
+The system now provides comprehensive discount information across all reports, showing exactly how discounts are applied to each transaction.
+
+**Discount Information Available**
+- **Item-wise Details**: See which items received discounts and the exact amount/percentage
+- **Discount Types**: Identify if discounts are custom, item-level, category-based, or global
+- **Discount Descriptions**: Human-readable descriptions (e.g., "Item: 10%", "Category (electronics): 15%")
+- **Total Impact**: View the combined effect of all discounts on each transaction
+
+**Where to Find Discount Information**
+- **Billing Reports**: Each bill shows detailed discount breakdown in the modal view
+- **Sales Reports**: Detailed reports include a "Discount Details" column
+- **Receipt Printing**: Both printed and on-screen receipts show discount breakdown
+- **Bill Details Modal**: Click "View" on any bill to see comprehensive discount information
+
+**Understanding Discount Types**
+- **Custom**: User-entered currency discount applied to specific items
+- **Item**: Individual item discounts configured in product settings
+- **Category**: Category-wide discounts applied to all items in a category
+- **Global**: Cart-wide percentage discounts applied to the entire purchase
+
+**Report Examples**
+```
+Discount Details Column in Detailed Reports:
+- Laptop(Item: 10%), Keyboard(Custom: 15.00 (15.0%))
+- Mouse(Category (electronics): 15%)
+- Global: 10%
+```
+
+**Benefits for Business Owners**
+- **Transparency**: Clear visibility into how discounts affect sales
+- **Audit Trail**: Complete record of discount applications for accounting
+- **Performance Analysis**: Understand which discounts drive sales
+- **Customer Insights**: See discount patterns and customer behavior
+
+### Scheduled Reports
+- **Automated Report Generation**: Set up recurring reports
+- **Email Notifications**: Receive reports via email
+- **Customizable Frequency**: Choose report frequency (daily, weekly, monthly)
 
 ---
 
@@ -631,6 +667,165 @@ Super administrators and organization administrators with access to multiple org
 2. **Contact Admin**: Reach out to your system administrator
 3. **Support Ticket**: Submit a support request
 4. **FAQ Section**: Check frequently asked questions
+
+---
+
+## System Enums and Constants
+
+### Overview
+MGPOS uses centralized enums and constants to maintain consistency throughout the application. These enums replace hard-coded strings and provide type safety for various system operations.
+
+### Discount Enums
+
+#### Discount Types
+- **PERCENTAGE**: Percentage-based discounts (e.g., 10% off)
+- **FIXED**: Fixed amount discounts (e.g., $5 off)
+- **CURRENCY**: Currency-based discounts for cart items
+
+#### Discount Modes
+- **GLOBAL**: Single discount applied to entire cart
+- **ITEM**: Individual item discounts
+- **CATEGORY**: Category-specific discounts
+
+#### Discount Sources
+- **ITEM**: Discount applied at individual product level
+- **CATEGORY**: Discount applied based on product category
+- **CUSTOM**: User-entered custom discount
+- **GLOBAL**: Cart-wide discount
+
+### Payment Methods
+- **CASH**: Traditional cash payments
+- **CARD**: Credit/debit card payments
+- **SPLIT**: Combination of cash and card payments
+- **DIGITAL**: Digital wallet and online payment methods
+- **CREDIT**: Credit purchases (requires customer selection)
+
+### Report Types
+- **SUMMARY**: Summary reports with aggregated data
+- **DETAILED**: Detailed reports with individual transaction data
+- **CASH**: Cash payment method reports
+- **CARD**: Card payment method reports
+- **DIGITAL**: Digital payment method reports
+- **CREDIT**: Credit payment method reports
+
+### Report Periods
+- **TODAY**: Current day reports
+- **YESTERDAY**: Previous day reports
+- **THIS_WEEK**: Current week reports
+- **LAST_WEEK**: Previous week reports
+- **THIS_MONTH**: Current month reports
+- **LAST_MONTH**: Previous month reports
+- **THIS_YEAR**: Current year reports
+- **LAST_YEAR**: Previous year reports
+- **CUSTOM**: Custom date range reports
+
+### User Roles
+- **ADMIN**: Organization administrator with full access
+- **CASHIER**: Regular user with POS access
+- **MANAGER**: Manager with elevated permissions
+- **SUPER_ADMIN**: System-wide administrator
+
+### Transaction Types
+- **SALES**: Sales transactions
+- **PURCHASE**: Purchase transactions
+- **RETURN**: Return/refund transactions
+
+### Tax Status
+- **ENABLED**: Tax calculation is enabled
+- **DISABLED**: Tax calculation is disabled
+
+### Currency Types
+- **DEFAULT**: Default currency (USD)
+- **LOCAL**: Local currency configuration
+
+### Logging System Enums
+
+#### Log Levels
+- **INFO**: Informational messages
+- **WARNING**: Warning messages
+- **ERROR**: Error messages
+- **SUCCESS**: Success messages
+
+#### Log Types
+The system tracks various types of activities:
+
+**User Actions**
+- USER_LOGIN: User login events
+- USER_LOGOUT: User logout events
+- USER_SIGNUP: New user registration
+- USER_PASSWORD_CHANGE: Password updates
+- USER_CREATE: User account creation
+- USER_UPDATE: User profile updates
+- USER_DELETE: User account deletion
+- USER_ROLE_CHANGE: Role modifications
+
+**Master Data Operations**
+- MASTER_DATA_CREATE: Master data creation
+- MASTER_DATA_UPDATE: Master data updates
+- MASTER_DATA_DELETE: Master data deletion
+
+**Product Operations**
+- PRODUCT_CREATE: Product addition
+- PRODUCT_UPDATE: Product modifications
+- PRODUCT_DELETE: Product removal
+
+**Category Operations**
+- CATEGORY_CREATE: Category addition
+- CATEGORY_UPDATE: Category modifications
+- CATEGORY_DELETE: Category removal
+
+**Customer Operations**
+- CUSTOMER_CREATE: Customer registration
+- CUSTOMER_UPDATE: Customer information updates
+- CUSTOMER_DELETE: Customer account deletion
+
+**Billing/Sales Operations**
+- SALE_CREATE: New sales transaction
+- SALE_UPDATE: Sales transaction modifications
+- SALE_DELETE: Sales transaction deletion
+- SALE_VOID: Voided sales
+- BILL_REPRINT: Bill reprint operations
+
+**Organization Operations**
+- ORG_CREATE: Organization creation
+- ORG_UPDATE: Organization updates
+- ORG_DELETE: Organization deletion
+
+**Settings Operations**
+- SETTINGS_UPDATE: Configuration changes
+
+**System Operations**
+- SYSTEM_ERROR: System errors
+- SYSTEM_WARNING: System warnings
+- DATA_IMPORT: Data import operations
+- DATA_EXPORT: Data export operations
+
+**UI Operations**
+- TOAST_NOTIFICATION: User notifications
+- UI_REFRESH: Interface refresh events
+
+**Reporting Operations**
+- REPORT_GENERATE: Report generation
+- REPORT_PRINT: Report printing
+- REPORT_VIEW: Report viewing
+
+### Default Values
+The system uses these default values for various operations:
+- Default discount type: PERCENTAGE
+- Default discount mode: GLOBAL
+- Default payment method: CASH
+- Default report type: SUMMARY
+- Default report period: TODAY
+- Default user role: CASHIER
+
+### Validation Functions
+The system includes validation functions for all enums to ensure data integrity:
+- `isValidDiscountType()`
+- `isValidDiscountMode()`
+- `isValidPaymentMethod()`
+- `isValidReportType()`
+- `isValidReportPeriod()`
+- `isValidUserRole()`
 
 ---
 
@@ -766,6 +961,28 @@ The Payment Method Reports feature provides comprehensive financial analysis cap
 - Average card transaction value
 - Card vs split payment breakdown
 
+#### 3. Digital Sales Report
+
+**Purpose**: Track all digital payment transactions including digital wallets and online payment methods.
+
+**Business Use Cases**:
+- Digital payment trend analysis
+- Online payment processor reconciliation
+- Customer payment preference tracking
+- Digital payment fee management
+
+**Data Included**:
+- Pure digital payment transactions
+- Transaction timestamps and cashier details
+- Complete sales and discount information
+- Digital payment method details
+
+**Key Metrics**:
+- Total digital payment amount processed
+- Number of digital payment transactions
+- Average digital transaction value
+- Digital payment adoption rate
+
 ### Split Payment Handling
 
 #### Business Logic
@@ -804,7 +1021,7 @@ A customer pays $125 split as $75 cash and $50 card:
 2. **Detailed Tables**: Complete transaction listings with filtering and sorting, including:
    - Receipt numbers and timestamps
    - Cashier information
-   - **Payment Method** column showing cash, card, credit, or split payments
+   - **Payment Method** column showing cash, card, digital, credit, or split payments
    - Item counts and financial details
 3. **Split Payment Details**: Separate section for split payment breakdowns
 4. **Print Functionality**: Professional printed reports with complete payment method information

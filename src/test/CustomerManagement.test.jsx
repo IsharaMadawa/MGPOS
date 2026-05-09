@@ -301,10 +301,12 @@ describe('CustomerManagement', () => {
     const addButton = screen.getByText('Add Customer')
     await user.click(addButton)
 
-    // Try to submit without name - the form should not call onSave
+    // Try to submit without name - should show validation error
     const submitButton = screen.getByRole('button', { name: 'Create' })
     await user.click(submitButton)
 
+    // Form should show validation error toast
+    expect(mockAddToast).toHaveBeenCalledWith('Customer name is required', 'error')
     // Form should not be submitted (no toast should be called for successful creation)
     expect(mockAddToast).not.toHaveBeenCalledWith('Customer created successfully', 'success')
   })

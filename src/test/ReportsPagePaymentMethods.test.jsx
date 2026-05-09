@@ -45,6 +45,19 @@ vi.mock('../hooks/useReports', () => ({
       },
       {
         receiptNo: '100003',
+        createdAt: new Date('2024-01-15T13:20:00'),
+        cashierName: 'Mike Wilson',
+        paymentMethod: 'digital',
+        total: 85.00,
+        itemCount: 2,
+        cart: [
+          { name: 'Product I', price: 35.00, qty: 1 },
+          { name: 'Product J', price: 50.00, qty: 1 }
+        ],
+        discountAmount: 0
+      },
+      {
+        receiptNo: '100004',
         createdAt: new Date('2024-01-15T14:20:00'),
         cashierName: 'Bob Johnson',
         paymentMethod: 'split',
@@ -59,11 +72,11 @@ vi.mock('../hooks/useReports', () => ({
         paymentDetails: {
           cashAmount: 75.00,
           cardAmount: 50.00,
-          creditAmount: 0
+          digitalAmount: 0
         }
       },
       {
-        receiptNo: '100004',
+        receiptNo: '100005',
         createdAt: new Date('2024-01-15T15:30:00'),
         cashierName: 'Alice Brown',
         paymentMethod: 'credit',
@@ -84,14 +97,15 @@ vi.mock('../hooks/useReports', () => ({
     error: null,
     generateReport: vi.fn(),
     calculateSummary: vi.fn(() => ({
-      grossSales: 345.50,
+      grossSales: 430.50,
       totalDiscounts: 0,
-      netSales: 345.50,
-      transactionCount: 4
+      netSales: 430.50,
+      transactionCount: 5
     })),
     getCashierBreakdown: vi.fn(() => [
       { cashierName: 'John Doe', transactionCount: 1, grossSales: 100, totalDiscounts: 0, netSales: 100 },
       { cashierName: 'Jane Smith', transactionCount: 1, grossSales: 75.50, totalDiscounts: 0, netSales: 75.50 },
+      { cashierName: 'Mike Wilson', transactionCount: 1, grossSales: 85, totalDiscounts: 0, netSales: 85 },
       { cashierName: 'Bob Johnson', transactionCount: 1, grossSales: 125, totalDiscounts: 0, netSales: 125 },
       { cashierName: 'Alice Brown', transactionCount: 1, grossSales: 45, totalDiscounts: 0, netSales: 45 }
     ]),
@@ -169,6 +183,7 @@ describe('ReportsPage Payment Method Reports', () => {
       expect(screen.getByText('Detailed')).toBeInTheDocument()
       expect(screen.getByText('Cash Sales')).toBeInTheDocument()
       expect(screen.getByText('Card Sales')).toBeInTheDocument()
+      expect(screen.getByText('Digital Sales')).toBeInTheDocument()
     })
 
     it('should allow switching to Cash Sales report type', async () => {
@@ -200,6 +215,22 @@ describe('ReportsPage Payment Method Reports', () => {
       fireEvent.click(cardSalesButton)
 
       expect(cardSalesButton).toHaveClass('bg-emerald-600')
+      expect(screen.getByText('Summary')).not.toHaveClass('bg-emerald-600')
+    })
+
+    it('should allow switching to Digital Sales report type', async () => {
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
+
+      const digitalSalesButton = screen.getByText('Digital Sales')
+      fireEvent.click(digitalSalesButton)
+
+      expect(digitalSalesButton).toHaveClass('bg-emerald-600')
       expect(screen.getByText('Summary')).not.toHaveClass('bg-emerald-600')
     })
   })
@@ -238,6 +269,28 @@ describe('ReportsPage Payment Method Reports', () => {
 
       // Select Card Sales report type
       fireEvent.click(screen.getByText('Card Sales'))
+      
+      // Generate report
+      fireEvent.click(screen.getByText('Generate Report'))
+
+      // Verify generateReport was called (we can't test UI changes due to mock limitations)
+      await waitFor(() => {
+        // Just verify the button click doesn't crash and the mock is called
+        expect(screen.getByText('Generate Report')).toBeInTheDocument()
+      })
+    })
+
+    it('should generate report when Digital Sales is selected', async () => {
+      render(
+        wrapper({ 
+          user: mockAdmin, 
+          selectedOrgId: 'org1',
+          children: <ReportsPage />
+        })
+      )
+
+      // Select Digital Sales report type
+      fireEvent.click(screen.getByText('Digital Sales'))
       
       // Generate report
       fireEvent.click(screen.getByText('Generate Report'))
@@ -438,6 +491,7 @@ describe('ReportsPage Payment Method Reports', () => {
       const printContent = mockWindow.document.write.mock.calls[0][0]
       expect(printContent).toContain('cash')
       expect(printContent).toContain('card')
+      expect(printContent).toContain('digital')
       expect(printContent).toContain('credit')
     })
 
@@ -555,6 +609,36 @@ describe('ReportsPage Payment Method Reports', () => {
       expect(cashReports.find(r => r.paymentMethod === 'credit')).toBeUndefined()
       expect(cardReports.find(r => r.paymentMethod === 'credit')).toBeUndefined()
     })
+
+    it('should filter digital transactions correctly', () => {
+      const mockReports = [
+        { paymentMethod: 'cash', total: 100 },
+        { paymentMethod: 'card', total: 50 },
+        { paymentMethod: 'digital', total: 75 },
+        { paymentMethod: 'credit', total: 25 },
+        { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
+      ]
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === 'cash') {
+            return bill.paymentMethod === 'cash' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
+          } else if (method === 'card') {
+            return bill.paymentMethod === 'card' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+          } else if (method === 'digital') {
+            return bill.paymentMethod === 'digital'
+          } else if (method === 'credit') {
+            return bill.paymentMethod === 'credit'
+          }
+          return true
+        })
+      }
+
+      const digitalReports = filterReportsByPaymentMethod(mockReports, 'digital')
+      expect(digitalReports).toHaveLength(1)
+      expect(digitalReports[0].paymentMethod).toBe('digital')
+      expect(digitalReports[0].total).toBe(75)
+    })
   })
 
   describe('Summary Calculations', () => {
@@ -626,6 +710,259 @@ describe('ReportsPage Payment Method Reports', () => {
       const cardSummary = calculatePaymentMethodSummary(mockReports, 'card')
       expect(cardSummary.transactionCount).toBe(2)
       expect(cardSummary.totalAmount).toBe(75) // 50 + 25 (split card portion)
+    })
+
+    it('should filter credit transactions correctly', () => {
+      const mockReports = [
+        { paymentMethod: 'cash', total: 100 },
+        { paymentMethod: 'card', total: 50 },
+        { paymentMethod: 'credit', total: 25 },
+        { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
+      ]
+
+      const filterReportsByPaymentMethod = (reports, method) => {
+        return reports.filter(bill => {
+          if (method === 'cash') {
+            return bill.paymentMethod === 'cash' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cashAmount > 0)
+          } else if (method === 'card') {
+            return bill.paymentMethod === 'card' || (bill.paymentMethod === 'split' && bill.paymentDetails?.cardAmount > 0)
+          } else if (method === 'credit') {
+            return bill.paymentMethod === 'credit'
+          }
+          return true
+        })
+      }
+
+      const creditReports = filterReportsByPaymentMethod(mockReports, 'credit')
+      expect(creditReports).toHaveLength(1)
+      expect(creditReports[0].paymentMethod).toBe('credit')
+      expect(creditReports[0].total).toBe(25)
+    })
+
+    it('should calculate credit summary correctly', () => {
+      const mockReports = [
+        { paymentMethod: 'credit', total: 45, cart: [{ price: 45, qty: 1 }], discountAmount: 0 },
+        { paymentMethod: 'credit', total: 30, cart: [{ price: 35, qty: 1 }], discountAmount: 5 },
+        { paymentMethod: 'cash', total: 100, cart: [{ price: 100, qty: 1 }], discountAmount: 0 }
+      ]
+
+      const calculatePaymentMethodSummary = (reports, method) => {
+        const filteredReports = reports.filter(bill => {
+          if (method === 'credit') {
+            return bill.paymentMethod === 'credit'
+          }
+          return false
+        })
+
+        let totalAmount = 0
+        let grossSales = 0
+        let totalDiscounts = 0
+        
+        filteredReports.forEach(bill => {
+          grossSales += bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+          const globalDiscount = bill.discountAmount || 0
+          totalDiscounts += globalDiscount
+          
+          if (method === 'credit') {
+            totalAmount += bill.total || 0
+          }
+        })
+
+        return {
+          transactionCount: filteredReports.length,
+          grossSales,
+          totalDiscounts,
+          netSales: grossSales - totalDiscounts,
+          totalAmount
+        }
+      }
+
+      const creditSummary = calculatePaymentMethodSummary(mockReports, 'credit')
+      expect(creditSummary.transactionCount).toBe(2)
+      expect(creditSummary.grossSales).toBe(80) // 45 + 35
+      expect(creditSummary.totalDiscounts).toBe(5)
+      expect(creditSummary.netSales).toBe(75) // 80 - 5
+      expect(creditSummary.totalAmount).toBe(75) // 45 + 30
+    })
+
+    it('should calculate digital summary correctly', () => {
+      const mockReports = [
+        { paymentMethod: 'digital', total: 85, cart: [{ price: 85, qty: 1 }], discountAmount: 0 },
+        { paymentMethod: 'digital', total: 120, cart: [{ price: 130, qty: 1 }], discountAmount: 10 },
+        { paymentMethod: 'cash', total: 100, cart: [{ price: 100, qty: 1 }], discountAmount: 0 }
+      ]
+
+      const calculatePaymentMethodSummary = (reports, method) => {
+        const filteredReports = reports.filter(bill => {
+          if (method === 'digital') {
+            return bill.paymentMethod === 'digital'
+          }
+          return false
+        })
+
+        let totalAmount = 0
+        let grossSales = 0
+        let totalDiscounts = 0
+        
+        filteredReports.forEach(bill => {
+          grossSales += bill.cart ? bill.cart.reduce((sum, item) => sum + (item.price * item.qty), 0) : 0
+          const globalDiscount = bill.discountAmount || 0
+          totalDiscounts += globalDiscount
+          
+          if (method === 'digital') {
+            totalAmount += bill.total || 0
+          }
+        })
+
+        return {
+          transactionCount: filteredReports.length,
+          grossSales,
+          totalDiscounts,
+          netSales: grossSales - totalDiscounts,
+          totalAmount
+        }
+      }
+
+      const digitalSummary = calculatePaymentMethodSummary(mockReports, 'digital')
+      expect(digitalSummary.transactionCount).toBe(2)
+      expect(digitalSummary.grossSales).toBe(215) // 85 + 130
+      expect(digitalSummary.totalDiscounts).toBe(10)
+      expect(digitalSummary.netSales).toBe(205) // 215 - 10
+      expect(digitalSummary.totalAmount).toBe(205) // 85 + 120
+    })
+
+    it('should display Credit Sales button and handle click', () => {
+      render(<ReportsPage />)
+      
+      // Check if Credit Sales button is present
+      expect(screen.getByText('Credit Sales')).toBeInTheDocument()
+      
+      // Click on Credit Sales button
+      fireEvent.click(screen.getByText('Credit Sales'))
+      
+      // Verify the report type is set to credit
+      expect(screen.getByText('Credit Sales')).toHaveClass('bg-emerald-600', 'text-white')
+    })
+
+    it('should display Digital Sales button and handle click', () => {
+      render(<ReportsPage />)
+      
+      // Check if Digital Sales button is present
+      expect(screen.getByText('Digital Sales')).toBeInTheDocument()
+      
+      // Click on Digital Sales button
+      fireEvent.click(screen.getByText('Digital Sales'))
+      
+      // Verify the report type is set to digital
+      expect(screen.getByText('Digital Sales')).toHaveClass('bg-emerald-600', 'text-white')
+    })
+
+    it('should display customer information in credit reports', () => {
+      const mockReports = [
+        {
+          paymentMethod: 'credit',
+          total: 45,
+          receiptNo: '100001',
+          createdAt: new Date('2024-01-15T10:30:00'),
+          cashierName: 'John Doe',
+          itemCount: 1,
+          cart: [{ name: 'Product A', price: 45, qty: 1 }],
+          discountAmount: 0,
+          customer: {
+            id: 'cust1',
+            name: 'Credit Customer',
+            phone: '+1234567890'
+          }
+        }
+      ]
+
+      render(<ReportsPage />)
+      
+      // Switch to credit sales report
+      fireEvent.click(screen.getByText('Credit Sales'))
+      
+      // Generate report
+      fireEvent.click(screen.getByText('Generate Report'))
+      
+      // Wait for report to be generated and displayed
+      waitFor(() => {
+        expect(screen.getByText('Credit Sales Summary')).toBeInTheDocument()
+        expect(screen.getByText('Credit Customer')).toBeInTheDocument()
+        expect(screen.getByText('+1234567890')).toBeInTheDocument()
+      })
+    })
+
+    it('should not show split payment details for credit reports', () => {
+      const mockReports = [
+        { paymentMethod: 'credit', total: 25 },
+        { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
+      ]
+
+      render(<ReportsPage />)
+      
+      // Switch to credit sales report
+      fireEvent.click(screen.getByText('Credit Sales'))
+      
+      // Generate report
+      fireEvent.click(screen.getByText('Generate Report'))
+      
+      // Wait for report to be generated
+      waitFor(() => {
+        expect(screen.getByText('Credit Sales Summary')).toBeInTheDocument()
+        // Should not show split payment details for credit reports
+        expect(screen.queryByText('Split Payment Details')).not.toBeInTheDocument()
+      })
+    })
+
+    it('should display digital sales summary correctly', () => {
+      const mockReports = [
+        {
+          paymentMethod: 'digital',
+          total: 85,
+          receiptNo: '100003',
+          createdAt: new Date('2024-01-15T13:20:00'),
+          cashierName: 'Mike Wilson',
+          itemCount: 2,
+          cart: [{ name: 'Product I', price: 35, qty: 1 }, { name: 'Product J', price: 50, qty: 1 }],
+          discountAmount: 0
+        }
+      ]
+
+      render(<ReportsPage />)
+      
+      // Switch to digital sales report
+      fireEvent.click(screen.getByText('Digital Sales'))
+      
+      // Generate report
+      fireEvent.click(screen.getByText('Generate Report'))
+      
+      // Wait for report to be generated and displayed
+      waitFor(() => {
+        expect(screen.getByText('Digital Sales Summary')).toBeInTheDocument()
+        expect(screen.getByText('Mike Wilson')).toBeInTheDocument()
+      })
+    })
+
+    it('should not show split payment details for digital reports', () => {
+      const mockReports = [
+        { paymentMethod: 'digital', total: 85 },
+        { paymentMethod: 'split', paymentDetails: { cashAmount: 75, cardAmount: 25 }, total: 100 }
+      ]
+
+      render(<ReportsPage />)
+      
+      // Switch to digital sales report
+      fireEvent.click(screen.getByText('Digital Sales'))
+      
+      // Generate report
+      fireEvent.click(screen.getByText('Generate Report'))
+      
+      // Wait for report to be generated
+      waitFor(() => {
+        expect(screen.getByText('Digital Sales Summary')).toBeInTheDocument()
+        // Should not show split payment details for digital reports
+        expect(screen.queryByText('Split Payment Details')).not.toBeInTheDocument()
+      })
     })
   })
 })

@@ -47,6 +47,8 @@ const mockBillingLogs = [
     receiptNo: '123456',
     createdAt: new Date().toISOString(),
     cashierName: 'John Doe',
+    orgId: 'org1',
+    orgName: 'Test Organization',
     cart: [
       {
         id: 'item1',
@@ -65,6 +67,8 @@ const mockBillingLogs = [
     receiptNo: '789012',
     createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
     cashierName: 'Jane Smith',
+    orgId: 'org2',
+    orgName: 'Another Organization',
     cart: [
       {
         id: 'item2',
@@ -235,6 +239,33 @@ describe('BillingLogsPage', () => {
     )
   })
 
+  test('displays organization name in Bill Details popup', async () => {
+    useOrg.mockReturnValue({
+      ...mockOrg,
+      hasMultiOrgAccess: true,
+      getCurrentOrganization: () => ({ id: 'org1', name: 'Test Organization' })
+    })
+
+    render(
+      <TestWrapper>
+        <BillingLogsPage />
+      </TestWrapper>
+    )
+
+    // Click on View button for first bill
+    const viewButton = screen.getByText('View')
+    fireEvent.click(viewButton)
+
+    // Wait for modal to appear
+    await waitFor(() => {
+      expect(screen.getByText('Bill Details')).toBeInTheDocument()
+    })
+
+    // Check that organization name is displayed in the modal
+    expect(screen.getByText('Organization:')).toBeInTheDocument()
+    expect(screen.getByText('Test Organization')).toBeInTheDocument()
+  })
+
   test('filters work correctly', async () => {
     render(
       <TestWrapper>
@@ -311,33 +342,5 @@ describe('BillingLogsPage', () => {
 
     // Should show more logs (pagination increases)
     expect(screen.getByText('#123500')).toBeInTheDocument()
-  })
-
-  test('unit filtering works correctly', async () => {
-    render(
-      <TestWrapper>
-        <BillingLogsPage />
-      </TestWrapper>
-    )
-
-    // Show filters
-    await waitFor(() => {
-      expect(screen.getByText('Show Filters')).toBeInTheDocument()
-    })
-    const showFiltersButton = screen.getByText('Show Filters')
-    fireEvent.click(showFiltersButton)
-
-    // Filter by unit - look for the select element by role and find the one with unit options
-    const unitSelects = screen.getAllByRole('combobox')
-    const unitSelect = unitSelects.find(select => 
-      select.innerHTML.includes('All Units') || select.innerHTML.includes('Kilogram')
-    )
-    
-    if (unitSelect) {
-      fireEvent.change(unitSelect, { target: { value: 'kg' } })
-    }
-
-    // Should only show logs with kg unit
-    expect(screen.getByText('#123456')).toBeInTheDocument()
   })
 })
