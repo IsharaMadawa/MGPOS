@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { CURRENCIES } from '../hooks/useSettings'
 import { useAuth } from '../contexts/AuthContext'
 import { useBillingLogs } from '../hooks/useBillingLogs'
+import { useCustomers } from '../hooks/useCustomers'
+import { CreditTransactionType } from '../hooks/useCreditHistory'
 import { useToast } from '../components/ToastContainer'
 import { getItemDiscountDetails, getCartDiscountBreakdown } from '../utils/discountUtils'
 import { DiscountType, DiscountMode, PaymentMethod, DiscountSource, DEFAULT_DISCOUNT_MODE } from '../constants/enums'
@@ -126,6 +128,7 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
 
   const { userProfile } = useAuth()
   const { createBillingLog } = useBillingLogs()
+  const { updateCreditBalance } = useCustomers()
   const { addToast } = useToast()
 
   const sym = CURRENCIES.find(c => c.code === settings?.currency)?.symbol || '$'
@@ -241,6 +244,16 @@ export default function CartPanel({ cart, onUpdateQty, onUpdateItem, onUpdateIte
       } : null,
       customerId: selectedCustomer?.id || null,
       billingSettings: billingSettingsSnapshot // Store settings snapshot for reference
+    }
+    
+    // Update customer credit balance for credit purchases
+    if (paymentMethod === PaymentMethod.CREDIT && selectedCustomer) {
+      try {
+        await updateCreditBalance(selectedCustomer.id, -checkoutTotal, `Credit purchase - Receipt #${receiptNo}`, CreditTransactionType.PURCHASE)
+      } catch (error) {
+        console.error('Failed to update customer credit balance:', error)
+        addToast('Warning: Credit balance update failed', 'warning')
+      }
     }
     
     // Save to billing logs (async, don't wait)

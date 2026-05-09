@@ -6,6 +6,14 @@ import { AuthProvider } from '../contexts/AuthContext'
 import { OrgProvider } from '../contexts/OrgContext'
 import { ToastProvider } from '../components/ToastContainer'
 
+// Mock useSettings hook
+vi.mock('../hooks/useSettings.js', () => ({
+  useSettings: () => ({
+    currencySymbol: '$',
+    settings: { currency: 'USD' }
+  })
+}))
+
 // Mock useCustomers hook
 const mockUseCustomers = {
   customers: [],
@@ -317,6 +325,7 @@ describe('CustomerManagement', () => {
       { id: '2', name: 'Jane Smith', phone: '098-765-4321', purchaseCount: 3, totalPurchases: 300, createdAt: '2023-01-02' }
     ]
     mockUseCustomers.customers = mockCustomers
+    // The currency symbol is mocked in useSettings hook above
 
     render(<CustomerManagement />, { wrapper })
 

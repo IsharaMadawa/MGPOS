@@ -4,6 +4,7 @@ import { db } from '../firebase.js'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useOrg } from '../contexts/OrgContext.jsx'
 import { logUserAction, logCrudOperation, logError } from '../utils/logger'
+import { useCreditHistory, CreditTransactionType } from './useCreditHistory'
 
 export function useCustomers() {
   const [customers, setCustomers] = useState([])
@@ -187,7 +188,7 @@ export function useCustomers() {
     }
   }
 
-  const updateCreditBalance = async (customerId, amountChange, description = '') => {
+  const updateCreditBalance = async (customerId, amountChange, description = '', transactionType = null) => {
     if (!orgId) {
       console.error('Cannot update credit balance: no organization selected')
       throw new Error('No organization selected')
@@ -202,13 +203,35 @@ export function useCustomers() {
       }
       
       const customerData = customerSnap.data()
-      const newBalance = customerData.creditBalance + amountChange
+      const oldBalance = customerData.creditBalance
+      const newBalance = oldBalance + amountChange
       
       await updateDoc(customerRef, {
         creditBalance: newBalance,
         updatedAt: new Date().toISOString(),
         updatedBy: userProfile?.id,
         updatedByName: userProfile?.displayName
+      })
+      
+      // Determine transaction type if not provided
+      if (!transactionType) {
+        transactionType = amountChange > 0 ? CreditTransactionType.PAYMENT : CreditTransactionType.ADJUSTMENT
+      }
+      
+      // Add credit history transaction
+      const creditHistoryRef = collection(db, 'organizations', orgId, 'customers', customerId, 'creditHistory')
+      await addDoc(creditHistoryRef, {
+        type: transactionType,
+        amount: Math.abs(amountChange),
+        description: description || `${transactionType === CreditTransactionType.PAYMENT ? 'Payment' : 'Adjustment'} received`,
+        oldBalance,
+        newBalance,
+        createdAt: new Date().toISOString(),
+        createdBy: userProfile?.id,
+        createdByName: userProfile?.displayName,
+        orgId,
+        customerId,
+        customerName: customerData.name
       })
       
       // Log credit balance update
@@ -222,7 +245,8 @@ export function useCustomers() {
           customerName: customerData.name,
           amountChange, 
           newBalance,
-          description 
+          description,
+          transactionType
         }
       )
       

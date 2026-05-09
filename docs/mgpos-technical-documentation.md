@@ -240,6 +240,146 @@ mgpos/
 }
 ```
 
+#### Credit History System
+
+The credit history system provides comprehensive tracking of all credit transactions for customers, including purchases, payments, and adjustments with running balance calculations.
+
+##### Credit Transaction Types
+```javascript
+export const CreditTransactionType = {
+  PURCHASE: 'purchase',    // Credit purchases (negative impact on balance)
+  PAYMENT: 'payment',      // Customer payments (positive impact on balance)
+  ADJUSTMENT: 'adjustment'  // Manual adjustments (positive or negative)
+}
+```
+
+##### Credit History Data Structure
+```javascript
+// Credit History Subcollection (organizations/{orgId}/customers/{customerId}/creditHistory)
+{
+  id: string,                    // Transaction ID
+  type: 'purchase' | 'payment' | 'adjustment', // Transaction type
+  amount: number,                // Transaction amount (always positive)
+  description: string,           // Transaction description
+  oldBalance: number,            // Balance before transaction
+  newBalance: number,            // Balance after transaction
+  runningBalance: number,        // Calculated running balance (for display)
+  createdAt: timestamp,          // Transaction timestamp
+  createdBy: string,             // User who created transaction
+  createdByName: string,         // User's display name
+  orgId: string,                 // Organization ID
+  customerId: string,            // Customer ID
+  customerName: string           // Customer name
+}
+```
+
+##### Credit History Hook Implementation
+```javascript
+// useCreditHistory.js
+export function useCreditHistory(customerId) {
+  // Real-time credit history fetching
+  const transactions = calculateRunningBalance()
+  
+  const addCreditTransaction = async (transactionData) => {
+    // Add transaction to credit history subcollection
+    // Log transaction creation
+  }
+  
+  return { transactions, loading, addCreditTransaction }
+}
+
+export function useCreditSummary(customerId) {
+  // Calculate summary statistics
+  const summary = {
+    totalCredit: number,        // Current credit balance
+    totalPurchases: number,     // Total purchase amount
+    totalPayments: number,      // Total payment amount
+    totalAdjustments: number,   // Total adjustment amount
+    transactionCount: number    // Number of transactions
+  }
+  
+  return { summary, loading }
+}
+```
+
+##### Credit Balance Update Flow
+1. **Credit Purchase**: 
+   - CartPanel calls `updateCreditBalance()` with negative amount
+   - Transaction type: `PURCHASE`
+   - Balance decreases by purchase amount
+
+2. **Customer Payment**:
+   - Admin calls `updateCreditBalance()` with positive amount
+   - Transaction type: `PAYMENT`
+   - Balance increases by payment amount
+
+3. **Manual Adjustment**:
+   - Admin calls `updateCreditBalance()` with any amount
+   - Transaction type: `ADJUSTMENT`
+   - Balance adjusts accordingly
+
+##### Credit History UI Components
+
+**CreditHistoryModal Component**:
+- Displays comprehensive credit history with running balances
+- Shows summary cards for current balance, payments, purchases, and transactions
+- Color-coded transaction types (green for payments, red for purchases, yellow for adjustments)
+- Responsive design for mobile, tablet, and desktop views
+- Real-time updates via Firebase listeners
+
+**Key Features**:
+- Transaction filtering and sorting
+- Running balance calculation
+- Transaction details with timestamps and user attribution
+- Export functionality for credit reports
+- Search and pagination for large transaction histories
+
+##### Integration Points
+
+**CustomerManagement.jsx**:
+- Added credit history button for each customer
+- Modal integration for viewing detailed credit history
+- Real-time balance updates after transactions
+
+**CartPanel.jsx**:
+- Automatic credit history logging for credit purchases
+- Transaction type classification as `PURCHASE`
+- Integration with receipt numbers for audit trail
+
+**useCustomers.js**:
+- Enhanced `updateCreditBalance()` function with transaction logging
+- Automatic transaction type detection
+- Credit history subcollection updates
+
+##### Running Balance Calculation
+```javascript
+const calculateRunningBalance = () => {
+  let balance = 0
+  const transactionsWithBalance = transactions.slice().reverse().map(transaction => {
+    if (transaction.type === CreditTransactionType.PURCHASE) {
+      balance -= transaction.amount
+    } else if (transaction.type === CreditTransactionType.PAYMENT) {
+      balance += transaction.amount
+    } else if (transaction.type === CreditTransactionType.ADJUSTMENT) {
+      balance += transaction.amount
+    }
+    
+    return {
+      ...transaction,
+      runningBalance: balance
+    }
+  }).reverse() // Reverse back to chronological order (newest first)
+  
+  return transactionsWithBalance
+}
+```
+
+##### Credit History Security
+- All credit transactions are logged with user attribution
+- Transaction timestamps prevent tampering
+- Running balance calculations ensure audit trail integrity
+- Organization-based data isolation for multi-tenant security
+
 #### Customer Management Validation
 
 The customer management system includes client-side validation to ensure data integrity:
@@ -263,11 +403,17 @@ const handleSubmit = (e) => {
 }
 ```
 
-##### Error Handling
-- Validation errors display as toast notifications
-- Successful operations show success toast messages
-- Network/server errors are caught and displayed appropriately
+**Key Validation Features**:
+- Prevents empty customer names
+- Provides clear error messages
 - Form submission is prevented when validation fails
+
+##### Currency Display
+- Customer credit balances and total purchases display using organization's configured currency symbol
+- Currency symbol is dynamically retrieved from organization settings via `useSettings` hook
+- Supports multiple currencies: USD ($), EUR (€), GBP (£), JPY (¥), INR (₹), LKR (Rs), CAD (CA$), AUD (A$), SGD (S$), MYR (RM)
+- Credit balance updates show appropriate currency symbol in success messages
+- Null/undefined credit balance values are handled gracefully without display errors
 
 #### Sales Collection
 ```javascript
@@ -2896,7 +3042,28 @@ The bill details modal provides comprehensive transaction information including:
 
 ### Recent Updates
 
-#### Unit Filter Removal (Latest Update)
+#### Credit Purchase System Implementation (Latest Update)
+- **Feature**: Complete credit purchase and customer credit management system
+- **Functionality**: 
+  - Credit purchases automatically update customer credit balance as negative values
+  - Admin can adjust credit balances for settlements and advance payments
+  - Comprehensive credit history tracking with transaction types
+  - Real-time credit balance updates across the application
+- **Components**:
+  - `CartPanel.jsx`: Handles credit purchase checkout and balance updates
+  - `CustomerManagement.jsx`: Admin interface for credit balance adjustments
+  - `useCustomers.js`: Core credit balance management logic
+  - `useCreditHistory.js`: Credit transaction tracking and history
+- **Transaction Types**:
+  - **PURCHASE**: Negative balance updates (customer owes money)
+  - **PAYMENT**: Positive balance updates (customer pays off debt)
+  - **ADJUSTMENT**: Manual credit adjustments by admin
+- **Credit Balance Logic**:
+  - Negative balance: Customer owes money to the business
+  - Positive balance: Customer has advance credit/prepaid amount
+  - Zero balance: No outstanding credit or debt
+
+#### Unit Filter Removal
 - **Change**: Removed unit-based filtering from Billing Logs page
 - **Reason**: Unit filtering was deemed unnecessary for billing operations
 - **Impact**: Simplified filtering interface and improved performance
