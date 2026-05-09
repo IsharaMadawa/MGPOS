@@ -439,6 +439,21 @@ describe('AdvancedReportsPage', () => {
         loading: true
       })
 
+      // Ensure organization is selected for loading test
+      useOrgModule.useOrg.mockReturnValue({
+        selectedOrgId: 'test-org-id',
+        getAdminOrganizations: vi.fn(() => [])
+      })
+
+      // Ensure user profile matches the selected organization
+      useAuthModule.useAuth.mockReturnValue({
+        ...mockAuth,
+        userProfile: {
+          ...mockAuth.userProfile,
+          orgId: 'test-org-id'
+        }
+      })
+
       renderComponent()
 
       expect(screen.getByText('Generating...')).toBeInTheDocument()
@@ -462,6 +477,15 @@ describe('AdvancedReportsPage', () => {
         getAdminOrganizations: vi.fn(() => [])
       })
 
+      // Ensure user profile matches the selected organization
+      useAuthModule.useAuth.mockReturnValue({
+        ...mockAuth,
+        userProfile: {
+          ...mockAuth.userProfile,
+          orgId: 'test-org-id'
+        }
+      })
+
       renderComponent()
 
       // Should still display all main elements
@@ -481,6 +505,15 @@ describe('AdvancedReportsPage', () => {
       useOrgModule.useOrg.mockReturnValue({
         selectedOrgId: 'test-org-id',
         getAdminOrganizations: vi.fn(() => [])
+      })
+
+      // Ensure user profile matches the selected organization
+      useAuthModule.useAuth.mockReturnValue({
+        ...mockAuth,
+        userProfile: {
+          ...mockAuth.userProfile,
+          orgId: 'test-org-id'
+        }
       })
 
       renderComponent()

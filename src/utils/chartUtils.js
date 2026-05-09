@@ -30,9 +30,13 @@ export const formatChartCurrency = (value, currency = '$') => {
 }
 
 // Format date for chart labels
-export const formatChartDate = (date, format = 'MMM dd') => {
+export const formatChartDate = (date, formatString = 'MMM dd') => {
   try {
-    return format(new Date(date), format)
+    const dateObj = new Date(date)
+    if (isNaN(dateObj.getTime())) {
+      return date
+    }
+    return format(dateObj, formatString)
   } catch (error) {
     return date
   }
