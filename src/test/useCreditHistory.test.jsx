@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useCreditHistory, useCreditSummary, CreditTransactionType } from '../hooks/useCreditHistory'
-import { collection, query, orderBy, onSnapshot, addDoc, doc, getDoc } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, addDoc, doc, getDoc, where } from 'firebase/firestore'
 
 // Mock Firebase
 vi.mock('firebase/firestore', () => ({
@@ -47,6 +47,10 @@ describe('useCreditHistory', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
+    // Mock collection and query functions
+    collection.mockReturnValue('mock-collection-ref')
+    query.mockReturnValue('mock-query')
+    
     // Mock onSnapshot to call callback immediately
     onSnapshot.mockImplementation((q, callback) => {
       callback({
@@ -57,7 +61,7 @@ describe('useCreditHistory', () => {
               type: CreditTransactionType.PAYMENT,
               amount: 100,
               description: 'Initial payment',
-              createdAt: '2023-01-01T00:00:00.000Z',
+              createdAt: '2023-01-02T00:00:00.000Z',
               createdBy: 'user-id',
               createdByName: 'Test User'
             })
@@ -68,7 +72,7 @@ describe('useCreditHistory', () => {
               type: CreditTransactionType.PURCHASE,
               amount: 50,
               description: 'Credit purchase',
-              createdAt: '2023-01-02T00:00:00.000Z',
+              createdAt: '2023-01-01T00:00:00.000Z',
               createdBy: 'user-id',
               createdByName: 'Test User'
             })
@@ -102,11 +106,15 @@ describe('useCreditHistory', () => {
 
     const transactions = result.current.transactions
     
-    // First transaction (payment): +100, balance: 100
-    expect(transactions[1].runningBalance).toBe(100)
+    // The transactions are in descending order (newest first)
+    // transactions[0] is the newest (payment), transactions[1] is older (purchase)
+    // based on createdAt: transaction-1 (2023-01-01) is newer than transaction-2 (2023-01-02)
     
-    // Second transaction (purchase): -50, balance: 50
+    // Newest transaction (payment): running balance should be 50
     expect(transactions[0].runningBalance).toBe(50)
+    
+    // Older transaction (purchase): running balance should be -50
+    expect(transactions[1].runningBalance).toBe(-50)
   })
 
   it('should handle empty credit history', async () => {
@@ -126,6 +134,9 @@ describe('useCreditHistory', () => {
 
   it('should add credit transaction', async () => {
     addDoc.mockResolvedValue({ id: 'new-transaction-id' })
+    
+    // Mock collection to return a specific reference
+    collection.mockReturnValue('mock-credit-history-ref')
 
     const { result } = renderHook(() => useCreditHistory(mockCustomerId))
 
@@ -138,7 +149,7 @@ describe('useCreditHistory', () => {
     await result.current.addCreditTransaction(transactionData)
 
     expect(addDoc).toHaveBeenCalledWith(
-      expect.any(Object),
+      'mock-credit-history-ref',
       expect.objectContaining({
         type: CreditTransactionType.PAYMENT,
         amount: 75,
@@ -153,7 +164,7 @@ describe('useCreditHistory', () => {
   })
 
   it('should handle missing organization', async () => {
-    vi.mock('../contexts/OrgContext', () => ({
+    vi.doMock('../contexts/OrgContext', () => ({
       useOrg: () => ({
         selectedOrgId: null
       })

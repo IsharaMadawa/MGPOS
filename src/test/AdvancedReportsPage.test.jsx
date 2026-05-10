@@ -91,7 +91,14 @@ const mockOrganizations = [
 ]
 
 const mockSettings = {
-  currencySymbol: '$'
+  currencySymbol: '$',
+  settings: {
+    masterCategories: [
+      { id: 'cat1', name: 'Electronics' },
+      { id: 'cat2', name: 'Clothing' },
+      { id: 'cat3', name: 'Food & Beverages' }
+    ]
+  }
 }
 
 describe('AdvancedReportsPage', () => {
@@ -544,7 +551,8 @@ describe('AdvancedReportsPage', () => {
           null, // customStart
           null, // customEnd
           [], // selectedOrgs
-          [ // categoriesData
+          [], // categoriesData
+          [ // masterCategories
             { id: 'cat1', name: 'Electronics' },
             { id: 'cat2', name: 'Clothing' },
             { id: 'cat3', name: 'Food & Beverages' }

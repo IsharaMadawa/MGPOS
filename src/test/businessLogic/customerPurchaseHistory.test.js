@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // Import the discount type enum for testing
 const DiscountType = {
@@ -54,7 +54,7 @@ function calculateCustomerPurchaseSummary(reports, customerSearch) {
               } else if (item.discount?.enabled) {
                 if (item.discount.type === DiscountType.PERCENTAGE) {
                   itemDiscount = lineTotal * (item.discount.value / 100)
-                } else {
+                } else if (item.discount.type === DiscountType.FIXED) {
                   itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
                 }
               }
@@ -287,7 +287,7 @@ describe('Customer Purchase History Business Logic', () => {
     it('should handle search errors gracefully', () => {
       // Mock console.error to avoid test output pollution
       const originalConsoleError = console.error
-      console.error = jest.fn()
+      console.error = vi.fn()
       
       const result = filterReportsByCustomer(sampleReports, 'Alice')
       expect(result).toHaveLength(2)
@@ -475,7 +475,7 @@ describe('Customer Purchase History Business Logic', () => {
       
       // Mock console.warn to avoid test output pollution
       const originalConsoleWarn = console.warn
-      console.warn = jest.fn()
+      console.warn = vi.fn()
       
       const result = calculateCustomerPurchaseSummary(reportsWithDiscountErrors, 'Discount Error Customer')
       
@@ -491,8 +491,8 @@ describe('Customer Purchase History Business Logic', () => {
       // Mock console.error and console.warn to avoid test output pollution
       const originalConsoleError = console.error
       const originalConsoleWarn = console.warn
-      console.error = jest.fn()
-      console.warn = jest.fn()
+      console.error = vi.fn()
+      console.warn = vi.fn()
       
       const result = calculateCustomerPurchaseSummary(sampleReports, 'Alice Johnson')
       
