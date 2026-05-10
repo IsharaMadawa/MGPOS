@@ -122,7 +122,6 @@ mgpos/
 │   │   └── SuperAdminPageNew.jsx
 │   ├── utils/                 # Utility functions
 │   │   ├── logger.js          # Logging utilities
-│   │   ├── migratePasswords.js
 │   │   └── passwordUtils.js
 │   ├── App.jsx               # Main application component
 │   ├── App.css               # Global styles
@@ -132,7 +131,6 @@ mgpos/
 ├── scripts/                  # Utility scripts
 │   ├── createSuperAdmin.js
 │   ├── createSuperAdminNode.js
-│   ├── migratePasswords.js
 │   └── runCreateSuperAdmin.js
 ├── docs/                     # Documentation
 ├── .firebaserc              # Firebase configuration
