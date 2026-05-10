@@ -24,15 +24,11 @@ vi.mock('../utils/logger', () => ({
 }))
 
 // Mock Firebase functions
-vi.mock('firebase/firestore', async () => {
-  const actual = await vi.importActual('firebase/firestore')
-  return {
-    ...actual,
-    getDoc: vi.fn(),
-    setDoc: vi.fn(),
-    doc: vi.fn(),
-  }
-})
+vi.mock('firebase/firestore', () => ({
+  getDoc: vi.fn(),
+  setDoc: vi.fn(),
+  doc: vi.fn(() => ({ id: 'mock-doc-id' })),
+}))
 
 describe('Password Change Functionality', () => {
   const mockHashPassword = vi.mocked(hashPassword)

@@ -2,6 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useCreditHistory, useCreditSummary, CreditTransactionType } from '../hooks/useCreditHistory'
 import { collection, query, orderBy, onSnapshot, addDoc, doc, getDoc, where } from 'firebase/firestore'
+import * as orgContextModule from '../contexts/OrgContext'
 
 // Mock Firebase
 vi.mock('firebase/firestore', () => ({
@@ -10,8 +11,8 @@ vi.mock('firebase/firestore', () => ({
   where: vi.fn(),
   orderBy: vi.fn(),
   onSnapshot: vi.fn(),
-  addDoc: vi.fn(),
-  doc: vi.fn(),
+  addDoc: vi.fn(() => ({ id: 'mock-doc-id' })),
+  doc: vi.fn(() => ({ id: 'mock-doc-id' })),
   getDoc: vi.fn(),
 }))
 
@@ -24,9 +25,7 @@ vi.mock('../contexts/AuthContext', () => ({
 }))
 
 vi.mock('../contexts/OrgContext', () => ({
-  useOrg: () => ({
-    selectedOrgId: 'test-org-id'
-  })
+  useOrg: vi.fn(),
 }))
 
 // Mock logger
@@ -34,6 +33,8 @@ vi.mock('../utils/logger', () => ({
   logUserAction: vi.fn(),
   logCrudOperation: vi.fn(),
   logError: vi.fn(),
+  logBillingOperation: vi.fn(),
+  logOrganizationOperation: vi.fn(),
 }))
 
 // Mock Firebase config
@@ -46,6 +47,11 @@ describe('useCreditHistory', () => {
   
   beforeEach(() => {
     vi.clearAllMocks()
+    
+    // Set default mock for useOrg
+    orgContextModule.useOrg.mockReturnValue({
+      selectedOrgId: 'test-org-id'
+    })
     
     // Mock collection and query functions
     collection.mockReturnValue('mock-collection-ref')
@@ -164,11 +170,14 @@ describe('useCreditHistory', () => {
   })
 
   it('should handle missing organization', async () => {
-    vi.doMock('../contexts/OrgContext', () => ({
-      useOrg: () => ({
-        selectedOrgId: null
-      })
-    }))
+    // Mock the OrgContext to return null selectedOrgId
+    orgContextModule.useOrg.mockReturnValue({
+      selectedOrgId: null
+    })
+
+    // Spy on onSnapshot to ensure it's not called
+    const onSnapshotSpy = vi.fn()
+    onSnapshot.mockImplementation(onSnapshotSpy)
 
     const { result } = renderHook(() => useCreditHistory(mockCustomerId))
 
@@ -177,6 +186,8 @@ describe('useCreditHistory', () => {
     })
 
     expect(result.current.transactions).toHaveLength(0)
+    // Ensure onSnapshot was not called when orgId is null
+    expect(onSnapshotSpy).not.toHaveBeenCalled()
   })
 })
 
