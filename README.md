@@ -1,1173 +1,1297 @@
-# MGPOS - Technical Documentation
+# MGPOS - User Documentation
 
 ## Table of Contents
-1. [System Architecture](#system-architecture)
-2. [Technology Stack](#technology-stack)
-3. [Project Structure](#project-structure)
-4. [Database Schema](#database-schema)
-5. [Authentication & Authorization](#authentication--authorization)
-6. [API Integration](#api-integration)
-7. [Component Architecture](#component-architecture)
-8. [State Management](#state-management)
-9. [Hooks and Utilities](#hooks-and-utilities)
-10. [Firebase Integration](#firebase-integration)
-11. [Build and Deployment](#build-and-deployment)
-12. [Testing Strategy](#testing-strategy)
-13. [Development Guidelines](#development-guidelines)
-14. [Security Considerations](#security-considerations)
-15. [Performance Optimization](#performance-optimization)
-16. [Troubleshooting for Developers](#troubleshooting-for-developers)
-17. [Future Development Roadmap](#future-development-roadmap)
+1. [System Overview](#system-overview)
+2. [Getting Started](#getting-started)
+3. [User Roles and Permissions](#user-roles-and-permissions)
+4. [Main Features](#main-features)
+5. [Point of Sale (POS) Operations](#point-of-sale-pos-operations)
+6. [Product Management](#product-management)
+7. [Category Management](#category-management)
+8. [Customer Management](#customer-management)
+9. [Settings and Configuration](#settings-and-configuration)
+10. [Reports and Analytics](#reports-and-analytics)
+11. [User Management](#user-management)
+12. [Organization Management](#organization-management)
+13. [Payment Method Reports](#payment-method-reports)
+14. [Troubleshooting](#troubleshooting)
+15. [Best Practices](#best-practices)
 
 ---
 
-## System Architecture
+## System Overview
+
+MGPOS is a comprehensive Point of Sale (POS) system designed for multi-organization retail management. Built with modern web technologies, it provides real-time inventory tracking, sales processing, and business analytics through an intuitive web interface.
+
+### Key Features
+- **Multi-Organization Support**: Manage multiple retail organizations from a single system
+- **Real-time Inventory**: Track products, categories, and stock levels in real-time
+- **Sales Processing**: Complete POS functionality with cart management and payment processing
+- **User Management**: Role-based access control with multiple permission levels
+- **Reporting**: Comprehensive sales, inventory, and billing reports
+- **Mobile Responsive**: Works seamlessly on desktop, tablet, and mobile devices
+
+---
+
+## Getting Started
+
+### System Requirements
+- Modern web browser (Chrome, Firefox, Safari, Edge)
+- Stable internet connection
+- Valid user credentials
+
+### First-Time Login
+1. Open your web browser and navigate to the MGPOS URL
+2. Enter your username and password
+3. Select your organization (if applicable)
+4. Click "Sign In"
+
+### Navigation
+- **Top Navigation Bar**: Access main sections and organization selector
+- **Side Menu**: Quick access to POS, Settings, Reports, and other features
+- **Breadcrumb Navigation**: Track your current location within the system
+
+---
+
+## User Roles and Permissions
+
+### Super Admin
+- **Access**: All organizations and system features
+- **Permissions**: 
+  - Create and manage organizations
+  - Manage all users across organizations
+  - Access system-wide reports and logs
+  - Configure global settings
+  - View and manage billing logs
+
+### Admin
+- **Access**: Their assigned organization
+- **Permissions**:
+  - Manage users within their organization
+  - Configure organization settings
+  - Access organization reports
+  - Manage products and categories
+  - View logs and billing information
+
+### Regular User
+- **Access**: Basic POS functions
+- **Permissions**:
+  - Process sales transactions
+  - View product inventory
+  - Access basic reports
+  - Manage their profile
+
+---
+
+## Main Features
+
+### 1. Point of Sale (POS)
+- **Product Selection**: Browse and add products to cart
+- **Cart Management**: Add, modify, and remove items
+- **Payment Processing**: Complete transactions with multiple payment methods
+- **Receipt Generation**: Generate and print receipts
+- **Miscellaneous Items**: Add custom items not in inventory
+
+### 2. Product Management
+- **Product Catalog**: Add, edit, and delete products
+- **Inventory Tracking**: Monitor stock levels in real-time
+- **Pricing Management**: Set and update product prices
+- **Unit Management**: Handle different units of measure
+- **Category Organization**: Group products by categories
+
+### 3. Customer Management
+- **Customer Database**: Maintain comprehensive customer profiles with contact information
+- **Credit Account Management**: Track and manage customer credit balances and purchases
+- **Purchase History**: View complete purchase history for each customer
+- **Customer Search**: Quickly find customers by name, phone, or email
+- **Credit Purchases**: Enable credit sales with automatic balance tracking
+- **Customer Analytics**: Generate reports on customer purchasing patterns and credit usage
+
+### 4. User Management
+- **User Accounts**: Create and manage user profiles
+- **Role Assignment**: Assign appropriate roles and permissions
+- **Password Management**: Secure password policies and changes
+- **Access Control**: Control user access to features
+
+### 4. Reporting
+- **Sales Reports**: Daily, weekly, and monthly sales analytics
+- **Inventory Reports**: Stock levels and movement tracking
+- **User Activity**: Track user actions and system usage
+- **Financial Reports**: Revenue and billing analytics
+
+---
+
+## Point of Sale (POS) Operations
+
+### Starting a Sale
+1. Navigate to the POS page from the main menu
+2. Select your organization (if you're a Super Admin)
+3. Browse products using the search bar or category filters
+4. Click on products to add them to your cart
+
+### Cart Management
+- **Adding Items**: Click on any product to add it to the cart
+- **Modifying Quantities**: Use the +/- buttons or enter quantities manually
+- **Removing Items**: Click the trash icon to remove items
+- **Applying Discounts**: Enter discount amounts or percentages
+- **Adding Notes**: Add special notes for specific items
+
+### Customer Selection (Optional)
+For better customer relationship management:
+1. Click **"Add Customer"** button in the cart
+2. Search for existing customer by name, phone, or email
+3. Select customer from search results
+4. Or click **"Create New Customer"** to add a new customer
+5. Customer information will be linked to the sale
+
+### Payment Processing
+1. Review your cart items and total amount
+2. Select payment method:
+   - **Cash**: Traditional cash payment
+   - **Card**: Credit/debit card payment
+   - **Digital**: Digital wallet or online payment methods
+   - **Credit**: Credit purchase (requires customer selection and feature enablement)
+   - **Split**: Partial cash and partial card payment
+3. For cash payments:
+   - Enter the amount given by the customer (optional - defaults to total amount)
+   - System will automatically calculate and display:
+     - **Total Due**: The exact amount required
+     - **Remaining**: Amount still needed if underpayment
+     - **Balance Returned**: Change to be given back if overpayment (shown in green)
+4. For split payments:
+   - Enter cash amount
+   - Enter card amount
+   - System will show total paid, remaining balance, or change
+5. For credit purchases:
+   - Customer selection is mandatory
+   - Credit balance will be automatically updated
+6. Click **"Complete Sale"** to finalize the transaction
+7. Print or email the receipt as needed
+
+### Payment Amount Display Features
+
+#### Cash Payment Enhancements
+- **Amount Given Field**: Enter the exact amount received from customer
+- **Real-time Calculations**: See remaining balance or change instantly
+- **Visual Indicators**: 
+  - Amber text for remaining amount (underpayment)
+  - Green text for balance returned (overpayment)
+  - Automatic validation to prevent insufficient payments
+
+#### Receipt and Bill Information
+- **Amount Given**: Shows exactly how much money the customer provided
+- **Balance Returned**: Displays change calculated for the transaction
+- **Payment Breakdown**: Clear separation of payment method details
+- **Printed Receipts**: Includes amount given and balance returned on physical receipts
+
+#### Bill History and Reports
+- **Transaction Details**: View amount given and balance returned in bill history
+- **Reprint Functionality**: Reprinted bills include complete payment information
+- **Report Integration**: Payment amount data available in detailed reports
+
+### Payment Method Features
+- **Digital Payments**: Support for digital wallets and online payment methods
+- **Credit Purchases**: Available when enabled in organization settings
+- **Customer Linking**: Credit purchases require customer selection
+- **Split Payments**: Support for partial cash and card combinations
+- **Receipt Information**: Receipts show payment method and customer details
+
+### Miscellaneous Items
+For items not in the inventory:
+1. Click "Add Miscellaneous Item" button
+2. Enter item name, price, and quantity
+3. Add to cart and proceed with normal checkout
+
+### Cart Features
+- **Mobile Cart View**: Optimized cart display for mobile devices
+- **Real-time Updates**: Cart updates instantly as items are added/removed
+- **Tax Calculation**: Automatic tax calculation based on settings
+- **Subtotal Display**: Clear breakdown of costs
+
+---
+
+## Product Management
+
+### Adding New Products
+1. Go to Settings → Products tab
+2. Click "Add New Product" button
+3. Fill in product details:
+   - **Product Name**: Descriptive name for the product
+   - **Category**: Select appropriate category
+   - **Price**: Set selling price
+   - **Cost**: Enter cost price (for profit calculations)
+   - **Unit of Measure**: Select from predefined units
+   - **Stock Quantity**: Initial inventory count
+   - **Description**: Optional product description
+4. Click "Save Product" to add to inventory
+
+### Editing Products
+1. Navigate to Settings → Products tab
+2. Find the product you want to edit
+3. Click the edit icon (pencil) next to the product
+4. Modify the required fields
+5. Click "Update Product" to save changes
+
+### Deleting Products
+1. Go to Settings → Products tab
+2. Locate the product to delete
+3. Click the delete icon (trash)
+4. Confirm the deletion in the popup dialog
+
+### Product Search and Filter
+- **Search**: Use the search bar to find products by name
+- **Category Filter**: Filter products by specific categories
+- **Stock Filter**: View in-stock or out-of-stock items
+- **Sort Options**: Sort by name, price, or stock quantity
+
+### Bulk Operations
+- **Import Products**: Import product lists from CSV files
+- **Export Products**: Export product data for backup or analysis
+- **Bulk Updates**: Update multiple products simultaneously
+
+---
+
+## Category Management
+
+### Creating Categories
+1. Navigate to Settings → Categories tab
+2. Click "Add New Category"
+3. Enter category details:
+   - **Category Name**: Clear, descriptive name
+   - **Description**: Optional category description
+   - **Parent Category**: For sub-category organization
+4. Save the category
+
+### Managing Categories
+- **Edit Categories**: Modify category names and descriptions
+- **Delete Categories**: Remove unused categories
+- **Reorder Categories**: Change category display order
+- **Category Products**: View all products in each category
+
+### Category Features
+- **Hierarchical Structure**: Create parent and sub-categories
+- **Product Count**: See number of products in each category
+- **Color Coding**: Visual distinction between categories
+- **Quick Access**: Filter products by category in POS
+
+---
+
+## Customer Management
 
 ### Overview
-MGPOS is a modern web-based Point of Sale system built with React and Firebase, following a component-based architecture with real-time data synchronization.
-
-### Architecture Patterns
-- **Component-Based Architecture**: Modular React components with clear separation of concerns
-- **Context API for State Management**: Global state management using React Context
-- **Firebase as Backend**: Real-time NoSQL database with authentication
-- **Progressive Web App (PWA)**: Offline capabilities and mobile optimization
-- **Multi-Organization Support**: Tenant-based architecture with data isolation
-
-### Data Flow
-1. **Client Actions** → React Components
-2. **State Management** → Context Providers
-3. **API Calls** → Firebase Firestore
-4. **Real-time Updates** → Firestore Listeners
-5. **UI Updates** → Component Re-renders
-
----
-
-## Technology Stack
-
-### Frontend
-- **React 19.2.5**: UI framework with hooks and concurrent features
-- **Vite 5.4.19**: Build tool and development server
-- **React Router DOM 6.30.3**: Client-side routing
-- **TailwindCSS 3.4.19**: Utility-first CSS framework
-- **React Hot Toast 2.4.1**: Notification system
-- **UUID 14.0.0**: Unique identifier generation
-
-### Backend
-- **Firebase 12.12.1**: Backend-as-a-Service platform
-  - **Firestore**: NoSQL real-time database
-  - **Firebase Authentication**: User authentication
-  - **Firebase Hosting**: Web hosting
-
-### Development Tools
-- **ESLint 10.2.1**: Code linting and formatting
-- **Vitest 4.1.5**: Unit testing framework
-- **Testing Library**: React component testing
-- **PostCSS 8.5.10**: CSS processing
-- **Autoprefixer 10.5.0**: CSS vendor prefixing
-
-### PWA Features
-- **Workbox 7.4.0**: Service worker management
-- **Vite PWA Plugin 0.20.5**: PWA configuration
-
----
-
-## Project Structure
-
-```
-mgpos/
-├── public/
-│   └── icons/                 # Application icons
-├── src/
-│   ├── components/            # Reusable UI components
-│   │   ├── AccessManagement.jsx
-│   │   ├── CartPanel.jsx
-│   │   ├── MasterDataTab.jsx
-│   │   ├── MiscItemModal.jsx
-│   │   ├── MultiOrgUserManager.jsx
-│   │   ├── Navbar.jsx
-│   │   ├── OrgUsersList.jsx
-│   │   ├── OrganizationSelector.jsx
-│   │   ├── PasswordChangeModal.jsx
-│   │   ├── ProductFormModal.jsx
-│   │   ├── ProductGrid.jsx
-│   │   ├── ProductModal.jsx
-│   │   ├── ToastContainer.jsx
-│   │   ├── UnifiedUserManager.jsx
-│   │   ├── UserOrganizationManager.jsx
-│   │   └── UserProfileManager.jsx
-│   ├── contexts/             # React Context providers
-│   │   ├── AuthContext.jsx    # Authentication state
-│   │   └── OrgContext.jsx     # Organization state
-│   ├── hooks/                 # Custom React hooks
-│   │   ├── useBillingLogs.js
-│   │   ├── useCategories.js
-│   │   ├── useLogs.js
-│   │   ├── useOrganizations.js
-│   │   ├── useProducts.js
-│   │   ├── useReports.js
-│   │   └── useSettings.js
-│   ├── pages/                 # Page components
-│   │   ├── BillingLogsPage.jsx
-│   │   ├── LoginPage.jsx
-│   │   ├── LogsPage.jsx
-│   │   ├── POSPage.jsx
-│   │   ├── ReportsPage.jsx
-│   │   ├── SettingsPage.jsx
-│   │   ├── SuperAdminPage.jsx
-│   │   └── SuperAdminPageNew.jsx
-│   ├── utils/                 # Utility functions
-│   │   ├── logger.js          # Logging utilities
-│   │   ├── migratePasswords.js
-│   │   └── passwordUtils.js
-│   ├── App.jsx               # Main application component
-│   ├── App.css               # Global styles
-│   ├── firebase.js           # Firebase configuration
-│   ├── index.css             # Base styles
-│   └── main.jsx              # Application entry point
-├── scripts/                  # Utility scripts
-│   ├── createSuperAdmin.js
-│   ├── createSuperAdminNode.js
-│   ├── migratePasswords.js
-│   └── runCreateSuperAdmin.js
-├── docs/                     # Documentation
-├── .firebaserc              # Firebase configuration
-├── .gitignore               # Git ignore rules
-├── eslint.config.js         # ESLint configuration
-├── firebase.json            # Firebase hosting configuration
-├── package.json             # Dependencies and scripts
-├── postcss.config.js        # PostCSS configuration
-├── tailwind.config.js       # TailwindCSS configuration
-├── vite.config.js           # Vite configuration
-└── vitest.config.js         # Vitest configuration
-```
-
----
-
-## Database Schema
-
-### Firestore Collections
-
-#### Users Collection
-```javascript
-{
-  uid: string,           // Unique user identifier
-  username: string,      // Unique username (case-insensitive)
-  email: string,         // User email
-  fullName: string,      // Full display name
-  phone: string,         // Phone number
-  role: string,          // 'super_admin', 'admin', 'user'
-  orgId: string,         // Organization ID (null for super_admin)
-  password: string,      // Hashed password
-  isActive: boolean,     // Account status
-  createdAt: timestamp,  // Account creation timestamp
-  updatedAt: timestamp,  // Last update timestamp
-  lastLogin: timestamp   // Last login timestamp
-}
-```
-
-#### Organizations Collection
-```javascript
-{
-  id: string,            // Organization ID
-  name: string,          // Organization name
-  address: string,       // Physical address
-  phone: string,         // Contact phone
-  email: string,         // Contact email
-  taxId: string,         // Tax identifier
-  businessType: string,   // Business type
-  isActive: boolean,     // Organization status
-  createdAt: timestamp,  // Creation timestamp
-  updatedAt: timestamp   // Last update timestamp
-}
-```
-
-#### Products Collection
-```javascript
-{
-  id: string,            // Product ID
-  orgId: string,         // Organization ID
-  name: string,          // Product name
-  description: string,   // Product description
-  categoryId: string,    // Category ID
-  price: number,         // Selling price
-  cost: number,          // Cost price
-  unit: string,          // Unit of measure
-  stock: number,         // Current stock quantity
-  minStock: number,      // Minimum stock level
-  isActive: boolean,     // Product status
-  createdAt: timestamp,  // Creation timestamp
-  updatedAt: timestamp   // Last update timestamp
-}
-```
-
-#### Categories Collection
-```javascript
-{
-  id: string,            // Category ID
-  orgId: string,         // Organization ID
-  name: string,          // Category name
-  description: string,   // Category description
-  parentId: string,      // Parent category ID (for sub-categories)
-  color: string,         // Category color code
-  isActive: boolean,     // Category status
-  sortOrder: number,    // Display order
-  createdAt: timestamp,  // Creation timestamp
-  updatedAt: timestamp   // Last update timestamp
-}
-```
-
-#### Sales Collection
-```javascript
-{
-  id: string,            // Sale ID
-  orgId: string,         // Organization ID
-  userId: string,        // User who made the sale
-  items: array,          // Array of sale items
-  subtotal: number,      // Subtotal before tax
-  tax: number,           // Tax amount
-  total: number,         // Total amount
-  paymentMethod: string, // Payment method
-  paymentStatus: string, // Payment status
-  createdAt: timestamp,  // Sale timestamp
-  updatedAt: timestamp   // Last update timestamp
-}
-```
-
-#### Settings Collection
-```javascript
-{
-  id: string,            // Settings ID (usually orgId)
-  orgId: string,         // Organization ID
-  businessName: string,  // Business name
-  currency: string,      // Currency code
-  taxRate: number,       // Default tax rate
-  address: string,       // Business address
-  phone: string,         // Business phone
-  email: string,         // Business email
-  receiptHeader: string, // Receipt header text
-  receiptFooter: string, // Receipt footer text
-  masterCategories: array, // Master categories list
-  unitsOfMeasure: array,  // Units of measure list
-  updatedAt: timestamp   // Last update timestamp
-}
-```
-
-#### Logs Collection
-```javascript
-{
-  id: string,            // Log ID
-  orgId: string,         // Organization ID
-  userId: string,        // User who performed action
-  action: string,        // Action type
-  details: object,       // Action details
-  timestamp: timestamp,  // Action timestamp
-  ipAddress: string,     // User IP address
-  userAgent: string      // User agent string
-}
-```
-
-#### BillingLogs Collection
-```javascript
-{
-  id: string,            // Billing log ID
-  orgId: string,         // Organization ID
-  userId: string,        // User who performed action
-  action: string,        // Billing action type
-  details: object,       // Billing details
-  amount: number,        // Amount involved
-  timestamp: timestamp,  // Action timestamp
-  ipAddress: string,     // User IP address
-  userAgent: string      // User agent string
-}
-```
-
----
-
-## Authentication & Authorization
-
-### Authentication Flow
-1. **Login Attempt**: User enters credentials
-2. **User Lookup**: Query Firestore for username
-3. **Password Verification**: Hash comparison with stored password
-4. **Session Creation**: Store user data in localStorage
-5. **Context Update**: Update AuthContext with user data
-6. **Route Protection**: Protected routes check authentication
-
-### Role-Based Access Control (RBAC)
-
-#### Super Admin
-- Access all organizations
-- Manage global settings
-- Create/manage organizations
-- Access system-wide reports and logs
-- Manage all users
-
-#### Admin
-- Access assigned organization only
-- Manage organization users
-- Configure organization settings
-- Access organization reports
-- Manage products and categories
-
-#### Regular User
-- Access POS functionality
-- View products and inventory
-- Process sales transactions
-- Access basic reports
-- Manage own profile
-
-### Route Protection Implementation
-```javascript
-// ProtectedRoute wrapper for authenticated users
-function ProtectedRoute({ children }) {
-  const { user, loading, initializing } = useAuth()
-  
-  if (loading || initializing) return <LoadingSpinner />
-  if (!user) return <Navigate to="/login" replace />
-  return children
-}
-
-// AdminRoute wrapper for admin users
-function AdminRoute({ children }) {
-  const { user, loading, initializing, isAdmin } = useAuth()
-  
-  if (loading || initializing) return <LoadingSpinner />
-  if (!user || !isAdmin) return <Navigate to="/" replace />
-  return children
-}
-
-// SuperAdminRoute wrapper for super admin users
-function SuperAdminRoute({ children }) {
-  const { user, loading, initializing, isSuperAdmin } = useAuth()
-  
-  if (loading || initializing) return <LoadingSpinner />
-  if (!user || !isSuperAdmin) return <Navigate to="/" replace />
-  return children
-}
-```
-
----
-
-## API Integration
-
-### Firebase Configuration
-```javascript
-// src/firebase.js
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
-  measurementId: "YOUR_MEASUREMENT_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-```
-
-**Note**: Replace the placeholder values with your actual Firebase project configuration. These sensitive values should be stored in environment variables for production deployments.
-
-### Common Firebase Operations
-
-#### Document Operations
-```javascript
-// Add document
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-
-const addDocument = async (collectionName, data) => {
-  const docRef = await addDoc(collection(db, collectionName), {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  })
-  return docRef.id
-}
-
-// Update document
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
-
-const updateDocument = async (collectionName, docId, data) => {
-  const docRef = doc(db, collectionName, docId)
-  await updateDoc(docRef, {
-    ...data,
-    updatedAt: serverTimestamp()
-  })
-}
-
-// Delete document
-import { doc, deleteDoc } from 'firebase/firestore'
-
-const deleteDocument = async (collectionName, docId) => {
-  const docRef = doc(db, collectionName, docId)
-  await deleteDoc(docRef)
-}
-```
-
-#### Query Operations
-```javascript
-// Get documents with filters
-import { collection, query, where, getDocs } from 'firebase/firestore'
-
-const getFilteredDocuments = async (collectionName, filters) => {
-  const q = query(collection(db, collectionName), ...filters)
-  const snapshot = await getDocs(q)
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-}
-
-// Real-time listener
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
-
-const subscribeToDocuments = (collectionName, filters, callback) => {
-  const q = query(collection(db, collectionName), ...filters)
-  return onSnapshot(q, (snapshot) => {
-    const documents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-    callback(documents)
-  })
-}
-```
-
----
-
-## Component Architecture
-
-### Component Hierarchy
-```
-App
-├── AuthProvider
-├── OrgProvider
-├── ToastProvider
-└── BrowserRouter
-    ├── Routes
-    │   ├── LoginPage
-    │   └── AppContent
-    │       ├── Navbar
-    │       └── Routes
-    │           ├── POSPage
-    │           │   ├── ProductGrid
-    │           │   ├── CartPanel
-    │           │   └── MiscItemModal
-    │           ├── SettingsPage
-    │           │   ├── ProductsTab
-    │           │   │   └── ProductFormModal
-    │           │   ├── CategoriesTab
-    │           │   ├── UsersTab
-    │           │   │   ├── UserProfileManager
-    │           │   │   ├── UserOrganizationManager
-    │           │   │   └── PasswordChangeModal
-    │           │   └── MasterDataTab
-    │           ├── ReportsPage
-    │           ├── LogsPage
-    │           ├── BillingLogsPage
-    │           └── SuperAdminPage
-    │               ├── MultiOrgUserManager
-    │               └── OrganizationSelector
-    └── ToastContainer
-```
-
-### Component Patterns
-
-#### Functional Components with Hooks
-All components are functional components using React hooks for state management and side effects.
-
-#### Props Interface
-```javascript
-// Example component interface
-const ProductGrid = ({ 
-  products, 
-  categories, 
-  onProductSelect, 
-  currencySymbol,
-  selectedCategory,
-  searchTerm 
-}) => {
-  // Component implementation
-}
-```
-
-#### Custom Hooks Integration
-Components use custom hooks for data fetching and business logic separation.
-
-#### Error Boundaries
-Implement error boundaries for graceful error handling.
-
----
-
-## State Management
-
-### Context Providers
-
-#### AuthContext
-```javascript
-// src/contexts/AuthContext.jsx
-export const AuthContext = createContext(null)
-
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [initializing, setInitializing] = useState(true)
-
-  // Authentication logic
-  const login = async (username, password, selectedOrgId = null) => {
-    // Login implementation
-  }
-
-  const logout = () => {
-    // Logout implementation
-  }
-
-  // Role checking functions
-  const isAdmin = userProfile?.role === 'admin'
-  const isSuperAdmin = userProfile?.role === 'super_admin'
-
-  return (
-    <AuthContext.Provider value={{
-      user, userProfile, loading, initializing,
-      login, logout, isAdmin, isSuperAdmin
-    }}>
-      {children}
-    </AuthContext.Provider>
-  )
-}
-```
-
-#### OrgContext
-```javascript
-// src/contexts/OrgContext.jsx
-export const OrgContext = createContext(null)
-
-export function OrgProvider({ children }) {
-  const [selectedOrgId, setSelectedOrgId] = useState(null)
-  const [organizations, setOrganizations] = useState([])
-
-  return (
-    <OrgContext.Provider value={{
-      selectedOrgId, setSelectedOrgId,
-      organizations, setOrganizations
-    }}>
-      {children}
-    </OrgContext.Provider>
-  )
-}
-```
-
-### Local State Management
-- **useState**: Component-level state
-- **useReducer**: Complex state logic
-- **useEffect**: Side effects and subscriptions
-- **useMemo**: Performance optimization
-- **useCallback**: Function memoization
-
----
-
-## Hooks and Utilities
-
-### Custom Hooks
-
-#### useProducts
-```javascript
-// src/hooks/useProducts.js
-export function useProducts() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(true)
-  const { selectedOrgId } = useOrg()
-
-  useEffect(() => {
-    if (!selectedOrgId) return
-
-    const q = query(
-      collection(db, 'products'),
-      where('orgId', '==', selectedOrgId),
-      where('isActive', '==', true)
-    )
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }))
-      setProducts(productsData)
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [selectedOrgId])
-
-  const addProduct = async (productData) => {
-    // Add product implementation
-  }
-
-  const updateProduct = async (productId, productData) => {
-    // Update product implementation
-  }
-
-  const deleteProduct = async (productId) => {
-    // Delete product implementation
-  }
-
-  return { products, loading, addProduct, updateProduct, deleteProduct }
-}
-```
-
-#### useSettings
-```javascript
-// src/hooks/useSettings.js
-export const CURRENCIES = [
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  // ... more currencies
-]
-
-export function useSettings() {
-  const [settings, setSettings] = useState({})
-  const [loading, setLoading] = useState(true)
-  const { selectedOrgId } = useOrg()
-
-  useEffect(() => {
-    // Settings fetching logic
-  }, [selectedOrgId])
-
-  const updateSettings = async (newSettings) => {
-    // Update settings implementation
-  }
-
-  return { settings, loading, updateSettings }
-}
-```
-
-### Utility Functions
-
-#### Password Utilities
-```javascript
-// src/utils/passwordUtils.js
-import bcrypt from 'bcryptjs'
-
-export const hashPassword = async (password) => {
-  const saltRounds = 10
-  return await bcrypt.hash(password, saltRounds)
-}
-
-export const verifyPassword = async (password, hashedPassword) => {
-  return await bcrypt.compare(password, hashedPassword)
-}
-
-export const verifyPasswordLegacy = async (password, legacyHash) => {
-  // Legacy password verification for migration
-}
-```
-
-#### Logger Utilities
-```javascript
-// src/utils/logger.js
-export const LOG_TYPES = {
-  USER_LOGIN: 'user_login',
-  USER_LOGOUT: 'user_logout',
-  PRODUCT_ADDED: 'product_added',
-  PRODUCT_UPDATED: 'product_updated',
-  PRODUCT_DELETED: 'product_deleted',
-  SALE_COMPLETED: 'sale_completed',
-  // ... more log types
-}
-
-export const logUserAction = async (orgId, userId, action, details) => {
-  try {
-    await addDoc(collection(db, 'logs'), {
-      orgId,
-      userId,
-      action,
-      details,
-      timestamp: serverTimestamp(),
-      ipAddress: await getClientIP(),
-      userAgent: navigator.userAgent
-    })
-  } catch (error) {
-    console.error('Error logging user action:', error)
-  }
-}
-```
-
----
-
-## Firebase Integration
-
-### Real-time Data Synchronization
-- **Firestore Listeners**: Real-time updates for all collections
-- **Optimistic Updates**: Immediate UI updates with server synchronization
-- **Offline Support**: Local cache for offline functionality
-- **Conflict Resolution**: Automatic conflict resolution strategies
-
-### Security Rules
-```javascript
-// firestore.rules
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can only read/write their own organization's data
-    match /{document=**} {
-      allow read, write: if request.auth != null && 
-        request.auth.token.orgId == resource.data.orgId;
-    }
-    
-    // Super admins can access all data
-    match /{document=**} {
-      allow read, write: if request.auth != null && 
-        request.auth.token.role == 'super_admin';
-    }
-  }
-}
-```
-
-### Data Validation
-- **Client-side validation**: Form validation before submission
-- **Server-side validation**: Security rules enforcement
-- **Data sanitization**: Input cleaning and normalization
-- **Type checking**: Runtime type validation
-
----
-
-## Build and Deployment
-
-### Development Setup
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Run tests
-npm run test
-
-# Run tests with UI
-npm run test:ui
-
-# Lint code
-npm run lint
-```
-
-### Build Process
-```bash
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-### Vite Configuration
-```javascript
-// vite.config.js
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
-
-export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
-      }
-    })
-  ],
-  build: {
-    outDir: 'dist',
-    sourcemap: true
-  }
-})
-```
-
-### Firebase Deployment
-```bash
-# Deploy to Firebase Hosting
-firebase deploy --only hosting
-
-# Deploy Firestore rules
-firebase deploy --only firestore:rules
-
-# Deploy all
-firebase deploy
-```
-
----
-
-## Testing Strategy
-
-### Unit Testing
-```javascript
-// Example test using Vitest and Testing Library
-import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
-import ProductGrid from '../components/ProductGrid'
-
-describe('ProductGrid', () => {
-  const mockProducts = [
-    { id: '1', name: 'Test Product', price: 10.99, stock: 5 }
-  ]
-
-  it('renders products correctly', () => {
-    render(
-      <ProductGrid 
-        products={mockProducts} 
-        onProductSelect={vi.fn()}
-        currencySymbol="$"
-      />
-    )
-    
-    expect(screen.getByText('Test Product')).toBeInTheDocument()
-    expect(screen.getByText('$10.99')).toBeInTheDocument()
-  })
-
-  it('calls onProductSelect when product is clicked', () => {
-    const mockSelect = vi.fn()
-    render(
-      <ProductGrid 
-        products={mockProducts} 
-        onProductSelect={mockSelect}
-        currencySymbol="$"
-      />
-    )
-    
-    fireEvent.click(screen.getByText('Test Product'))
-    expect(mockSelect).toHaveBeenCalledWith(mockProducts[0])
-  })
-})
-```
-
-### Integration Testing
-- **Component Integration**: Test component interactions
-- **API Integration**: Test Firebase operations
-- **User Workflows**: End-to-end user scenarios
-- **Performance Testing**: Load and stress testing
-
-### Test Configuration
-```javascript
-// vitest.config.js
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.js'],
-    globals: true
-  }
-})
-```
-
----
-
-## Development Guidelines
-
-### Code Style
-- **ESLint Configuration**: Consistent code formatting
-- **Prettier Integration**: Automatic code formatting
-- **TypeScript**: Gradual migration to TypeScript
-- **Component Naming**: PascalCase for components
-- **File Naming**: camelCase for utilities, PascalCase for components
+Customer Management allows you to maintain a comprehensive database of your customers, track their purchase history, and manage credit accounts. This feature is particularly useful for businesses that offer credit purchases or want to build customer relationships.
+
+### Accessing Customer Management
+1. Navigate to the **Customers** section in the top navigation bar
+2. Only admin users can access customer management features
+3. The customer list displays all registered customers with their contact information and credit status
+
+### Adding New Customers
+1. Click the **"Add Customer"** button in the Customer Management page
+2. Fill in the customer information:
+   - **Name** (required): Customer's full name
+   - **Phone**: Contact phone number
+   - **Email**: Email address for notifications
+   - **Address**: Physical address
+3. Click **"Create Customer"** to save
+
+### Searching Customers
+- Use the search bar to find customers by name, phone, or email
+- Results update in real-time as you type
+- Customer credit balances are displayed with color coding:
+  - Green: Positive credit balance (customer has credit)
+  - Red: Negative credit balance (customer owes money)
+
+### Managing Customer Information
+#### Editing Customer Details
+1. Click the edit icon (pencil) next to any customer
+2. Update the customer information as needed
+3. Click **"Update"** to save changes
+
+#### Updating Credit Balance
+1. Click the credit icon (dollar sign) next to any customer
+2. Enter the amount to adjust:
+   - Positive numbers: Add credit to customer account
+   - Negative numbers: Subtract credit (customer payment)
+3. Add a description for the credit adjustment (optional)
+4. Click **"Update Balance"** to save
+
+#### Viewing Credit History
+1. Click the credit history icon (document) next to any customer
+2. The Credit History modal displays:
+   - **Current Balance**: Customer's current credit status
+   - **Total Payments**: Sum of all payments made by customer
+   - **Total Purchases**: Sum of all credit purchases
+   - **Transaction Count**: Number of credit transactions
+3. **Transaction List** shows:
+   - **Transaction Type**: Purchase, Payment, or Adjustment
+   - **Amount**: Transaction amount with + or - indicator
+   - **Description**: Details of the transaction
+   - **Date & Time**: When the transaction occurred
+   - **Running Balance**: Balance after each transaction
+   - **User**: Who performed the transaction
+4. **Color Coding**:
+   - Green: Payments (positive balance impact)
+   - Red: Purchases (negative balance impact)
+   - Yellow: Manual adjustments
+5. Click **"Close"** to exit the credit history view
+
+#### Deleting Customers
+1. Click the delete icon (trash) next to any customer
+2. Confirm the deletion in the popup dialog
+3. **Note**: Customers with outstanding credit balances cannot be deleted
+
+### Customer Information Display
+Each customer card shows:
+- **Name and Contact**: Basic contact information
+- **Credit Balance**: Current credit status with color coding and organization's currency symbol
+- **Creation Date**: When the customer was added to the system
+
+### Currency Display
+- All monetary values (credit balances, purchase totals) display using your organization's configured currency symbol
+- Currency symbol is automatically set based on your organization settings
+- Supported currencies include: USD ($), EUR (€), GBP (£), JPY (¥), INR (₹), LKR (Rs), CAD (CA$), AUD (A$), SGD (S$), MYR (RM)
+- Credit balance updates show the appropriate currency symbol in confirmation messages
+
+### Credit Purchases Integration
+When credit purchases are enabled in organization settings:
+- Customers can be linked to sales transactions
+- Credit purchases automatically update customer balances as negative values
+- Customer selection is required for credit sales
+- Purchase history is tracked for each customer
+
+#### Credit Purchase Process
+1. **Enable Credit Purchases**: Admin must enable credit purchases in Organization Settings
+2. **Select Customer**: Choose a customer from the customer search in the cart
+3. **Choose Credit Payment**: Select "Credit" as the payment method
+4. **Complete Sale**: The system automatically:
+   - Processes the sale transaction
+   - Updates customer credit balance (negative value)
+   - Records the purchase in customer's credit history
+   - Generates receipt with credit payment details
+
+#### Credit Balance Management
+- **Negative Balance**: Customer owes money to the business (from credit purchases)
+- **Positive Balance**: Customer has prepaid credit or advance payments
+- **Zero Balance**: No outstanding credit or debt
+
+#### Settlement Process
+When customers make payments to settle their credit:
+1. Go to Customer Management
+2. Find the customer with outstanding balance
+3. Click the credit adjustment icon (dollar sign)
+4. Enter positive amount to add credit (payment received)
+5. Add description (e.g., "Payment for outstanding balance")
+6. Click "Update Balance"
+
+#### Advance Payments
+For customers who pay in advance:
+1. Follow the same credit adjustment process
+2. Enter positive amount to add credit
+3. Description should indicate "Advance payment"
+4. Customer's balance will show as positive (credit available)
 
 ### Best Practices
-
-#### Component Development
-```javascript
-// Good component structure
-const ProductCard = ({ product, onSelect, currencySymbol }) => {
-  // Hooks at the top
-  const [isLoading, setIsLoading] = useState(false)
-  
-  // Event handlers
-  const handleClick = useCallback(() => {
-    onSelect(product)
-  }, [product, onSelect])
-  
-  // Effects
-  useEffect(() => {
-    // Side effects
-  }, [])
-  
-  // Render
-  return (
-    <div className="product-card" onClick={handleClick}>
-      <h3>{product.name}</h3>
-      <p>{currencySymbol}{product.price}</p>
-    </div>
-  )
-}
-
-// PropTypes or TypeScript interfaces
-ProductCard.propTypes = {
-  product: PropTypes.object.isRequired,
-  onSelect: PropTypes.func.isRequired,
-  currencySymbol: PropTypes.string.isRequired
-}
-```
-
-#### Hook Development
-```javascript
-// Custom hook pattern
-const useCustomHook = (dependency) => {
-  const [state, setState] = useState(initialState)
-  
-  useEffect(() => {
-    // Effect logic
-    return () => {
-      // Cleanup
-    }
-  }, [dependency])
-  
-  const memoizedValue = useMemo(() => {
-    // Expensive computation
-    return computedValue
-  }, [state])
-  
-  return { state, setState, memoizedValue }
-}
-```
-
-### Performance Optimization
-- **React.memo**: Component memoization
-- **useMemo**: Value memoization
-- **useCallback**: Function memoization
-- **Code Splitting**: Lazy loading with React.lazy
-- **Virtual Scrolling**: For large lists
-- **Debouncing**: Input field optimization
+- **Regular Updates**: Keep customer information current for better service
+- **Credit Management**: Review credit balances regularly and follow up on outstanding amounts
+- **Data Quality**: Ensure accurate contact information for customer communications
+- **Privacy**: Respect customer privacy and data protection regulations
 
 ---
 
-## Security Considerations
+## Settings and Configuration
 
-### Authentication Security
-- **Password Hashing**: bcrypt with salt rounds
-- **Session Management**: Secure token storage
-- **Password Policies**: Minimum requirements
-- **Account Lockout**: Failed login protection
-- **Two-Factor Authentication**: Optional 2FA support
+### General Settings
+1. Go to Settings → General tab
+2. Configure the following:
+   - **Business Name**: Your organization name
+   - **Currency**: Select local currency
+   - **Tax Rate**: Set applicable tax percentage
+   - **Contact Information**: Business contact details
+   - **Business Hours**: Operating hours
+   - **Receipt Header/Footer**: Custom receipt text
 
-### Data Security
-- **Input Validation**: Client and server-side validation
-- **SQL Injection Prevention**: Parameterized queries
-- **XSS Protection**: Content sanitization
-- **CSRF Protection**: Token-based protection
-- **Data Encryption**: Sensitive data encryption
+### Organization Settings
+- **Organization Details**: Name, address, contact information
+- **Tax Configuration**: Tax rates and rules
+- **Currency Settings**: Local currency and formatting
+- **Receipt Customization**: Header, footer, and logo settings
 
-### Firebase Security
-```javascript
-// Security rules example
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Users can only access their own organization's data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.uid == userId || 
-         request.auth.token.role == 'super_admin');
-    }
-    
-    match /products/{productId} {
-      allow read, write: if request.auth != null && 
-        request.auth.token.orgId == resource.data.orgId;
-    }
-  }
-}
-```
+### System Preferences
+- **Theme Selection**: Choose color scheme and appearance
+- **Language Settings**: Select preferred language
+- **Time Zone**: Set local time zone
+- **Date Format**: Choose date display format
 
-### Environment Security
-- **Environment Variables**: Secure configuration
-- **API Keys**: Secure key management
-- **HTTPS Enforcement**: SSL/TLS requirements
-- **CORS Configuration**: Cross-origin security
+### Discount Configuration
+MGPOS supports flexible discount options to meet various business needs:
 
----
+#### Discount Types
+1. **Global Discount**: Apply a single discount percentage to all items
+2. **Category Discount**: Set different discounts for each product category
+3. **Item Discount**: Configure individual discounts per product
 
-## Performance Optimization
+#### Setting Up Category-wise Discounts
+1. Go to Settings → Billing tab
+2. Select "Category Discount" from Discount Type options
+3. Go to Settings → Master Data → Categories tab
+4. Configure discounts for each category:
+   - Toggle the discount switch for each category
+   - Choose discount type (percentage or fixed amount)
+   - Enter the discount value
+5. Discounts are automatically applied to items in those categories
 
-### Frontend Optimization
-- **Bundle Size**: Code splitting and tree shaking
-- **Image Optimization**: WebP format and lazy loading
-- **Caching Strategy**: Service worker implementation
-- **Minification**: Production build optimization
-- **Compression**: Gzip compression
+#### Global Discount Setup
+1. Go to Settings → Billing tab
+2. Select "Global Discount" from Discount Type options
+3. Enter the discount percentage to apply to all items
 
-### Database Optimization
-- **Indexing**: Firestore composite indexes
-- **Query Optimization**: Efficient query patterns
-- **Pagination**: Large dataset handling
-- **Caching**: Client-side caching strategies
-- **Batch Operations**: Bulk write operations
+#### Item Discount Setup
+1. Go to Settings → Products tab
+2. Edit individual products
+3. Configure discount settings in the product form
+4. Set discount type (percentage or fixed amount) and value
 
-### Monitoring and Analytics
-```javascript
-// Performance monitoring
-const measurePerformance = (name, fn) => {
-  const start = performance.now()
-  const result = fn()
-  const end = performance.now()
-  console.log(`${name} took ${end - start} milliseconds`)
-  return result
-}
+#### Additional Discount Features
+- **Cart Discount Override**: Allow custom discounts directly in the cart
+- **Bill Reprint**: Enable reprinting bills from today
+- **Miscellaneous Items**: Add one-off items at checkout
 
-// Error tracking
-const trackError = (error, context) => {
-  console.error('Error:', error, 'Context:', context)
-  // Send to error tracking service
-}
-```
+### Activity Logging Settings
 
----
+Organization administrators and super administrators can control whether user actions and system events are logged for audit purposes.
 
-## Troubleshooting for Developers
+#### Accessing Logging Settings
+1. Go to Settings → Billing tab
+2. Scroll down to the "Activity Logging" section
+3. Toggle the logging switch to enable or disable activity logging
 
-### Common Development Issues
+#### Logging Behavior
+- **When Enabled**: All user actions, system events, and administrative operations are recorded in the system logs
+- **When Disabled**: No activity logs are written to the database for the organization
+- **Default State**: Logging is disabled by default for new organizations
+- **Super Admin Context**: Super admin operations respect organization logging settings when performed within an organization context
+- **System-Level Logs**: Truly system-wide operations (like login screen changes) are always logged
 
-#### Firebase Connection Issues
-```javascript
-// Check Firebase initialization
-import { getApps, getApp } from 'firebase/app'
+#### What Gets Logged
+When logging is enabled, the following activities are recorded:
+- User login and logout events
+- Product additions, updates, and deletions
+- Category management operations
+- Sales transactions and billing activities
+- Settings changes
+- User account management
+- System errors and warnings
 
-if (!getApps().length) {
-  initializeApp(firebaseConfig)
-} else {
-  getApp()
-}
-```
+#### Privacy and Performance Considerations
+- **Data Privacy**: Consider privacy implications when enabling logging
+- **Storage Impact**: Logs consume database storage over time
+- **Performance**: Minimal performance impact when logging is enabled
+- **Audit Trail**: Essential for security investigations and compliance
 
-#### State Management Issues
-- **Context Updates**: Ensure proper context provider wrapping
-- **Memory Leaks**: Cleanup subscriptions in useEffect
-- **Infinite Loops**: Check dependency arrays in useEffect
+#### Super Admin Logging Behavior
+Super administrators have two types of operations that are handled differently:
 
-#### Build Issues
-- **Import Errors**: Check import paths and file extensions
-- **Environment Variables**: Verify .env configuration
-- **Dependency Conflicts**: Update package-lock.json
+**Organization-Context Operations** (respect organization settings):
+- Creating, updating, or deleting users within specific organizations
+- Modifying organization settings and configurations
+- Refreshing user lists for specific organizations
+- Any action performed while working within a specific organization
 
-### Debugging Tools
-- **React DevTools**: Component inspection
-- **Redux DevTools**: State inspection (if using Redux)
-- **Firebase Emulator**: Local development testing
-- **Browser DevTools**: Performance and network debugging
+**System-Level Operations** (always logged):
+- Login screen changes and system-wide UI updates
+- Global system configuration changes
+- System error reporting
+- Operations that affect the entire system
 
-### Performance Debugging
-```javascript
-// Performance profiling
-const profileComponent = (Component) => {
-  return (props) => {
-    useEffect(() => {
-      const startTime = performance.now()
-      return () => {
-        const endTime = performance.now()
-        console.log(`Component render time: ${endTime - startTime}ms`)
-      }
-    })
-    return <Component {...props} />
-  }
-}
-```
+**Example Scenarios**:
+- If logging is disabled for Organization A, super admin actions within Organization A will not be logged
+- System-wide changes (like login screen updates) will always be logged regardless of organization settings
+- Super admin can still view all logs across all organizations, but creation of new logs respects organization settings
+
+#### Access to Logs
+- **Organization Admins**: Can view logs for their organization
+- **Super Admins**: Can view logs for all organizations
+- **Regular Users**: No access to system logs
+
+### Security Settings
+- **Password Policies**: Minimum length and complexity requirements
+- **Session Timeout**: Auto-logout duration
+- **Access Logs**: Track user login attempts
+- **Two-Factor Authentication**: Enhanced security options
 
 ---
 
-## Future Development Roadmap
+## Reports and Analytics
 
-### Planned Features
-1. **Advanced Reporting**: Custom report builder
-2. **Inventory Management**: Stock tracking and alerts
-3. **Customer Management**: Customer database and loyalty
-4. **Supplier Management**: Supplier and purchase orders
-5. **Mobile App**: Native mobile applications
-6. **API Integration**: Third-party service integrations
-7. **Advanced Analytics**: Business intelligence features
-8. **Multi-Language Support**: Internationalization
+### Accessing Reports
+1. Go to Reports section from the main menu
+2. Select the type of report you want to view
+3. Set date range and filters
+4. **For Super Admins & Multi-Org Admins**: Select organizations (optional - you can select multiple organizations or leave empty to use current selected organization)
+5. Generate and view the report
 
-### Technical Improvements
-1. **TypeScript Migration**: Full TypeScript adoption
-2. **Microservices Architecture**: Backend service separation
-3. **Advanced Caching**: Redis implementation
-4. **Real-time Notifications**: WebSocket implementation
-5. **Advanced Security**: Enhanced security features
-6. **Performance Monitoring**: APM integration
-7. **Automated Testing**: CI/CD pipeline improvements
-8. **Documentation**: API documentation generation
+### Multi-Organization Reporting (Super Admin & Multi-Org Admin Feature)
+Super administrators and organization administrators with access to multiple organizations can generate reports across multiple organizations:
 
-### Development Guidelines for Contributors
-1. **Code Review Process**: Pull request requirements
-2. **Testing Requirements**: Minimum test coverage
-3. **Documentation**: Documentation requirements
-4. **Branch Strategy**: Git workflow guidelines
-5. **Release Process**: Version management
-6. **Performance Standards**: Performance benchmarks
+#### Organization Selection
+- **Single Organization**: Leave the organization selector empty to use the currently selected organization from the navigation bar
+- **Multiple Organizations**: Click on organization names in the selector to select multiple organizations
+- **Visual Feedback**: Selected organizations appear highlighted in green
+- **Selection Display**: Shows "Selected: [Organization Names]" when multiple organizations are chosen
+
+#### Report Generation
+- **Combined Data**: Reports aggregate data from all selected organizations
+- **Organization Breakdown**: Detailed reports show which organization each transaction belongs to
+- **Unified Analytics**: Summary statistics combine data across all selected organizations
+
+#### Access Levels
+- **Super Admins**: Can generate reports for any organization in the system
+- **Multi-Org Admins**: Can generate reports only for organizations they have admin access to
+- **Single-Org Admins**: Can only generate reports for their assigned organization
+
+#### Best Practices
+- Use specific date ranges when generating multi-organization reports to manage data volume
+- Consider using summary reports for large date ranges across multiple organizations
+- Verify organization selections before generating large reports
+- Multi-org admins will only see organizations they have access to in the selector
+
+### Report Types
+
+#### Sales Reports
+- **Daily Sales**: Sales breakdown by day
+- **Weekly Summary**: Weekly sales trends
+- **Monthly Analytics**: Monthly performance metrics
+- **Product Sales**: Best-selling products
+- **Category Performance**: Sales by category
+
+#### Inventory Reports
+- **Stock Levels**: Current inventory status
+- **Low Stock Alert**: Products needing reorder
+- **Stock Movement**: Inventory changes over time
+- **Valuation Report**: Total inventory value
+
+#### User Activity Reports
+- **Login History**: User access patterns
+- **Transaction History**: User sales activity
+- **Performance Metrics**: Individual user statistics
+- **Access Logs**: System access records
+
+#### Financial Reports
+- **Revenue Summary**: Total revenue breakdown
+- **Profit Analysis**: Cost vs. selling price analysis
+- **Tax Reports**: Tax collection and remittance
+- **Payment Methods**: Payment type distribution
+- **Discount Analysis**: Detailed discount breakdown and impact
+
+#### Customer Purchase History Reports
+- **Customer Transaction History**: View all transactions for a specific customer
+- **Customer Search**: Find customers by name or phone number
+- **Purchase Analysis**: Analyze customer purchasing patterns over time
+- **Multi-Period Analysis**: Generate reports for different time periods
+- **Detailed Transaction Breakdown**: See individual purchases with payment methods, discounts, and items
+
+**How to Generate Customer Purchase History Reports**:
+1. Go to Reports section from the main menu
+2. Select "Customer Purchase History" from the Report Type dropdown
+3. Enter customer name or phone number in the search field
+4. Select the time period (Today, This Week, This Month, This Year, or Custom)
+5. For custom periods, set specific start and end dates
+6. Click "Generate Report" to view the customer's purchase history
+
+**Report Features**:
+- **Flexible Search**: Search by customer name or phone number (partial matching supported)
+- **Summary Statistics**: Total transactions, gross sales, discounts, and net sales
+- **Detailed Transaction List**: Each transaction shows receipt number, date, cashier, payment method, and pricing details
+- **Multi-Organization Support**: Super admins can generate reports across multiple organizations
+- **Print Functionality**: Generate printable reports with customer information
+- **Real-time Filtering**: Reports update instantly as you change customer search or time periods
+
+**Use Cases**:
+- Provide customers with their complete purchase history
+- Analyze customer spending patterns and frequency
+- Track customer loyalty and purchasing behavior
+- Generate statements for credit account customers
+- Investigate customer-specific issues or inquiries
+
+#### Enhanced Discount Reporting
+The system now provides comprehensive discount information across all reports, showing exactly how discounts are applied to each transaction.
+
+**Discount Information Available**
+- **Item-wise Details**: See which items received discounts and the exact amount/percentage
+- **Discount Types**: Identify if discounts are custom, item-level, category-based, or global
+- **Discount Descriptions**: Human-readable descriptions (e.g., "Item: 10%", "Category (electronics): 15%")
+- **Total Impact**: View the combined effect of all discounts on each transaction
+
+**Where to Find Discount Information**
+- **Billing Reports**: Each bill shows detailed discount breakdown in the modal view
+- **Sales Reports**: Detailed reports include a "Discount Details" column
+- **Receipt Printing**: Both printed and on-screen receipts show discount breakdown
+- **Bill Details Modal**: Click "View" on any bill to see comprehensive discount information
+
+**Understanding Discount Types**
+- **Custom**: User-entered currency discount applied to specific items
+- **Item**: Individual item discounts configured in product settings
+- **Category**: Category-wide discounts applied to all items in a category
+- **Global**: Cart-wide percentage discounts applied to the entire purchase
+
+**Report Examples**
+```
+Discount Details Column in Detailed Reports:
+- Laptop(Item: 10%), Keyboard(Custom: 15.00 (15.0%))
+- Mouse(Category (electronics): 15%)
+- Global: 10%
+```
+
+**Benefits for Business Owners**
+- **Transparency**: Clear visibility into how discounts affect sales
+- **Audit Trail**: Complete record of discount applications for accounting
+- **Performance Analysis**: Understand which discounts drive sales
+- **Customer Insights**: See discount patterns and customer behavior
+
+### Scheduled Reports
+- **Automated Report Generation**: Set up recurring reports
+- **Email Notifications**: Receive reports via email
+- **Customizable Frequency**: Choose report frequency (daily, weekly, monthly)
 
 ---
 
-## API Documentation (for Future REST API)
+## Advanced Reporting and Analytics
+## User Management
 
-### Authentication Endpoints
-```
-POST /api/auth/login
-POST /api/auth/logout
-POST /api/auth/refresh
-GET  /api/auth/profile
-```
+### Creating New Users
+1. Go to Settings → Users tab
+2. Click "Add New User"
+3. Enter user information:
+   - **Username**: Unique login identifier
+   - **Full Name**: User's complete name
+   - **Email Address**: Contact email
+   - **Phone Number**: Contact phone
+   - **Role**: Assign appropriate role (Admin/Regular User)
+4. Set initial password
+5. Assign organization access (if applicable)
+6. Save the user account
 
-### Product Endpoints
-```
-GET    /api/products
-POST   /api/products
-GET    /api/products/:id
-PUT    /api/products/:id
-DELETE /api/products/:id
-```
+### Managing User Accounts
+- **Edit User Information**: Update personal details
+- **Change Roles**: Modify user permissions
+- **Reset Passwords**: Secure password reset process
+- **Deactivate Users**: Disable user accounts
+- **Delete Users**: Remove user accounts permanently
 
-### Sales Endpoints
-```
-GET  /api/sales
-POST /api/sales
-GET  /api/sales/:id
-GET  /api/sales/reports
-```
+### User Profile Management
+- **Personal Information**: Update name, email, phone
+- **Password Change**: Secure password updates
+- **Organization Access**: Manage organization assignments
+- **Activity History**: View user action logs
 
-### User Management Endpoints
-```
-GET    /api/users
-POST   /api/users
-GET    /api/users/:id
-PUT    /api/users/:id
-DELETE /api/users/:id
-```
-
----
-
-## Contributing Guidelines
-
-### Development Environment Setup
-1. Clone the repository
-2. Install dependencies with `npm install`
-3. Set up Firebase configuration
-4. Start development server with `npm run dev`
-5. Run tests to verify setup
-
-### Code Submission Process
-1. Create feature branch from main
-2. Implement changes with tests
-3. Update documentation
-4. Submit pull request
-5. Code review and approval
-6. Merge to main branch
-
-### Code Quality Standards
-- **ESLint**: Pass all linting rules
-- **Tests**: Minimum 80% code coverage
-- **Documentation**: Update relevant documentation
-- **Performance**: No performance regressions
-- **Security**: Follow security best practices
+### Access Control
+- **Role-Based Permissions**: Different access levels
+- **Organization Restrictions**: Limit access to specific organizations
+- **Feature Access**: Control access to specific features
+- **Time-Based Access**: Schedule-based access restrictions
 
 ---
 
-*This technical documentation is maintained alongside the codebase and updated regularly to reflect architectural changes and new features.*
+## Organization Management
+
+### Creating Organizations (Super Admin Only)
+1. Navigate to Super Admin → Organizations
+2. Click "Create New Organization"
+3. Enter organization details:
+   - **Organization Name**: Official business name
+   - **Business Type**: Retail, restaurant, service, etc.
+   - **Address**: Physical location
+   - **Contact Information**: Phone and email
+   - **Tax ID**: Business tax identifier
+4. Configure organization settings
+5. Assign initial admin user
+6. Save the organization
+
+### Managing Organizations
+- **Edit Organization Details**: Update business information
+- **Configure Settings**: Organization-specific preferences
+- **Manage Users**: Assign users to organizations
+- **View Statistics**: Organization performance metrics
+- **Delete Organizations**: Remove inactive organizations
+
+### Organization Features
+- **Multi-Branch Support**: Manage multiple locations
+- **Independent Inventory**: Separate product catalogs
+- **Dedicated Reports**: Organization-specific analytics
+- **Custom Branding**: Organization-specific themes
+
+---
+
+## Troubleshooting
+
+### Common Issues and Solutions
+
+#### Login Problems
+- **Issue**: Cannot log in with correct credentials
+- **Solution**: 
+  - Check username and password spelling
+  - Ensure Caps Lock is off
+  - Contact admin to reset password
+  - Verify account is active
+
+#### Product Not Found
+- **Issue**: Product doesn't appear in search
+- **Solution**:
+  - Check product spelling
+  - Verify product is active
+  - Ensure correct category is selected
+  - Check stock availability
+
+#### Cart Issues
+- **Issue**: Items not adding to cart
+- **Solution**:
+  - Refresh the page
+  - Check internet connection
+  - Clear browser cache
+  - Try a different browser
+
+#### Report Generation Errors
+- **Issue**: Reports not loading
+- **Solution**:
+  - Check date range selection
+  - Verify user permissions
+  - Ensure data exists for selected period
+  - Contact admin if issue persists
+
+#### Performance Issues
+- **Issue**: System running slowly
+- **Solution**:
+  - Check internet speed
+  - Close other browser tabs
+  - Clear browser cache
+  - Restart browser
+
+### Error Messages
+- **"Invalid Credentials"**: Username or password incorrect
+- **"Access Denied"**: Insufficient permissions
+- **"Product Not Found"**: Product doesn't exist or is inactive
+- **"Insufficient Stock"**: Product out of inventory
+- **"Session Expired"**: Login again to continue
+
+### Getting Help
+1. **Check User Guide**: Refer to this documentation
+2. **Contact Admin**: Reach out to your system administrator
+3. **Support Ticket**: Submit a support request
+4. **FAQ Section**: Check frequently asked questions
+
+---
+
+## System Enums and Constants
+
+### Overview
+MGPOS uses centralized enums and constants to maintain consistency throughout the application. These enums replace hard-coded strings and provide type safety for various system operations.
+
+### Discount Enums
+
+#### Discount Types
+- **PERCENTAGE**: Percentage-based discounts (e.g., 10% off)
+- **FIXED**: Fixed amount discounts (e.g., $5 off)
+- **CURRENCY**: Currency-based discounts for cart items
+
+#### Discount Modes
+- **GLOBAL**: Single discount applied to entire cart
+- **ITEM**: Individual item discounts
+- **CATEGORY**: Category-specific discounts
+
+#### Discount Sources
+- **ITEM**: Discount applied at individual product level
+- **CATEGORY**: Discount applied based on product category
+- **CUSTOM**: User-entered custom discount
+- **GLOBAL**: Cart-wide discount
+
+### Payment Methods
+- **CASH**: Traditional cash payments
+- **CARD**: Credit/debit card payments
+- **SPLIT**: Combination of cash and card payments
+- **DIGITAL**: Digital wallet and online payment methods
+- **CREDIT**: Credit purchases (requires customer selection)
+
+### Report Types
+- **SUMMARY**: Summary reports with aggregated data
+- **DETAILED**: Detailed reports with individual transaction data
+- **CASH**: Cash payment method reports
+- **CARD**: Card payment method reports
+- **DIGITAL**: Digital payment method reports
+- **CREDIT**: Credit payment method reports
+
+### Report Periods
+- **TODAY**: Current day reports
+- **YESTERDAY**: Previous day reports
+- **THIS_WEEK**: Current week reports
+- **LAST_WEEK**: Previous week reports
+- **THIS_MONTH**: Current month reports
+- **LAST_MONTH**: Previous month reports
+- **THIS_YEAR**: Current year reports
+- **LAST_YEAR**: Previous year reports
+- **CUSTOM**: Custom date range reports
+
+### User Roles
+- **ADMIN**: Organization administrator with full access
+- **CASHIER**: Regular user with POS access
+- **MANAGER**: Manager with elevated permissions
+- **SUPER_ADMIN**: System-wide administrator
+
+### Transaction Types
+- **SALES**: Sales transactions
+- **PURCHASE**: Purchase transactions
+- **RETURN**: Return/refund transactions
+
+### Tax Status
+- **ENABLED**: Tax calculation is enabled
+- **DISABLED**: Tax calculation is disabled
+
+### Currency Types
+- **DEFAULT**: Default currency (USD)
+- **LOCAL**: Local currency configuration
+
+### Logging System Enums
+
+#### Log Levels
+- **INFO**: Informational messages
+- **WARNING**: Warning messages
+- **ERROR**: Error messages
+- **SUCCESS**: Success messages
+
+#### Log Types
+The system tracks various types of activities:
+
+**User Actions**
+- USER_LOGIN: User login events
+- USER_LOGOUT: User logout events
+- USER_SIGNUP: New user registration
+- USER_PASSWORD_CHANGE: Password updates
+- USER_CREATE: User account creation
+- USER_UPDATE: User profile updates
+- USER_DELETE: User account deletion
+- USER_ROLE_CHANGE: Role modifications
+
+**Master Data Operations**
+- MASTER_DATA_CREATE: Master data creation
+- MASTER_DATA_UPDATE: Master data updates
+- MASTER_DATA_DELETE: Master data deletion
+
+**Product Operations**
+- PRODUCT_CREATE: Product addition
+- PRODUCT_UPDATE: Product modifications
+- PRODUCT_DELETE: Product removal
+
+**Category Operations**
+- CATEGORY_CREATE: Category addition
+- CATEGORY_UPDATE: Category modifications
+- CATEGORY_DELETE: Category removal
+
+**Customer Operations**
+- CUSTOMER_CREATE: Customer registration
+- CUSTOMER_UPDATE: Customer information updates
+- CUSTOMER_DELETE: Customer account deletion
+
+**Billing/Sales Operations**
+- SALE_CREATE: New sales transaction
+- SALE_UPDATE: Sales transaction modifications
+- SALE_DELETE: Sales transaction deletion
+- SALE_VOID: Voided sales
+- BILL_REPRINT: Bill reprint operations
+
+**Organization Operations**
+- ORG_CREATE: Organization creation
+- ORG_UPDATE: Organization updates
+- ORG_DELETE: Organization deletion
+
+**Settings Operations**
+- SETTINGS_UPDATE: Configuration changes
+
+**System Operations**
+- SYSTEM_ERROR: System errors
+- SYSTEM_WARNING: System warnings
+- DATA_IMPORT: Data import operations
+- DATA_EXPORT: Data export operations
+
+**UI Operations**
+- TOAST_NOTIFICATION: User notifications
+- UI_REFRESH: Interface refresh events
+
+**Reporting Operations**
+- REPORT_GENERATE: Report generation
+- REPORT_PRINT: Report printing
+- REPORT_VIEW: Report viewing
+
+### Default Values
+The system uses these default values for various operations:
+- Default discount type: PERCENTAGE
+- Default discount mode: GLOBAL
+- Default payment method: CASH
+- Default report type: SUMMARY
+- Default report period: TODAY
+- Default user role: CASHIER
+
+### Validation Functions
+The system includes validation functions for all enums to ensure data integrity:
+- `isValidDiscountType()`
+- `isValidDiscountMode()`
+- `isValidPaymentMethod()`
+- `isValidReportType()`
+- `isValidReportPeriod()`
+- `isValidUserRole()`
+
+---
+
+## Best Practices
+
+### Daily Operations
+- **Start of Day**: Verify system is working correctly
+- **During Shift**: Regularly save sales data
+- **End of Day**: Review daily sales and close registers
+- **Inventory Checks**: Verify stock levels regularly
+
+### Security Best Practices
+- **Password Security**: Use strong, unique passwords
+- **Log Out**: Always log out when finished
+- **Shared Devices**: Don't save passwords on shared computers
+- **Regular Updates**: Keep passwords updated regularly
+
+### Data Management
+- **Regular Backups**: Ensure data is backed up regularly
+- **Data Validation**: Verify data accuracy before entry
+- **Report Reviews**: Regularly review reports for anomalies
+- **Documentation**: Keep records of important changes
+
+### Customer Service
+- **Accuracy**: Double-check order details
+- **Speed**: Process transactions efficiently
+- **Communication**: Clearly explain any issues
+- **Professionalism**: Maintain professional demeanor
+
+### System Maintenance
+- **Regular Updates**: Keep system updated
+- **Performance Monitoring**: Watch for system issues
+- **User Training**: Regularly train new users
+- **Feedback Collection**: Gather user feedback for improvements
+
+---
+
+## Quick Reference
+
+### Keyboard Shortcuts
+- **Ctrl + S**: Save current form
+- **Ctrl + F**: Search products
+- **Esc**: Close modal windows
+- **Enter**: Confirm actions
+- **Tab**: Navigate between fields
+
+### Common Workflows
+1. **Complete Sale**: Select Products → Add to Cart → Process Payment → Print Receipt
+2. **Add Product**: Settings → Products → Add New → Fill Details → Save
+3. **Generate Report**: Reports → Select Type → Set Date Range → Generate → Export
+4. **Manage User**: Settings → Users → Add/Edit → Fill Details → Save
+
+### Contact Information
+- **System Administrator**: [Admin Contact]
+- **Technical Support**: [Support Email/Phone]
+- **Training Resources**: [Training Portal Link]
+
+---
+
+## Payment Method Reports
+
+### Overview
+
+The Payment Method Reports feature provides comprehensive financial analysis capabilities for businesses to track and analyze sales performance across different payment methods. This feature enables business owners, managers, and financial analysts to gain insights into cash flow, payment preferences, and revenue distribution.
+
+### Business Value
+
+#### Key Benefits
+
+1. **Financial Transparency**
+   - Clear separation of cash vs card sales for better cash flow management
+   - Detailed breakdown of split payment transactions
+   - Accurate tracking of payment method preferences
+
+2. **Operational Efficiency**
+   - Streamlined reporting process with intuitive interface
+   - Real-time data analysis for quick decision-making
+   - Export capabilities for external accounting systems
+
+3. **Strategic Planning**
+   - Payment method trend analysis for business planning
+   - Cash flow forecasting based on payment patterns
+   - Staff performance analysis by payment method handling
+
+4. **Compliance & Audit**
+   - Complete audit trail for all payment transactions
+   - Detailed reporting for financial compliance requirements
+   - Split payment transparency for accounting accuracy
+
+### Report Types
+
+#### 1. Cash Sales Report
+
+**Purpose**: Track all cash-based transactions including cash portions from split payments.
+
+**Business Use Cases**:
+- Daily cash reconciliation
+- Cash flow forecasting
+- Bank deposit planning
+- Cash handling staff performance analysis
+
+**Data Included**:
+- Pure cash transactions
+- Cash portions from split payments
+- Transaction timestamps and cashier details
+- Gross sales, discounts, and net sales figures
+
+**Key Metrics**:
+- Total cash amount collected
+- Number of cash transactions
+- Average cash transaction value
+- Cash vs split payment breakdown
+
+#### 2. Card Sales Report
+
+**Purpose**: Monitor all card-based transactions including card portions from split payments.
+
+**Business Use Cases**:
+- Payment processor fee analysis
+- Card payment trend tracking
+- Electronic payment reconciliation
+- Staff training for card handling
+
+**Data Included**:
+- Pure card transactions
+- Card portions from split payments
+- Transaction timestamps and cashier details
+- Complete sales and discount information
+
+**Key Metrics**:
+- Total card amount processed
+- Number of card transactions
+- Average card transaction value
+- Card vs split payment breakdown
+
+#### 3. Digital Sales Report
+
+**Purpose**: Track all digital payment transactions including digital wallets and online payment methods.
+
+**Business Use Cases**:
+- Digital payment trend analysis
+- Online payment processor reconciliation
+- Customer payment preference tracking
+- Digital payment fee management
+
+**Data Included**:
+- Pure digital payment transactions
+- Transaction timestamps and cashier details
+- Complete sales and discount information
+- Digital payment method details
+
+**Key Metrics**:
+- Total digital payment amount processed
+- Number of digital payment transactions
+- Average digital transaction value
+- Digital payment adoption rate
+
+### Split Payment Handling
+
+#### Business Logic
+
+Split payments are intelligently distributed across reports to provide accurate financial insights:
+
+1. **Cash Report**: Includes cash portion of split payments
+2. **Card Report**: Includes card portion of split payments
+
+#### Example Scenario
+
+A customer pays $125 split as $75 cash and $50 card:
+
+- **Cash Sales Report**: Shows $75 contribution from this transaction
+- **Card Sales Report**: Shows $50 contribution from this transaction
+- **Split Payment Details**: Shows complete breakdown for transparency
+
+#### Accounting Benefits
+
+- **Accurate Cash Flow**: Cash reports reflect actual cash received
+- **Precise Card Reconciliation**: Card reports match processor statements
+- **Complete Revenue Tracking**: Individual reports show payment-specific totals
+- **Audit Compliance**: Split payment details provide full transparency
+
+### User Interface Features
+
+#### Report Generation
+
+1. **Period Selection**: Choose from predefined periods (Today, This Week, This Month, This Year) or custom date ranges
+2. **Organization Filtering**: Multi-organization support for consolidated or individual reporting
+3. **Real-time Processing**: Instant report generation with current data
+
+#### Report Display
+
+1. **Summary Cards**: Key metrics displayed prominently (Gross Sales, Discounts, Net Sales, Transactions)
+2. **Detailed Tables**: Complete transaction listings with filtering and sorting, including:
+   - Receipt numbers and timestamps
+   - Cashier information
+   - **Payment Method** column showing cash, card, digital, credit, or split payments
+   - Item counts and financial details
+3. **Split Payment Details**: Separate section for split payment breakdowns
+4. **Print Functionality**: Professional printed reports with complete payment method information
+
+#### Export Capabilities
+
+1. **Print-Ready Format**: Optimized layouts for physical printing
+2. **Complete Data**: All transaction details included in exports
+3. **Professional Appearance**: Company branding and formatting maintained
+
+### Business Scenarios
+
+#### Scenario 1: Daily Cash Reconciliation
+
+**Situation**: Store manager needs to reconcile daily cash receipts.
+
+**Solution**: 
+1. Generate Cash Sales Report for "Today"
+2. Review total cash amount collected
+3. Cross-reference with cash drawer count
+4. Use split payment details to verify mixed payments
+
+**Outcome**: Accurate cash reconciliation with full audit trail
+
+#### Scenario 2: Payment Processor Reconciliation
+
+**Situation**: Finance department needs to reconcile card payments with processor statements.
+
+**Solution**:
+1. Generate Card Sales Report for the billing period
+2. Export total card amount processed
+3. Match against processor settlement amounts
+4. Investigate discrepancies using detailed transaction data
+
+**Outcome**: Precise card payment reconciliation and fee analysis
+
+#### Scenario 3: Monthly Financial Reporting
+
+**Situation**: Executive team needs comprehensive payment analysis for monthly review.
+
+**Solution**:
+1. Generate all available report types for "This Month"
+2. Analyze payment method trends and patterns
+3. Review split payment impact on cash flow
+4. Create presentation materials with key insights
+
+**Outcome**: Complete payment method analysis for strategic decision-making
+
+#### Scenario 4: Staff Performance Analysis
+
+**Situation**: Management needs to evaluate cashier performance by payment method.
+
+**Solution**:
+1. Generate detailed reports with cashier breakdowns
+2. Analyze payment method handling efficiency
+3. Identify training needs for specific payment types
+4. Monitor split payment handling accuracy
+
+**Outcome**: Data-driven staff performance evaluation and targeted training
+
+### Security & Access Control
+
+#### User Permissions
+
+1. **Admin Access**: Full access to all payment method reports
+2. **Manager Access**: Reports for assigned organizations only
+3. **Super Admin Access**: Multi-organization consolidated reporting
+
+#### Data Protection
+
+1. **Sensitive Information**: Customer details protected in reports
+2. **Audit Logging**: All report generation actions logged
+3. **Access Control**: Role-based access to reporting features
+
+### Integration Capabilities
+
+#### Accounting Systems
+
+1. **Export Formats**: Data structured for easy import
+2. **Period Mapping**: Aligns with standard accounting periods
+3. **Category Classification**: Payment method categorization for accounting
+
+#### External Systems
+
+1. **API Access**: Report data available via API (future enhancement)
+2. **Webhook Support**: Automated report generation (future enhancement)
+3. **Third-party Integration**: Compatible with popular accounting software
+
+### Performance Considerations
+
+#### Report Generation Speed
+
+1. **Optimized Queries**: Efficient database access for large datasets
+2. **Caching**: Frequently accessed data cached for performance
+3. **Background Processing**: Large reports processed asynchronously
+
+#### Scalability
+
+1. **Multi-organization**: Supports enterprise-level data volumes
+2. **Historical Data**: Access to complete transaction history
+3. **Concurrent Users**: Multiple users can generate reports simultaneously
+
+### Future Enhancements
+
+#### Planned Features
+
+1. **Automated Scheduling**: Scheduled report generation and delivery
+2. **Advanced Analytics**: Payment trend forecasting and insights
+3. **Mobile Access**: Mobile-optimized report viewing
+4. **Custom Reporting**: User-defined report configurations
+
+#### Business Intelligence
+
+1. **Trend Analysis**: Payment method preference trends over time
+2. **Predictive Analytics**: Cash flow forecasting based on patterns
+3. **Benchmarking**: Industry comparison capabilities
+4. **Alert System**: Anomalies and threshold notifications
+
+### Training & Support
+
+#### User Training
+
+1. **Report Generation**: Step-by-step guide for creating reports
+2. **Data Interpretation**: Understanding report metrics and insights
+3. **Troubleshooting**: Common issues and solutions
+4. **Best Practices**: Optimizing report usage for business value
+
+#### Support Resources
+
+1. **Documentation**: Comprehensive user guides and reference materials
+2. **Video Tutorials**: Visual walkthroughs of key features
+3. **Help Desk**: Technical support for report issues
+4. **Community Forum**: User community for best practice sharing
+
+### Compliance & Legal
+
+#### Financial Reporting Standards
+
+1. **GAAP Compliance**: Aligns with standard accounting practices
+2. **Audit Requirements**: Complete audit trail maintenance
+3. **Tax Reporting**: Supports tax preparation requirements
+4. **Regulatory Compliance**: Meets financial industry standards
+
+#### Data Retention
+
+1. **Historical Data**: Complete transaction history maintained
+2. **Archive Policies**: Configurable data retention periods
+3. **Backup Procedures**: Regular data backup and recovery
+4. **Data Integrity**: Ensures accuracy and consistency of reported data
+
+---
+
+#### Conclusion
+
+The Payment Method Reports feature provides businesses with powerful tools for financial analysis, cash flow management, and strategic decision-making. By offering comprehensive reporting across cash, card, and split payments, organizations can gain complete visibility into their payment ecosystem while maintaining accuracy, compliance, and operational efficiency.
+
+This documentation serves as a comprehensive guide for business users to understand, implement, and maximize the value of the payment method reporting functionality within their organization.
+
+---
+
+*This documentation is regularly updated to reflect system changes and improvements. Last updated: [Current Date]*
