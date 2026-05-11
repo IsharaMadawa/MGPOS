@@ -33,7 +33,8 @@ export const ReportType = {
   CASH: 'cash',
   CARD: 'card',
   DIGITAL: 'digital',
-  CREDIT: 'credit'
+  CREDIT: 'credit',
+  CUSTOMER_PURCHASE_HISTORY: 'customer_purchase_history'
 }
 
 // Report Periods

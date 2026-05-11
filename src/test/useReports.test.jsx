@@ -19,9 +19,16 @@ vi.mock('firebase/firestore', () => ({
   orderBy: vi.fn(),
   getDocs: vi.fn(),
   addDoc: vi.fn(),
-  doc: vi.fn()
+  doc: vi.fn(),
+  getDoc: vi.fn()
 }))
-
+// Mock useOrganizations hook
+vi.mock('../hooks/useOrganizations', () => ({
+  useOrganizations: vi.fn(() => ({
+    organizations: [],
+    loading: false
+  }))
+}))
 describe('useReports', () => {
   const mockUser = {
     id: 'user1',

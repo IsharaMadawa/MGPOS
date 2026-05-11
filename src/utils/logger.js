@@ -68,7 +68,8 @@ export const LOG_TYPES = {
   // Reporting operations
   REPORT_GENERATE: 'report_generate',
   REPORT_PRINT: 'report_print',
-  REPORT_VIEW: 'report_view'
+  REPORT_VIEW: 'report_view',
+  ADVANCED_REPORT_GENERATE: 'advanced_report_generate'
 }
 
 /**

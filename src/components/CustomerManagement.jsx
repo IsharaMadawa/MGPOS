@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useCustomers } from '../hooks/useCustomers'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from './ToastContainer'
+import { useSettings } from '../hooks/useSettings'
+import CreditHistoryModal from './CreditHistoryModal'
 
 export default function CustomerManagement() {
   const [searchTerm, setSearchTerm] = useState('')
   const [editingCustomer, setEditingCustomer] = useState(null)
   const [showCreditModal, setShowCreditModal] = useState(false)
+  const [showCreditHistoryModal, setShowCreditHistoryModal] = useState(false)
   const [creditAmount, setCreditAmount] = useState('')
   const [creditDescription, setCreditDescription] = useState('')
   const [loading, setLoading] = useState(false)
@@ -14,6 +17,7 @@ export default function CustomerManagement() {
   const { customers, loading: customersLoading, createCustomer, updateCustomer, deleteCustomer, updateCreditBalance } = useCustomers()
   const { userProfile } = useAuth()
   const { addToast } = useToast()
+  const { currencySymbol } = useSettings()
 
   // Filter customers based on search term
   const filteredCustomers = customers.filter(customer => 
@@ -69,7 +73,7 @@ export default function CustomerManagement() {
       setLoading(true)
       const amount = parseFloat(creditAmount)
       await updateCreditBalance(editingCustomer.id, amount, creditDescription)
-      addToast(`Credit balance updated by ${amount > 0 ? '+' : ''}$${amount.toFixed(2)}`, 'success')
+      addToast(`Credit balance updated by ${amount > 0 ? '+' : ''}${currencySymbol}${amount.toFixed(2)}`, 'success')
       setShowCreditModal(false)
       setCreditAmount('')
       setCreditDescription('')
@@ -141,13 +145,13 @@ export default function CustomerManagement() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900 truncate">{customer.name}</h3>
-                      {customer.creditBalance !== 0 && (
+                      {customer.creditBalance !== undefined && customer.creditBalance !== null && customer.creditBalance !== 0 && (
                         <span className={`text-xs font-medium px-2 py-1 rounded ${
                           customer.creditBalance > 0 
                             ? 'bg-green-100 text-green-700' 
                             : 'bg-red-100 text-red-700'
                         }`}>
-                          Credit: ${Math.abs(customer.creditBalance).toFixed(2)}
+                          Credit: {currencySymbol}{Math.abs(customer.creditBalance).toFixed(2)}
                         </span>
                       )}
                     </div>
@@ -161,12 +165,22 @@ export default function CustomerManagement() {
                       <p className="text-sm text-gray-500 mb-2">📍 {customer.address}</p>
                     )}
                     <div className="flex items-center gap-4 text-xs text-gray-400">
-                      <span>🛒 {customer.purchaseCount || 0} purchases</span>
-                      <span>💰 ${customer.totalPurchases?.toFixed(2) || '0.00'}</span>
-                      <span>📅 {new Date(customer.createdAt).toLocaleDateString()}</span>
+                      <span title="Customer created date">📅 {new Date(customer.createdAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-4">
+                    <button
+                      onClick={() => {
+                        setEditingCustomer(customer)
+                        setShowCreditHistoryModal(true)
+                      }}
+                      className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      title="View credit history"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </button>
                     <button
                       onClick={() => {
                         setEditingCustomer(customer)
@@ -225,7 +239,7 @@ export default function CustomerManagement() {
               Customer: <span className="font-medium">{editingCustomer.name}</span>
               <br />
               Current balance: <span className={`font-medium ${editingCustomer.creditBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ${editingCustomer.creditBalance?.toFixed(2) || '0.00'}
+                {currencySymbol}{(editingCustomer.creditBalance || 0).toFixed(2)}
               </span>
             </p>
             
@@ -277,6 +291,18 @@ export default function CustomerManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Credit History Modal */}
+      {showCreditHistoryModal && editingCustomer && (
+        <CreditHistoryModal
+          isOpen={showCreditHistoryModal}
+          onClose={() => {
+            setShowCreditHistoryModal(false)
+            setEditingCustomer(null)
+          }}
+          customer={editingCustomer}
+        />
       )}
     </div>
   )

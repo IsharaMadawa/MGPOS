@@ -122,7 +122,6 @@ mgpos/
 │   │   └── SuperAdminPageNew.jsx
 │   ├── utils/                 # Utility functions
 │   │   ├── logger.js          # Logging utilities
-│   │   ├── migratePasswords.js
 │   │   └── passwordUtils.js
 │   ├── App.jsx               # Main application component
 │   ├── App.css               # Global styles
@@ -132,7 +131,6 @@ mgpos/
 ├── scripts/                  # Utility scripts
 │   ├── createSuperAdmin.js
 │   ├── createSuperAdminNode.js
-│   ├── migratePasswords.js
 │   └── runCreateSuperAdmin.js
 ├── docs/                     # Documentation
 ├── .firebaserc              # Firebase configuration
@@ -240,6 +238,146 @@ mgpos/
 }
 ```
 
+#### Credit History System
+
+The credit history system provides comprehensive tracking of all credit transactions for customers, including purchases, payments, and adjustments with running balance calculations.
+
+##### Credit Transaction Types
+```javascript
+export const CreditTransactionType = {
+  PURCHASE: 'purchase',    // Credit purchases (negative impact on balance)
+  PAYMENT: 'payment',      // Customer payments (positive impact on balance)
+  ADJUSTMENT: 'adjustment'  // Manual adjustments (positive or negative)
+}
+```
+
+##### Credit History Data Structure
+```javascript
+// Credit History Subcollection (organizations/{orgId}/customers/{customerId}/creditHistory)
+{
+  id: string,                    // Transaction ID
+  type: 'purchase' | 'payment' | 'adjustment', // Transaction type
+  amount: number,                // Transaction amount (always positive)
+  description: string,           // Transaction description
+  oldBalance: number,            // Balance before transaction
+  newBalance: number,            // Balance after transaction
+  runningBalance: number,        // Calculated running balance (for display)
+  createdAt: timestamp,          // Transaction timestamp
+  createdBy: string,             // User who created transaction
+  createdByName: string,         // User's display name
+  orgId: string,                 // Organization ID
+  customerId: string,            // Customer ID
+  customerName: string           // Customer name
+}
+```
+
+##### Credit History Hook Implementation
+```javascript
+// useCreditHistory.js
+export function useCreditHistory(customerId) {
+  // Real-time credit history fetching
+  const transactions = calculateRunningBalance()
+  
+  const addCreditTransaction = async (transactionData) => {
+    // Add transaction to credit history subcollection
+    // Log transaction creation
+  }
+  
+  return { transactions, loading, addCreditTransaction }
+}
+
+export function useCreditSummary(customerId) {
+  // Calculate summary statistics
+  const summary = {
+    totalCredit: number,        // Current credit balance
+    totalPurchases: number,     // Total purchase amount
+    totalPayments: number,      // Total payment amount
+    totalAdjustments: number,   // Total adjustment amount
+    transactionCount: number    // Number of transactions
+  }
+  
+  return { summary, loading }
+}
+```
+
+##### Credit Balance Update Flow
+1. **Credit Purchase**: 
+   - CartPanel calls `updateCreditBalance()` with negative amount
+   - Transaction type: `PURCHASE`
+   - Balance decreases by purchase amount
+
+2. **Customer Payment**:
+   - Admin calls `updateCreditBalance()` with positive amount
+   - Transaction type: `PAYMENT`
+   - Balance increases by payment amount
+
+3. **Manual Adjustment**:
+   - Admin calls `updateCreditBalance()` with any amount
+   - Transaction type: `ADJUSTMENT`
+   - Balance adjusts accordingly
+
+##### Credit History UI Components
+
+**CreditHistoryModal Component**:
+- Displays comprehensive credit history with running balances
+- Shows summary cards for current balance, payments, purchases, and transactions
+- Color-coded transaction types (green for payments, red for purchases, yellow for adjustments)
+- Responsive design for mobile, tablet, and desktop views
+- Real-time updates via Firebase listeners
+
+**Key Features**:
+- Transaction filtering and sorting
+- Running balance calculation
+- Transaction details with timestamps and user attribution
+- Export functionality for credit reports
+- Search and pagination for large transaction histories
+
+##### Integration Points
+
+**CustomerManagement.jsx**:
+- Added credit history button for each customer
+- Modal integration for viewing detailed credit history
+- Real-time balance updates after transactions
+
+**CartPanel.jsx**:
+- Automatic credit history logging for credit purchases
+- Transaction type classification as `PURCHASE`
+- Integration with receipt numbers for audit trail
+
+**useCustomers.js**:
+- Enhanced `updateCreditBalance()` function with transaction logging
+- Automatic transaction type detection
+- Credit history subcollection updates
+
+##### Running Balance Calculation
+```javascript
+const calculateRunningBalance = () => {
+  let balance = 0
+  const transactionsWithBalance = transactions.slice().reverse().map(transaction => {
+    if (transaction.type === CreditTransactionType.PURCHASE) {
+      balance -= transaction.amount
+    } else if (transaction.type === CreditTransactionType.PAYMENT) {
+      balance += transaction.amount
+    } else if (transaction.type === CreditTransactionType.ADJUSTMENT) {
+      balance += transaction.amount
+    }
+    
+    return {
+      ...transaction,
+      runningBalance: balance
+    }
+  }).reverse() // Reverse back to chronological order (newest first)
+  
+  return transactionsWithBalance
+}
+```
+
+##### Credit History Security
+- All credit transactions are logged with user attribution
+- Transaction timestamps prevent tampering
+- Running balance calculations ensure audit trail integrity
+- Organization-based data isolation for multi-tenant security
+
 #### Customer Management Validation
 
 The customer management system includes client-side validation to ensure data integrity:
@@ -263,11 +401,17 @@ const handleSubmit = (e) => {
 }
 ```
 
-##### Error Handling
-- Validation errors display as toast notifications
-- Successful operations show success toast messages
-- Network/server errors are caught and displayed appropriately
+**Key Validation Features**:
+- Prevents empty customer names
+- Provides clear error messages
 - Form submission is prevented when validation fails
+
+##### Currency Display
+- Customer credit balances and total purchases display using organization's configured currency symbol
+- Currency symbol is dynamically retrieved from organization settings via `useSettings` hook
+- Supports multiple currencies: USD ($), EUR (€), GBP (£), JPY (¥), INR (₹), LKR (Rs), CAD (CA$), AUD (A$), SGD (S$), MYR (RM)
+- Credit balance updates show appropriate currency symbol in success messages
+- Null/undefined credit balance values are handled gracefully without display errors
 
 #### Sales Collection
 ```javascript
@@ -2798,6 +2942,371 @@ function calculateSummaryOptimized(reports, method) {
 
 ---
 
+## Customer Purchase History Reports
+
+### Overview
+
+The Customer Purchase History Reports feature allows administrators to generate comprehensive reports showing all transactions for a specific customer within a selected time period. This feature enables businesses to analyze customer purchasing patterns, track customer activity, and provide detailed purchase history to customers when needed.
+
+### Architecture
+
+The Customer Purchase History Reports feature extends the existing reporting system with customer-specific filtering and search capabilities:
+
+#### Core Components
+
+**Customer Filtering Logic**:
+```javascript
+// ReportsPage.jsx - Customer filtering function
+const filterReportsByCustomer = (reports, customerSearch) => {
+  if (!reports || !Array.isArray(reports) || !customerSearch) return []
+  
+  try {
+    const searchTerm = customerSearch.toLowerCase().trim()
+    return reports.filter(bill => {
+      if (!bill || !bill.customer) return false
+      
+      const customerName = bill.customer.name?.toLowerCase() || ''
+      const customerPhone = bill.customer.phone?.toLowerCase() || ''
+      
+      return customerName.includes(searchTerm) || customerPhone.includes(searchTerm)
+    })
+  } catch (error) {
+    console.error('Error filtering reports by customer:', error)
+    return []
+  }
+}
+```
+
+**Customer Purchase Summary Calculation**:
+```javascript
+// ReportsPage.jsx - Customer-specific summary calculations
+const calculateCustomerPurchaseSummary = (reports, customerSearch) => {
+  try {
+    const filteredReports = filterReportsByCustomer(reports, customerSearch)
+    let grossSales = 0
+    let totalDiscounts = 0
+    
+    filteredReports.forEach(bill => {
+      if (!bill) return
+      
+      try {
+        grossSales += bill.cart ? bill.cart.reduce((sum, item) => {
+          if (!item || !item.price || !item.qty) return sum
+          return sum + (item.price * item.qty)
+        }, 0) : 0
+        
+        // Calculate item discounts and global discounts
+        let itemDiscounts = 0
+        if (bill.cart && Array.isArray(bill.cart)) {
+          itemDiscounts = bill.cart.reduce((sum, item) => {
+            if (!item || !item.price || !item.qty) return sum
+            const lineTotal = item.price * item.qty
+            let itemDiscount = 0
+            try {
+              if (item.cartDiscount != null && item.cartDiscount !== '') {
+                const val = parseFloat(item.cartDiscount) || 0
+                itemDiscount = Math.min(Math.max(val, 0), lineTotal)
+              } else if (item.discount?.enabled) {
+                if (item.discount.type === DiscountType.PERCENTAGE) {
+                  itemDiscount = lineTotal * (item.discount.value / 100)
+                } else {
+                  itemDiscount = Math.min(item.discount.value * item.qty, lineTotal)
+                }
+              }
+            } catch (discountError) {
+              console.warn('Error calculating item discount:', discountError)
+            }
+            return sum + itemDiscount
+          }, 0)
+        }
+        
+        const globalDiscount = bill.discountAmount || 0
+        totalDiscounts += itemDiscounts + globalDiscount
+      } catch (billError) {
+        console.warn('Error processing bill in customer purchase summary:', billError)
+      }
+    })
+    
+    return {
+      transactionCount: filteredReports.length,
+      grossSales,
+      totalDiscounts,
+      netSales: grossSales - totalDiscounts
+    }
+  } catch (error) {
+    console.error('Error in calculateCustomerPurchaseSummary:', error)
+    return {
+      transactionCount: 0,
+      grossSales: 0,
+      totalDiscounts: 0,
+      netSales: 0
+    }
+  }
+}
+```
+
+### User Interface
+
+#### Customer Selection Input
+
+When the Customer Purchase History report type is selected, a customer search input appears:
+
+```javascript
+// ReportsPage.jsx - Customer selection UI
+{reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && (
+  <div className="mt-4">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Customer Name or Phone
+    </label>
+    <input
+      type="text"
+      value={selectedCustomer}
+      onChange={e => setSelectedCustomer(e.target.value)}
+      placeholder="Enter customer name or phone number"
+      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+    />
+  </div>
+)}
+```
+
+#### Report Display
+
+The customer purchase history report displays:
+
+- **Summary Cards**: Gross sales, total discounts, net sales, and transaction count
+- **Detailed Transaction Table**: All customer transactions with full details
+- **Payment Method Indicators**: Color-coded payment method badges
+- **Multi-organization Support**: Organization column for multi-org reports
+
+### Report Features
+
+#### Search Functionality
+
+- **Flexible Search**: Search by customer name or phone number
+- **Case-Insensitive Search**: Search is not case-sensitive
+- **Partial Matching**: Supports partial name or phone number matches
+- **Real-time Filtering**: Reports are filtered as customer search changes
+
+#### Data Display
+
+**Transaction Details Include**:
+- Receipt number and date/time
+- Organization (for multi-org reports)
+- Cashier information
+- Payment method with color coding
+- Item count and pricing details
+- Discount breakdowns
+- Net and total amounts
+
+#### Summary Statistics
+
+**Calculated Metrics**:
+- Total transaction count
+- Gross sales (before discounts)
+- Total discounts (item + global)
+- Net sales (after discounts)
+- Average transaction value
+
+### Print Functionality
+
+#### Enhanced Print Template
+
+The customer purchase history report includes a specialized print template:
+
+```javascript
+// Print content for customer purchase history
+${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? `
+<div class="section-title">Customer Purchase History Details</div>
+<table>
+  <thead>
+    <tr>
+      <th>Receipt #</th>
+      <th>Date/Time</th>
+      ${(hasMultiOrgAccess && selectedOrgs.length > 0) ? '<th>Organization</th>' : ''}
+      <th>Cashier</th>
+      <th>Payment Method</th>
+      <th class="text-right">Items</th>
+      <th class="text-right">Gross</th>
+      <th class="text-right">Discount</th>
+      <th class="text-right">Net</th>
+      <th class="text-right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filterReportsByCustomer(reports, selectedCustomer).map(bill => {
+      // Transaction row generation with customer-specific data
+    }).join('')}
+  </tbody>
+  <tfoot>
+    <tr style={{backgroundColor: '#f5f5f5', fontWeight: 'bold', borderTop: '2px solid #333'}}>
+      <!-- Customer-specific totals -->
+    </tr>
+  </tfoot>
+</table>
+` : ''}
+```
+
+#### Print Header Information
+
+The print header includes customer-specific information:
+
+```javascript
+// Enhanced print header with customer information
+<div class="header">
+  <h1>Customer Purchase History Report</h1>
+  <div class="org-info"><strong>Organization(s):</strong> ${orgNames}</div>
+  ${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY ? `<div class="report-info"><strong>Customer:</strong> ${selectedCustomer}</div>` : ''}
+  <div class="report-info"><strong>Period:</strong> ${period}</div>
+  <div class="report-info"><strong>Report Generated:</strong> ${reportDate} at ${reportTime}</div>
+  <div class="report-info"><strong>Generated By:</strong> ${userProfile?.displayName || 'Unknown User'}</div>
+</div>
+```
+
+### Logging and Audit Trail
+
+#### Enhanced Activity Logging
+
+The customer purchase history feature includes comprehensive logging:
+
+```javascript
+// Report generation logging with customer information
+await logUserAction(
+  'REPORT_GENERATE',
+  `Generated ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && selectedCustomer ? ` - Customer: ${selectedCustomer}` : ''}`,
+  userProfile,
+  currentOrgId,
+  {
+    period,
+    reportType,
+    orgIds: orgs,
+    transactionCount: reports.length,
+    summary: calculateSummary(reports),
+    ...(reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && { customerSearch: selectedCustomer })
+  }
+)
+```
+
+#### Print Logging
+
+Print actions are logged with customer context:
+
+```javascript
+// Print logging with customer information
+await logUserAction(
+  'REPORT_PRINT',
+  `Printed ${reportType} report for ${period}${period === ReportPeriod.CUSTOM && customStart && customEnd ? ` (${customStart} to ${customEnd})` : ''}${reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && selectedCustomer ? ` - Customer: ${selectedCustomer}` : ''}`,
+  userProfile,
+  currentOrgId,
+  {
+    period,
+    reportType,
+    orgIds: hasMultiOrgAccess && selectedOrgs.length > 0 ? selectedOrgs : [currentOrgId],
+    transactionCount: reports.length,
+    summary,
+    ...(reportType === ReportType.CUSTOMER_PURCHASE_HISTORY && { customerSearch: selectedCustomer })
+  }
+)
+```
+
+### Integration Points
+
+#### Report Type Enumeration
+
+Added to the existing report types:
+
+```javascript
+// src/constants/enums.js
+export const ReportType = {
+  SUMMARY: 'summary',
+  DETAILED: 'detailed',
+  CASH: 'cash',
+  CARD: 'card',
+  DIGITAL: 'digital',
+  CREDIT: 'credit',
+  CUSTOMER_PURCHASE_HISTORY: 'customer_purchase_history'
+}
+```
+
+#### UI Integration
+
+**Report Type Selection**:
+- Added "Customer Purchase History" button to report type selector
+- Conditional customer search input appears when selected
+- Responsive design for mobile, tablet, and desktop views
+
+**Summary Cards Integration**:
+- Customer-specific summary calculations
+- Dynamic summary card content based on report type
+- Consistent styling with other report types
+
+### Error Handling
+
+#### Robust Error Management
+
+**Data Validation**:
+- Null/undefined report handling
+- Customer data structure validation
+- Search term sanitization
+
+**Calculation Safety**:
+- Try-catch blocks around all calculations
+- Fallback values for missing data
+- Console error logging for debugging
+
+**UI Error States**:
+- Graceful handling of empty results
+- Error messages for invalid searches
+- Loading states during data processing
+
+### Performance Considerations
+
+#### Efficient Filtering
+
+**Single-Pass Processing**:
+- Combined filtering and calculation where possible
+- Memoization opportunities for repeated searches
+- Optimized array operations
+
+**Memory Management**:
+- Efficient data structures for large datasets
+- Proper cleanup of event listeners
+- Optimized re-rendering patterns
+
+### Security Considerations
+
+#### Data Access Control
+
+**Organization Isolation**:
+- Customer data respects organization boundaries
+- Multi-org support with proper data segregation
+- User permission validation
+
+**Search Security**:
+- Input sanitization for search terms
+- Protection against injection attacks
+- Audit trail for customer data access
+
+### Future Enhancements
+
+#### Potential Improvements
+
+**Advanced Search**:
+- Customer ID-based exact matching
+- Date range filtering within customer reports
+- Export functionality for customer data
+
+**Analytics Integration**:
+- Customer purchase pattern analysis
+- Frequency and recency metrics
+- Customer lifetime value calculations
+
+**UI Enhancements**:
+- Customer autocomplete suggestions
+- Customer profile integration
+- Mobile-optimized customer search
+
+---
+
 ## Billing Logs System
 
 ### Overview
@@ -2896,7 +3405,28 @@ The bill details modal provides comprehensive transaction information including:
 
 ### Recent Updates
 
-#### Unit Filter Removal (Latest Update)
+#### Credit Purchase System Implementation (Latest Update)
+- **Feature**: Complete credit purchase and customer credit management system
+- **Functionality**: 
+  - Credit purchases automatically update customer credit balance as negative values
+  - Admin can adjust credit balances for settlements and advance payments
+  - Comprehensive credit history tracking with transaction types
+  - Real-time credit balance updates across the application
+- **Components**:
+  - `CartPanel.jsx`: Handles credit purchase checkout and balance updates
+  - `CustomerManagement.jsx`: Admin interface for credit balance adjustments
+  - `useCustomers.js`: Core credit balance management logic
+  - `useCreditHistory.js`: Credit transaction tracking and history
+- **Transaction Types**:
+  - **PURCHASE**: Negative balance updates (customer owes money)
+  - **PAYMENT**: Positive balance updates (customer pays off debt)
+  - **ADJUSTMENT**: Manual credit adjustments by admin
+- **Credit Balance Logic**:
+  - Negative balance: Customer owes money to the business
+  - Positive balance: Customer has advance credit/prepaid amount
+  - Zero balance: No outstanding credit or debt
+
+#### Unit Filter Removal
 - **Change**: Removed unit-based filtering from Billing Logs page
 - **Reason**: Unit filtering was deemed unnecessary for billing operations
 - **Impact**: Simplified filtering interface and improved performance
@@ -2958,4 +3488,214 @@ The bill details modal provides comprehensive transaction information including:
 
 ---
 
-*This technical documentation is maintained alongside the codebase and updated regularly to reflect architectural changes and new features.*
+## Advanced Reporting System
+
+### Overview
+The Advanced Reporting system provides comprehensive business analytics and visualizations for Organization Admins and Super Admins. It features interactive dashboards, export capabilities, comparative analysis, and product performance analytics.
+
+### Architecture
+
+#### Components Structure
+```
+src/
+├── pages/
+│   └── AdvancedReportsPage.jsx          # Main advanced reports interface
+├── hooks/
+│   └── useAdvancedReports.js           # Advanced reporting data management
+├── utils/
+│   ├── chartUtils.js                  # Chart utility functions
+│   ├── analyticsUtils.js              # Business analytics calculations
+│   └── exportUtils.js                 # PDF/Excel export functionality
+└── test/
+    ├── AdvancedReportsPage.test.jsx   # Advanced reports component tests
+    ├── chartUtils.test.js             # Chart utilities tests
+    └── analyticsUtils.test.js          # Analytics utilities tests
+```
+
+#### Key Features
+
+**Visual Dashboards**
+- Interactive charts using Recharts library
+- Revenue trend analysis with line charts
+- Product performance with bar charts
+- Category distribution with pie charts
+- Payment method analysis with donut charts
+- Hourly sales patterns with area charts
+- Responsive design for mobile, tablet, and desktop
+
+**Export Functionality**
+- PDF export using jsPDF with custom layouts
+- Excel export using SheetJS with multiple worksheets
+- Chart image export capabilities
+- Branded report generation with organization details
+
+**Comparative Analysis**
+- Period-over-period comparison (day/week/month/year)
+- Percentage change calculations
+- Trend indicators (up/down/neutral)
+- Forecasting capabilities using linear regression
+
+**Product Performance Analytics**
+- Top products by revenue and profit margin
+- Category-wise performance breakdown
+- Customer analytics and purchasing patterns
+- Payment method distribution analysis
+
+### Data Processing
+
+#### AnalyticsCalculator Class
+```javascript
+// Core analytics engine
+class AnalyticsCalculator {
+  constructor(data, currencySymbol, categories)  // Initialize with optional categories for mapping
+  calculateRevenueMetrics(period)      // Revenue analysis
+  calculateTransactionMetrics(period)  // Transaction analytics
+  calculateProductPerformance()        // Product performance
+  calculateCategoryPerformance()        // Category analysis with ID-to-name mapping
+  calculatePaymentMethodAnalytics()     // Payment analysis
+  calculateComparativeAnalysis()         // Comparative analysis
+  forecastRevenue(data)               // Revenue forecasting
+  mapCategoryToName(categoryId)       // Helper for category ID to name mapping
+}
+```
+
+#### Chart Data Preparation
+```javascript
+// Data transformation for charts
+prepareLineChartData(data, xKey, yKey, name)
+prepareBarChartData(data, xKey, yKey)
+preparePieChartData(data, nameKey, valueKey)
+aggregateByPeriod(data, dateKey, valueKey, period)
+```
+
+### Export System
+
+#### PDF Export Features
+- Custom PDFExporter class with layout management
+- Automatic table formatting and pagination
+- Chart integration for visual reports
+- Multi-worksheet support for different report types
+
+#### Excel Export Features
+- ExcelExporter class with worksheet management
+- Auto-sizing columns based on content
+- Summary sheets with calculated metrics
+- Detailed transaction sheets with full data
+
+### Performance Optimizations
+
+#### Data Processing
+- Efficient aggregation algorithms for large datasets
+- Memoized calculations using React useMemo
+- Lazy loading of chart components
+- Optimized Firebase queries with proper indexing
+
+#### UI Performance
+- Responsive chart configurations
+- Virtual scrolling for large data tables
+- Progressive image loading for exports
+- Debounced user interactions
+
+### Security Considerations
+
+#### Access Control
+- Admin-only access enforcement through route protection
+- Organization-based data isolation
+- Multi-organization support with proper validation
+
+#### Data Privacy
+- No sensitive data exposure in client-side logs
+- Secure export file generation
+- Organization-specific data boundaries
+
+### Testing Strategy
+
+#### Unit Test Coverage
+- Component testing with React Testing Library
+- Utility function testing with Jest
+- Mock implementations for all external dependencies
+- Responsive design testing with viewport simulation
+
+#### Test Categories
+- Access control and authentication
+- Data processing and analytics calculations
+- Chart data preparation and rendering
+- Export functionality and file generation
+- Error handling and edge cases
+
+### Integration Points
+
+#### Existing System Integration
+- Extends current useReports hook functionality
+- Leverages existing AuthContext for permissions
+- Integrates with current organization management
+- Maintains consistency with existing UI patterns
+
+#### Firebase Integration
+- Uses existing Firestore structure and collections
+- Compatible with current billing_logs schema
+- Supports multi-organization data queries
+- Real-time data synchronization
+
+### Dependencies Added
+
+#### New Packages
+```json
+{
+  "recharts": "^2.12.7",           // Chart library
+  "jspdf": "^2.5.1",              // PDF generation
+  "xlsx": "^0.18.5",               // Excel export
+  "file-saver": "^2.0.5",          // File download
+  "date-fns": "^3.6.0"             // Date utilities
+}
+```
+
+### Usage Examples
+
+#### Basic Dashboard Usage
+```javascript
+import { useAdvancedReports } from '../hooks/useAdvancedReports'
+
+function Dashboard() {
+  const { analytics, fetchAdvancedData, getChartData } = useAdvancedReports()
+  
+  useEffect(() => {
+    fetchAdvancedData('month', null, null, [orgId])
+  }, [])
+  
+  const chartData = getChartData('revenue-trend', { period: 'month' })
+  
+  return <LineChart data={chartData.data} />
+}
+```
+
+#### Export Usage
+```javascript
+const { exportData } = useAdvancedReports()
+
+// Export as PDF
+await exportData('pdf', 'sales-report')
+
+// Export as Excel
+await exportData('excel', 'product-performance')
+```
+
+### Future Enhancements
+
+#### Planned Features
+- Real-time dashboard updates
+- Scheduled report generation and email delivery
+- Advanced filtering and custom date ranges
+- Drill-down capabilities for detailed analysis
+- Integration with external BI tools
+- Custom report builder interface
+
+#### Performance Improvements
+- Server-side aggregation for large datasets
+- Caching layer for frequently accessed data
+- Progressive web app features for offline access
+- Advanced chart interactions and animations
+
+---
+
+*This technical documentation is maintained alongside with codebase and updated regularly to reflect architectural changes and new features.*

@@ -316,6 +316,26 @@ Customer Management allows you to maintain a comprehensive database of your cust
 3. Add a description for the credit adjustment (optional)
 4. Click **"Update Balance"** to save
 
+#### Viewing Credit History
+1. Click the credit history icon (document) next to any customer
+2. The Credit History modal displays:
+   - **Current Balance**: Customer's current credit status
+   - **Total Payments**: Sum of all payments made by customer
+   - **Total Purchases**: Sum of all credit purchases
+   - **Transaction Count**: Number of credit transactions
+3. **Transaction List** shows:
+   - **Transaction Type**: Purchase, Payment, or Adjustment
+   - **Amount**: Transaction amount with + or - indicator
+   - **Description**: Details of the transaction
+   - **Date & Time**: When the transaction occurred
+   - **Running Balance**: Balance after each transaction
+   - **User**: Who performed the transaction
+4. **Color Coding**:
+   - Green: Payments (positive balance impact)
+   - Red: Purchases (negative balance impact)
+   - Yellow: Manual adjustments
+5. Click **"Close"** to exit the credit history view
+
 #### Deleting Customers
 1. Click the delete icon (trash) next to any customer
 2. Confirm the deletion in the popup dialog
@@ -324,18 +344,52 @@ Customer Management allows you to maintain a comprehensive database of your cust
 ### Customer Information Display
 Each customer card shows:
 - **Name and Contact**: Basic contact information
-- **Credit Balance**: Current credit status with color coding
-- **Purchase Statistics**: 
-  - Total number of purchases
-  - Total purchase amount
-  - Customer creation date
+- **Credit Balance**: Current credit status with color coding and organization's currency symbol
+- **Creation Date**: When the customer was added to the system
+
+### Currency Display
+- All monetary values (credit balances, purchase totals) display using your organization's configured currency symbol
+- Currency symbol is automatically set based on your organization settings
+- Supported currencies include: USD ($), EUR (€), GBP (£), JPY (¥), INR (₹), LKR (Rs), CAD (CA$), AUD (A$), SGD (S$), MYR (RM)
+- Credit balance updates show the appropriate currency symbol in confirmation messages
 
 ### Credit Purchases Integration
 When credit purchases are enabled in organization settings:
 - Customers can be linked to sales transactions
-- Credit purchases automatically update customer balances
+- Credit purchases automatically update customer balances as negative values
 - Customer selection is required for credit sales
 - Purchase history is tracked for each customer
+
+#### Credit Purchase Process
+1. **Enable Credit Purchases**: Admin must enable credit purchases in Organization Settings
+2. **Select Customer**: Choose a customer from the customer search in the cart
+3. **Choose Credit Payment**: Select "Credit" as the payment method
+4. **Complete Sale**: The system automatically:
+   - Processes the sale transaction
+   - Updates customer credit balance (negative value)
+   - Records the purchase in customer's credit history
+   - Generates receipt with credit payment details
+
+#### Credit Balance Management
+- **Negative Balance**: Customer owes money to the business (from credit purchases)
+- **Positive Balance**: Customer has prepaid credit or advance payments
+- **Zero Balance**: No outstanding credit or debt
+
+#### Settlement Process
+When customers make payments to settle their credit:
+1. Go to Customer Management
+2. Find the customer with outstanding balance
+3. Click the credit adjustment icon (dollar sign)
+4. Enter positive amount to add credit (payment received)
+5. Add description (e.g., "Payment for outstanding balance")
+6. Click "Update Balance"
+
+#### Advance Payments
+For customers who pay in advance:
+1. Follow the same credit adjustment process
+2. Enter positive amount to add credit
+3. Description should indicate "Advance payment"
+4. Customer's balance will show as positive (credit available)
 
 ### Best Practices
 - **Regular Updates**: Keep customer information current for better service
@@ -530,6 +584,36 @@ Super administrators and organization administrators with access to multiple org
 - **Payment Methods**: Payment type distribution
 - **Discount Analysis**: Detailed discount breakdown and impact
 
+#### Customer Purchase History Reports
+- **Customer Transaction History**: View all transactions for a specific customer
+- **Customer Search**: Find customers by name or phone number
+- **Purchase Analysis**: Analyze customer purchasing patterns over time
+- **Multi-Period Analysis**: Generate reports for different time periods
+- **Detailed Transaction Breakdown**: See individual purchases with payment methods, discounts, and items
+
+**How to Generate Customer Purchase History Reports**:
+1. Go to Reports section from the main menu
+2. Select "Customer Purchase History" from the Report Type dropdown
+3. Enter customer name or phone number in the search field
+4. Select the time period (Today, This Week, This Month, This Year, or Custom)
+5. For custom periods, set specific start and end dates
+6. Click "Generate Report" to view the customer's purchase history
+
+**Report Features**:
+- **Flexible Search**: Search by customer name or phone number (partial matching supported)
+- **Summary Statistics**: Total transactions, gross sales, discounts, and net sales
+- **Detailed Transaction List**: Each transaction shows receipt number, date, cashier, payment method, and pricing details
+- **Multi-Organization Support**: Super admins can generate reports across multiple organizations
+- **Print Functionality**: Generate printable reports with customer information
+- **Real-time Filtering**: Reports update instantly as you change customer search or time periods
+
+**Use Cases**:
+- Provide customers with their complete purchase history
+- Analyze customer spending patterns and frequency
+- Track customer loyalty and purchasing behavior
+- Generate statements for credit account customers
+- Investigate customer-specific issues or inquiries
+
 #### Enhanced Discount Reporting
 The system now provides comprehensive discount information across all reports, showing exactly how discounts are applied to each transaction.
 
@@ -572,6 +656,7 @@ Discount Details Column in Detailed Reports:
 
 ---
 
+## Advanced Reporting and Analytics
 ## User Management
 
 ### Creating New Users

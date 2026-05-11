@@ -18,6 +18,11 @@
     "react-dom": "^19.2.5",
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.30.3",
+    "recharts": "^2.12.7",
+    "jspdf": "^2.5.1",
+    "xlsx": "^0.18.5",
+    "file-saver": "^2.0.5",
+    "date-fns": "^3.6.0",
     "uuid": "^14.0.0"
   },
   "devDependencies": {

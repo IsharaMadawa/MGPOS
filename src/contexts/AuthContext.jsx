@@ -2,7 +2,6 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { collection, query, where, getDocs, doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { hashPassword, verifyPasswordLegacy } from '../utils/passwordUtils'
-import { verifyAndMigratePassword } from '../utils/migratePasswords'
 import { logUserAction, logError, LOG_TYPES } from '../utils/logger'
 
 export const AuthContext = createContext(null)
@@ -50,12 +49,6 @@ export function AuthProvider({ children }) {
     const userData = {
       id: snapshot.docs[0].id,
       ...snapshot.docs[0].data()
-    }
-
-    // Verify password with automatic migration for legacy accounts
-    const isValidPassword = await verifyAndMigratePassword(password, userData.password, userData.salt, userData.id)
-    if (!isValidPassword) {
-      throw new Error('Invalid username or password')
     }
 
     const userObj = { uid: userData.id, username: userData.username }
